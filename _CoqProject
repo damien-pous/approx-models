@@ -1,0 +1,17 @@
+-R . chebapprox
+posreal_complements.v
+cball.v
+domfct.v
+contraction.v
+div.v
+sqrt.v
+neighborhood.v
+vectorspace.v
+chebyshev.v
+taylor.v
+approx.v
+intervals.v
+rescale.v
+example_abs.v
+example_h16.v
+tests.v
