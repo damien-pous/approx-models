@@ -3,7 +3,7 @@
 Require Export Psatz Rbase Rfunctions Ranalysis.
 Require Export Coquelicot.Coquelicot.
 Require Export Setoid Morphisms.
-From Coq Require Export ssreflect ssrbool ssrfun.
+Require Export ssreflect ssrbool ssrfun.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -187,6 +187,7 @@ Class NBH :=
     FF: Ops1;
     I2F: II -> FF;
     F2I: FF -> II;
+    width: II -> FF;  (* width of an interval (unspecified, just for inspection) *)
     F2R: FF -> R;   (* needed to guarantee that F2I produces non-empty intervals *)
     F2IE: forall f, contains (F2I f) (F2R f);
   }.

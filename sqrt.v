@@ -1,5 +1,5 @@
 Require Import ZArith Reals Psatz.
-From Coq Require Import ssreflect.
+Require Import ssreflect.
 
 Require Import Coquelicot.Coquelicot.
 Require Import posreal_complements cball domfct contraction.

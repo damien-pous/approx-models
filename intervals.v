@@ -1,22 +1,27 @@
 (** * Implementation of neighborhoods based on floating point intervals *)
 
-Require Import neighborhood.
-From Bignums Require Import BigZ.
-From Interval Require Import Interval Float Float_full Specific_ops Specific_bigint Xreal.
+Require Export Floats.
+Require Export neighborhood.
+From Interval Require Import Xreal Interval Float Float_full.
+
 Set Implicit Arguments.
 Unset Strict Implicit.
 Unset Printing Implicit Defensive.
 
+Module Type FloatOpsP.
+  Include Sig.FloatOps with Definition sensible_format := true.
+  Parameter p: precision.
+End FloatOpsP. 
+
+
 (** floating points *)
-Module F := SpecificFloat BigIntRadix2.
+Module Make(F : FloatOpsP). 
 Notation F := F.type.
+Notation prec := F.p.
 
 (** intervals *)
 Module I := FloatIntervalFull F.
 Notation I := (f_interval F).
-
-Section p.
-Variable prec: bigZ.
 
 Canonical Structure IOps0 :=
   {| car := I;
@@ -26,13 +31,17 @@ Canonical Structure IOps0 :=
      zer := I.zero;
      one := I.fromZ prec 1 |}.
 
+Definition Fleq a b := match F.cmp a b with Xlt | Xeq => true | _ => false end.
+
 Definition Imax (x: I): option I :=
   match x with
   | Ibnd a b =>
     if F.real b then
-      if F.real a then
-        match F.cmp a b with Xeq | Xlt => Some (Ibnd b b) | _ => None end
-      else Some (Ibnd b b)
+      match F.classify a with
+      | Sig.Freal => if F.cmp b a is Xlt then None else Some (Ibnd b b)
+      | Sig.Fminfty | Sig.Fnan => Some (Ibnd b b)
+      | Sig.Fpinfty => None
+      end
     else None
   | _ => None
   end.
@@ -41,9 +50,11 @@ Definition Imin (x: I): option I :=
   match x with
   | Ibnd a b =>
     if F.real a then
-      if F.real b then
-        match F.cmp a b with Xeq | Xlt => Some (Ibnd a a) | _ => None end
-      else Some (Ibnd a a)
+      match F.classify b with
+      | Sig.Freal => if F.cmp b a is Xlt then None else Some (Ibnd a a)
+      | Sig.Fpinfty | Sig.Fnan => Some (Ibnd a a)
+      | Sig.Fminfty => None
+      end
     else None
   | _ => None
   end.
@@ -52,6 +63,21 @@ Definition Ilt (x y: I): bool :=
   match x,y with
   | Ibnd _ a,Ibnd b _  => if F.cmp a b is Xlt then true else false
   | _,_ => false
+  end.
+
+Definition subseteq11 (X: I) :=
+  match X with
+  | Ibnd x y => Fleq (F.fromZ (-1)) x && Fleq y (F.fromZ 1)
+  | _ => false
+  end.
+
+Definition subseteq (X: I) (a b: R) :=
+  match X with
+  | Ibnd x y => match F.toX x, F.toX y with
+                | Xreal x, Xreal y => a <= x /\ y <= b
+                | _,_ => False
+                end                 
+  | _ => False
   end.
 
 Definition Ibnd' (x y: I): I :=
@@ -72,7 +98,7 @@ Canonical Structure IOps1 :=
      pi := I.pi prec;
   |}.
 
-Canonical Structure FOps0 :=
+Canonical Structure FOps0 := Eval hnf in 
   {| car := F;
      add := F.add_UP prec;
      mul := F.mul_UP prec;
@@ -80,14 +106,17 @@ Canonical Structure FOps0 :=
      zer := F.zero;
      one := F.fromZ 1 |}.
 
-Canonical Structure FOps1 :=
+Definition Fcos x := I.midpoint (I.cos prec (I.bnd x x)). 
+Definition Fpi := I.midpoint pi. 
+
+Canonical Structure FOps1 := Eval hnf in
   {| ops0 := FOps0;
      div := F.div_UP prec;
      sqrt := F.sqrt_UP prec;
      abs := F.abs;
      fromZ := F.fromZ;
-     cos x := I.midpoint (I.cos prec (I.bnd x x));
-     pi := I.midpoint pi;
+     cos := Fcos;
+     pi := Fpi;
   |}.
 
 Definition Icontains i x := contains (I.convert i) (Xreal x).
@@ -103,10 +132,10 @@ Lemma Irsub i x (H: Imem x i) j y (K: Imem y j): Imem (x-y) (i-j).
 Proof. apply (I.sub_correct _ _ _ _ _ H K). Qed.
 
 Lemma Irzer: Imem 0 0.
-Proof. cbv. tauto. Qed.
+Proof. unfold Icontains. now rewrite I.zero_correct. Qed.
 
 Lemma Irone: Imem 1 1.
-Proof. cbv. tauto. Qed.
+Proof. apply I.fromZ_correct. Qed.
 
 Canonical Structure IRel0 :=
   {| rel := Icontains;
@@ -156,9 +185,27 @@ Canonical Structure IRel1 :=
      rpi := I.pi_correct prec;
      rfromZ := IrfromZ |}.
 
+Lemma ImemE: forall x X, Imem x X <->
+                 match X with
+                 | Inan => True
+                 | Ibnd l u =>
+                   F.valid_lb l /\ F.valid_ub u /\
+                   match F.toX l, F.toX u with
+                   | Xnan, Xnan => True
+                   | Xreal l, Xnan => l<=x
+                   | Xnan, Xreal u => x<=u
+                   | Xreal l,Xreal u => l<=x<=u
+                   end
+                 end.
+Proof.
+  rewrite /Icontains /I.convert /contains /= => x [|l u] //.
+  case andP=>H. case F.toX; case F.toX; tauto. 
+  case F.toX; case F.toX; intuition lra. 
+Qed.
+
 Lemma Iconvex Z x y: Imem x Z -> Imem y Z -> forall z, x<=z<=y -> Imem z Z.
 Proof.
-  rewrite /Icontains. 
+  move => X Y z. revert X Y. rewrite 3!ImemE. 
   destruct Z as [|a b] => //=.
   case F.toX; case F.toX; intuition lra. 
 Qed.
@@ -166,97 +213,273 @@ Qed.
 Lemma IbotE x : Imem x I.nai.
 Proof. rewrite /mem /bot /= /Icontains I.nai_correct; constructor. Qed.
 
-Inductive Icontains': I -> R -> Prop :=
-| Icontains_: forall x, Icontains' I.nai x 
-| Icontains__: forall x, Icontains' (I.bnd F.nan F.nan) x 
-| Icontains_l: forall l l' x, l <= x -> F.toX l' = Xreal l -> Icontains' (Ibnd l' F.nan) x 
-| Icontains_r: forall r r' x, x <= r -> F.toX r' = Xreal r -> Icontains' (Ibnd F.nan r') x 
-| Icontains_lr: forall l l' r r' x, l <= x <= r -> F.toX l' = Xreal l -> F.toX r' = Xreal r -> Icontains' (Ibnd l' r') x.
-Lemma FtoXnan x: F.toX x = Xnan -> x = F.nan.
-Proof.
-  destruct x =>//. rewrite /F.toX/F.toF.
-  case BigIntRadix2.mantissa_sign =>//.
-Qed.
-Lemma containsE i x: Icontains' i x <-> Icontains i x.
-Proof.
-  rewrite /Icontains. split.
-  by destruct 1 as [ | |???? E|???? E|?????? E E'] => //=; rewrite ?E ?E'.   
-  destruct i as [|l' r']=>/=. constructor.
-  case_eq (F.toX l')=>[L|l L]; first rewrite (FtoXnan L); 
-  (case_eq (F.toX r')=>[R|r R]; first rewrite (FtoXnan R)); econstructor; eauto; tauto.
-Qed.
-
 Lemma IbndE X x Y y: Imem x X -> Imem y Y -> forall z, x<=z<=y -> Imem z (Ibnd' X Y). 
 Proof.
-  setoid_rewrite <-containsE.
-  destruct 1; destruct 1; intros=>/=; try (econstructor; eauto; lra). 
-  apply Icontains_lr with l r =>//. lra. 
-  apply Icontains_lr with l r =>//. lra. 
-  apply Icontains_lr with l r0 =>//. lra. 
-  apply Icontains_lr with l r0 =>//. lra. 
+  unfold Icontains.
+  destruct X as [|a a']; destruct Y as [|b b'];
+    rewrite /= ?I.F'.nan_correct ?I.F'.valid_lb_nan ?I.F'.valid_ub_nan /=.
+  - tauto.
+  - case_eq (F.valid_lb b); intro Hb=>/=; 
+    case_eq (F.valid_ub b'); intro Hb'=>/=; try lra.
+    case (F.toX b); case (F.toX b'); intuition lra.
+  - case_eq (F.valid_lb a); intro Ha=>/=;
+    case_eq (F.valid_ub a'); intro Ha'=>/=; try lra.
+    case (F.toX a); case (F.toX a'); intuition lra.
+  - case_eq (F.valid_lb b); intro Hb=>/=; 
+    case_eq (F.valid_ub b'); intro Hb'=>/=;
+    case_eq (F.valid_lb a); intro Ha=>/=; 
+    case_eq (F.valid_ub a'); intro Ha'=>/=; try lra.
+    case (F.toX a); case (F.toX a'); 
+    case (F.toX b); case (F.toX b'); intuition lra.
 Qed.
 
 Lemma ImaxE X: minmax_spec Rle Icontains X (Imax X).
 Proof.
+  (* TODO: super-ugly proof, do it again... *)
   rewrite /Imax.
   destruct X as [|a b]; first by constructor.
-  rewrite 2!F.real_correct F.cmp_correct.
-  case_eq (F.toX b) => [|b'] B;
-  case_eq (F.toX a) => [|a'] A/=; 
-  try (constructor => x y; rewrite /Icontains/=?A?B => //; intuition lra). 
-  apply minmax_spec_some with b' =>[||?]; rewrite /Icontains/=?A?B; lra.
-  (* case Raux.Rcompare_spec => H; try *)
-  (* (apply minmax_spec_some with b' =>[||?]; rewrite /Icontains/=?A?B; lra). *)
-  (* constructor => x y; rewrite /Icontains/=?A?B => //; intuition lra. *)
-(* Qed. *)
-Admitted.
+  case_eq (F.real b)=>Hb'.
+  - have Hb: F.classify b = Sig.Freal.
+     rewrite F.classify_correct in Hb'. destruct (F.classify b)=>//.
+    case_eq (F.classify a)=>Ha.
+    -- have Ha': F.real a by rewrite F.classify_correct Ha.
+        rewrite F.cmp_correct Ha Hb.
+        do 2 rewrite I.F'.real_correct//=.
+        case Raux.Rcompare_spec=>C.
+        --- constructor=> x y; rewrite /Icontains/=.
+            destruct (F.valid_lb a && F.valid_ub b)=>/=. 2: lra.
+            do 2 rewrite I.F'.real_correct//. lra.
+        --- apply minmax_spec_some with (F.toR b) =>[||x].
+            rewrite /Icontains/=F.valid_lb_correct Hb F.valid_ub_correct Hb/=.
+            rewrite I.F'.real_correct//. lra.
+            rewrite /Icontains/=F.valid_lb_correct Ha F.valid_ub_correct Hb/=.
+            do 2 rewrite I.F'.real_correct//. lra.
+            rewrite /Icontains/=F.valid_lb_correct Ha F.valid_ub_correct Hb/=.
+            do 2 rewrite I.F'.real_correct//. lra.
+        --- apply minmax_spec_some with (F.toR b) =>[||x].
+            rewrite /Icontains/=F.valid_lb_correct Hb F.valid_ub_correct Hb/=.
+            rewrite I.F'.real_correct//. lra.
+            rewrite /Icontains/=F.valid_lb_correct Ha F.valid_ub_correct Hb/=.
+            do 2 rewrite I.F'.real_correct//. lra.
+            rewrite /Icontains/=F.valid_lb_correct Ha F.valid_ub_correct Hb/=.
+            do 2 rewrite I.F'.real_correct//. lra.
+    -- have Ha': F.real a = false by rewrite F.classify_correct Ha.
+       apply minmax_spec_some with (F.toR b) =>[||x].
+       rewrite ImemE F.valid_lb_correct F.valid_ub_correct Hb/=.
+       rewrite I.F'.real_correct//. intuition. 
+       rewrite ImemE F.valid_lb_correct F.valid_ub_correct Ha Hb/=.
+       rewrite I.F'.real_correct_false// I.F'.real_correct//. intuition. 
+       rewrite ImemE F.valid_lb_correct F.valid_ub_correct Ha Hb/=.
+       rewrite I.F'.real_correct_false// I.F'.real_correct//. intuition.
+    -- have Ha': F.real a = false by rewrite F.classify_correct Ha.
+       apply minmax_spec_some with (F.toR b) =>[||x].
+       rewrite ImemE F.valid_lb_correct F.valid_ub_correct Hb/=.
+       rewrite I.F'.real_correct//. intuition. 
+       rewrite ImemE F.valid_lb_correct F.valid_ub_correct Ha Hb/=.
+       rewrite I.F'.real_correct_false// I.F'.real_correct//. intuition. 
+       rewrite ImemE F.valid_lb_correct F.valid_ub_correct Ha Hb/=.
+       rewrite I.F'.real_correct_false// I.F'.real_correct//. intuition.
+    -- constructor=>x y.
+       rewrite ImemE. 
+       rewrite F.valid_lb_correct Ha. intuition discriminate.
+  - constructor=>x y; rewrite 2!ImemE. 
+    rewrite (I.F'.real_correct_false b)//.
+    case F.toX; intuition lra.
+Qed.
 
 Lemma IminE X: minmax_spec Rge Icontains X (Imin X).
-Proof. 
-  rewrite /Imin/Imax/=.
-  destruct X as [|a b]. by constructor.
-  rewrite 2!F.real_correct F.cmp_correct.
-  case_eq (F.toX b) => [|b'] B;
-  case_eq (F.toX a) => [|a'] A/=; 
-  try (constructor => x y; rewrite /Icontains/=?A?B => //; intuition lra). 
-  apply minmax_spec_some with a' =>[||?]; rewrite /Icontains/=?A?B; lra.
-(*   case Raux.Rcompare_spec => H; try *)
-(*   (apply minmax_spec_some with a' =>[||?]; rewrite /Icontains/=?A?B; lra). *)
-(*   constructor => x y; rewrite /Icontains/=?A?B => //. simpl. lra. *)
-(* Qed. *)
-Admitted.
+  (* TODO: super-ugly proof, do it again... *)
+  rewrite /Imin.
+  destruct X as [|a b]; first by constructor.
+  case_eq (F.real a)=>Ha'.
+  - have Ha: F.classify a = Sig.Freal.
+     rewrite F.classify_correct in Ha'. destruct (F.classify a)=>//.
+    case_eq (F.classify b)=>Hb.
+    -- have Hb': F.real b by rewrite F.classify_correct Hb.
+        rewrite F.cmp_correct Ha Hb.
+        do 2 rewrite I.F'.real_correct//=.
+        case Raux.Rcompare_spec=>C.
+        --- constructor=> x y; rewrite 2!ImemE.
+            do 2 rewrite I.F'.real_correct//. intuition lra.
+        --- apply minmax_spec_some with (F.toR a) =>[||x].
+            rewrite ImemE F.valid_lb_correct F.valid_ub_correct Ha/=.
+            rewrite I.F'.real_correct//. intuition.
+            rewrite ImemE F.valid_lb_correct F.valid_ub_correct Ha Hb/=.
+            rewrite I.F'.real_correct// I.F'.real_correct//. intuition.
+            rewrite ImemE F.valid_lb_correct F.valid_ub_correct Ha Hb/=.
+            rewrite I.F'.real_correct// I.F'.real_correct//. intuition.
+        --- apply minmax_spec_some with (F.toR a) =>[||x].
+            rewrite ImemE F.valid_lb_correct F.valid_ub_correct Ha/=.
+            rewrite I.F'.real_correct//. intuition.
+            rewrite ImemE F.valid_lb_correct F.valid_ub_correct Ha Hb/=.
+            rewrite I.F'.real_correct// I.F'.real_correct//. intuition.
+            rewrite ImemE F.valid_lb_correct F.valid_ub_correct Ha Hb/=.
+            rewrite I.F'.real_correct// I.F'.real_correct//. intuition.
+    -- have Hb': F.real b = false by rewrite F.classify_correct Hb.
+       apply minmax_spec_some with (F.toR a) =>[||x].
+       rewrite ImemE F.valid_lb_correct F.valid_ub_correct Ha/=.
+       rewrite I.F'.real_correct//. intuition. 
+       rewrite ImemE F.valid_lb_correct F.valid_ub_correct Ha Hb/=.
+       rewrite I.F'.real_correct// I.F'.real_correct_false//. intuition. 
+       rewrite ImemE F.valid_lb_correct F.valid_ub_correct Ha Hb/=.
+       rewrite I.F'.real_correct// I.F'.real_correct_false//. intuition.
+    -- constructor=>x y.
+       rewrite ImemE. 
+       rewrite F.valid_ub_correct Hb. intuition discriminate.
+    -- have Hb': F.real b = false by rewrite F.classify_correct Hb.
+       apply minmax_spec_some with (F.toR a) =>[||x].
+       rewrite ImemE F.valid_lb_correct F.valid_ub_correct Ha/=.
+       rewrite I.F'.real_correct//. intuition. 
+       rewrite ImemE F.valid_lb_correct F.valid_ub_correct Ha Hb/=.
+       rewrite I.F'.real_correct// I.F'.real_correct_false//. intuition. 
+       rewrite ImemE F.valid_lb_correct F.valid_ub_correct Ha Hb/=.
+       rewrite I.F'.real_correct// I.F'.real_correct_false//. intuition.
+  - constructor=>x y; rewrite 2!ImemE. 
+    rewrite (I.F'.real_correct_false a)//.
+    case F.toX; intuition lra.
+Qed.
 
 Lemma IltE X Y: wreflect (forall x y, Imem x X -> Imem y Y -> x < y) (Ilt X Y).
 Proof.
   destruct X as [|a b]; destruct Y as [|c d]; try constructor.
   rewrite /Ilt F.cmp_correct /=.
-(*   case_eq (F.toX b) => [|b' B]. constructor.   *)
-(*   case_eq (F.toX c) => [|c' C]/=. constructor. *)
-(*   case Raux.Rcompare_spec => H; constructor. *)
-(*   rewrite /Icontains/= B C=> x y. *)
-(*   case F.toX; case F.toX; intuition lra. *)
-(* Qed. *)
-Admitted.  
-
-Program Instance INBH: NBH :=
-  {| neighborhood.contains := IRel1;
-     bnd := Ibnd';
-     max := Imax;
-     min := Imin;
-     bot := Inan;
-     is_lt := Ilt;
-     FF := FOps1;
-     I2F := I.midpoint;
-     F2I f := Ibnd f f;
-     F2R := I.T.toR;
-     convex := Iconvex |}.
-Next Obligation. eapply IbndE; eauto. Qed.
-Next Obligation. apply ImaxE. Qed. 
-Next Obligation. apply IminE. Qed. 
-Next Obligation. apply IbotE. Qed. 
-Next Obligation. apply IltE. Qed. 
-Next Obligation.
-  rewrite /=/Icontains/=/I.T.toR; case F.toX=>//; split; reflexivity.
+  case_eq (F.classify b)=>Hb; try constructor;
+    case_eq (F.classify c)=>Hc; try constructor=>x y.
+  rewrite I.F'.real_correct/=. 2: by rewrite F.classify_correct Hb.
+  rewrite I.F'.real_correct/=. 2: by rewrite F.classify_correct Hc.
+  case Raux.Rcompare_spec => H; constructor=>x y.
+  - rewrite 2!ImemE.
+    rewrite (I.F'.real_correct b)/=. 2: by rewrite F.classify_correct Hb.
+    rewrite (I.F'.real_correct c)/=. 2: by rewrite F.classify_correct Hc.
+    case F.toX; case F.toX; intuition lra.
+  - rewrite 2!ImemE.
+    rewrite (F.valid_lb_correct c) Hc. intuition discriminate.  
+  - rewrite ImemE.
+    rewrite (F.valid_ub_correct b) Hb. intuition discriminate.  
+  - rewrite ImemE.
+    rewrite (F.valid_ub_correct b) Hb. intuition discriminate.  
 Qed.
 
-End p.
+Definition F2I (f: F): I :=
+  match F.classify f with
+  | Sig.Fpinfty | Sig.Fminfty => Inan
+  | _ => Ibnd f f
+  end.
+Definition F2R (f: F): R := F.toR f.
+
+Definition width (x: I): F :=
+  match x with
+  | Ibnd a b => b-a
+  | _ => F.nan
+  end.
+
+Lemma Fsingle f: Imem (F2R f) (F2I f).
+Proof.
+  rewrite ImemE /F2I.
+  case_eq (F.classify f)=>Hf//;
+  rewrite F.valid_lb_correct F.valid_ub_correct Hf.
+  rewrite I.F'.real_correct. 2: by rewrite F.classify_correct Hf. intuition. 
+  rewrite I.F'.real_correct_false//. by rewrite F.classify_correct Hf. 
+Qed.
+
+Lemma classify_fromZ a: (Z.abs a <= 256)%Z -> F.classify (F.fromZ a) = Sig.Freal.
+Proof.
+  move=>H.  
+  have H': F.real (F.fromZ a).  
+  rewrite F.real_correct F.fromZ_correct//.
+  rewrite F.classify_correct in H'. revert H'.
+  by case F.classify.
+Qed.
+
+Lemma subseteq11E X: subseteq11 X -> forall x, Imem x X -> -1 <= x <= 1.
+Proof.
+  intros H x. revert H. destruct X as [|l u]=>//=.
+  move => /andP[].
+  rewrite ImemE /Fleq 2!F.cmp_correct classify_fromZ//.
+  case_eq (F.classify l)=> Hl//; 
+  case_eq (F.classify u)=> Hu//; rewrite ?classify_fromZ// ?F.fromZ_correct//. 
+  - rewrite I.F'.real_correct/=. 2: by rewrite F.classify_correct Hl.
+    rewrite I.F'.real_correct/=. 2: by rewrite F.classify_correct Hu.
+    case Raux.Rcompare_spec => H//; case Raux.Rcompare_spec => H'//; lra.
+  - rewrite F.valid_ub_correct Hu. intuition discriminate. 
+  - rewrite F.valid_lb_correct Hl. intuition discriminate. 
+  - rewrite F.valid_ub_correct Hu. intuition discriminate. 
+Qed.
+
+Lemma subseteqE X a b: subseteq X a b -> forall x, Imem x X -> a <= x <= b.
+Proof.
+  intros H x. revert H. destruct X as [|l u]=>//=.
+  rewrite ImemE. case F.toX=> l'//. case F.toX=> u'//. lra. 
+Qed.
+
+Instance nbh: NBH.
+exists IOps1 IRel1 Ibnd' Imax Imin Inan Ilt FOps1 F2I F2R (* subseteq11 subseteq *).
+Proof.
+  - apply Iconvex.
+  - abstract (by intros; eapply IbndE; eauto).
+  - apply ImaxE.
+  - apply IminE.
+  - apply IbotE.
+  - apply IltE.
+  - exact I.midpoint.
+  - exact width.
+  - apply Fsingle.
+  (* - apply subseteq11E. *)
+  (* - apply subseteqE. *)
+Defined.
+
+End Make.
+
+
+From Interval Require Import Specific_bigint Specific_ops Primitive_ops Generic_ops Specific_stdz.
+Import BigZ.
+
+(** encoded floating points, using Z for integers 
+   (axiom-free slow) *)
+Module FZ <: FloatOpsP.
+  Include SpecificFloat StdZRadix2.
+  Definition p := 64%Z.
+End FZ.
+ 
+(** half-encoded floating points, using primitive integers (int63) 
+   (some axioms, intermediate) *)
+Module FBigInt <: FloatOpsP.
+  Include SpecificFloat BigIntRadix2.
+  Definition p := 64%bigZ.
+End FBigInt. 
+
+(** primitive (machine) floating points 
+   (more axioms, fast) *)
+Module Fprimitive <: FloatOpsP.
+  Include PrimitiveFloat.
+  Definition p := 64%Z.
+End Fprimitive. 
+
+(** corresponding implementations of intervals *)
+Module IBigInt := Make FBigInt.
+Module IZ := Make FZ.
+Module Iprimitive := Make Fprimitive.
+
+
+(** canonical structures for floating point operations *)
+Canonical Structure FOps0 :=
+  {| car := float;
+     add := PrimFloat.add;
+     mul := PrimFloat.mul;
+     sub := PrimFloat.sub;
+     zer := PrimFloat.zero;
+     one := PrimFloat.one |}.
+
+Definition Fpi := 3.1415926535897931%float.
+Canonical Structure FOps1 :=
+  {| ops0 := FOps0;
+     div := PrimFloat.div;
+     sqrt := PrimFloat.sqrt;
+     abs := PrimFloat.abs;
+     fromZ := PrimitiveFloat.fromZ;
+     cos := @cos Iprimitive.FOps1;
+     pi := @pi Iprimitive.FOps1;
+  |}.
+
+(** nice notation for intervals *)
+Notation "[[ a ; b ]]" := (Float.Ibnd a%float b%float). 

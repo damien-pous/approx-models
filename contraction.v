@@ -1,9 +1,7 @@
 (** * Banach fixed point theorem *)
 Require Import PArith Psatz Reals.
 Require Import Coquelicot.Coquelicot.
-
-From Coq Require Import ssreflect ssrfun ssrbool.
-
+Require Import ssreflect ssrfun ssrbool.
 Require Import posreal_complements cball.
 
 Set Implicit Arguments.

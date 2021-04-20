@@ -3,8 +3,7 @@
 Require Import PArith ZArith Reals Psatz.
 Require Import Coquelicot.Coquelicot.
 Require Import posreal_complements cball.
-
-From Coq Require Import ssreflect.
+Require Import ssreflect.
 
 Set Implicit Arguments.
 

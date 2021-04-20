@@ -2,8 +2,7 @@
 
 Require Import PArith Psatz Reals.
 Require Import Coquelicot.Coquelicot.
-
-From Coq Require Import ssreflect.
+Require Import ssreflect.
 
 Require Import posreal_complements.
 

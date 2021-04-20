@@ -1,7 +1,7 @@
 (** * Canonical structure based automation for sign conditions *)
 
 Require Import ZArith Reals Psatz.
-From Coq Require Import ssreflect.
+Require Import ssreflect.
 Require Import Coquelicot.Coquelicot.
 
 Arguments mkposreal  {pos}.

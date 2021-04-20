@@ -58,10 +58,6 @@ Section s.
     Integral 4 0,
     Integral 0 4).
  End t.
- 
- Variable p: BigZ.BigZ.t.
- Let INBH := INBH p.
- Existing Instance INBH. 
 
  Definition parametric (a: forall {C: Ops1}, C) := forall (R S : Ops1) (T : Rel1 R S), T a a. 
   
@@ -96,25 +92,41 @@ Section s.
  Let Bx := rescale Dx chebyshev.basis.
  Let By := rescale Dy chebyshev.basis.
 
- Definition err (x: II): FF :=
-   match x with
-   | Float.Ibnd a b => b-a
-   | _ => F.nan
-   end.
-
- Definition calcul :=
-   let '(a,b,c,d,e) := @TotalIntegral II (MFunOps INBH Bx) (MFunOps INBH By)
-   in (err a, err b, err c, err d, err e).
+ Definition calcul nbh :=
+   let '(a,b,c,d,e) := @TotalIntegral II (MFunOps nbh Bx) (MFunOps nbh By)
+   in (width a, width b, width c, width d, width e).
    
 End s.
 
-Open Scope bigZ_scope.
-(* first one is always slow: native_compute mus initialise *)
-(*
-Time Eval native_compute in (fun Hx Hy => @calcul  5      10  13  32 Hx Hy).
-Time Eval native_compute in (fun Hx Hy => @calcul  5      10  13  32 Hx Hy).
-Time Eval native_compute in (fun Hx Hy => @calcul 78     100  15  32 Hx Hy).
-Time Eval native_compute in (fun Hx Hy => @calcul 88     100  65 128 Hx Hy).
-Time Eval native_compute in (fun Hx Hy => @calcul 89     100  95 128 Hx Hy).
-Time Eval native_compute in (fun Hx Hy => @calcul 895   1000 135 300 Hx Hy).
+(* DAMIEN: below, we used to play with the precision (commented column)
+   no longer obvious to do with the neighborhood instances provided in intervals.v
+ *)
+
+(* first one is always slow: native_compute must initialise *)
+Time Eval native_compute in (fun Hx Hy => @calcul  5      10  13 (*  32 *) Hx Hy Iprimitive.nbh).
+Time Eval native_compute in (fun Hx Hy => @calcul  5      10  13 (*  32 *) Hx Hy Iprimitive.nbh).
+Time Eval native_compute in (fun Hx Hy => @calcul 78     100  15 (*  32 *) Hx Hy Iprimitive.nbh).
+
+(* quite slower with IBigInt... *)
+Time Eval native_compute in (fun Hx Hy => @calcul 78     100  15 (*  32 *) Hx Hy IBigInt.nbh).
+
+From Interval Require Import Specific_bigint Specific_ops.
+Import BigZ.
+
+Module FBigInt128 <: FloatOpsP.
+  Include SpecificFloat BigIntRadix2.
+  Definition p := 128%bigZ.
+End FBigInt128. 
+Module IBigInt128 := Make FBigInt128.
+
+Module FBigInt300 <: FloatOpsP.
+  Include SpecificFloat BigIntRadix2.
+  Definition p := 300%bigZ.
+End FBigInt300. 
+Module IBigInt300 := Make FBigInt300.
+
+(* commented: rather heavy
+Time Eval native_compute in (fun Hx Hy => @calcul 88     100  65 (* 128 *) Hx Hy IBigInt128.nbh).
+Time Eval native_compute in (fun Hx Hy => @calcul 89     100  95 (* 128 *) Hx Hy IBigInt128.nbh).
+Time Eval native_compute in (fun Hx Hy => @calcul 895   1000 135 (* 300 *) Hx Hy IBigInt300.nbh).
 *)
