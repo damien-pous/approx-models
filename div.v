@@ -48,8 +48,8 @@ Proof.
   set bf := lim (BF F mmu SB); rewrite /SBall_pred /=.
   move => /Rdomfct_close Hbf.
   apply domfct_cball_ext_r => t It.
-  apply Rmult_eq_reg_l with (g t); auto; field_simplify; auto; rewrite !Rdiv_1.
-  apply Rminus_diag_uniq, Rmult_eq_reg_l with (w t); auto; rewrite Rmult_0_r.
+  apply Rmult_eq_reg_l with (g t); auto; field_simplify; auto. 
+  apply Rminus_diag_uniq, Rmult_eq_reg_l with (w t); auto. 
   move: (Hbf t It); rewrite /F /=; lra.
 Qed.
 

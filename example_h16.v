@@ -98,7 +98,7 @@ Section s.
 
  Definition err (x: II): FF :=
    match x with
-   | Interval_interval_float.Ibnd a b => b-a
+   | Float.Ibnd a b => b-a
    | _ => F.nan
    end.
 

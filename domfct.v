@@ -1,8 +1,8 @@
 (** * Completeness of functions with uniform convergence over a domain *)
 
-Require Import ZArith Reals Psatz.
+Require Import PArith ZArith Reals Psatz.
 Require Import Coquelicot.Coquelicot.
-Require Import  posreal_complements cball.
+Require Import posreal_complements cball.
 
 From Coq Require Import ssreflect.
 

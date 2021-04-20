@@ -227,8 +227,8 @@ Record FunOps (C: Type) :=
     (* range is meaningless on reals; it returns the range of the model otherwise *)
     range: funcar -> C;
   }.
-Arguments id [_ _].
-Arguments cst [_ _].
+Arguments id {_ _}.
+Arguments cst {_ _}.
 
 (** corresponding operations on [R->R] *)
 Canonical Structure RFunOps: FunOps R :=

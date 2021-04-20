@@ -5,7 +5,7 @@ Open Scope R_scope.
 
 
 (** * with CoqApprox.interval  *)
-Require Import Interval.Interval_tactic.
+From Interval Require Import Tactic.
 Definition f1 eps x := sqrt (eps^2 + x^2).
 
 Fact test0 x :
@@ -63,7 +63,7 @@ Definition F01 := MFunOps INBH (rescale D01 chebyshev.basis).
 
 
 Section Fmag.
-Import Interval_interval_float.
+From Interval Require Import Float.
 Definition Fmag (I : II) : F := match I with
   | Inan => F.nan
   | Ibnd l h => F.max (F.abs l) (F.abs h)
@@ -246,7 +246,7 @@ Time Eval vm_compute in (NearAbsRem01 (fun C => 1/fromZ 10000) 32).
 Fact coqapprox_compare (x : R) : 0 <= x <= 1 -> R_sqrt.sqrt (1/100 + x^2) - x <= 1/10*(101/100).
 Proof.
    intros.
-   Time interval with (i_depth 60, i_bisect_taylor x 1, i_prec 64).
+   Time interval with (i_depth 60, i_bisect x, i_prec 64).
 Abort.
 
 

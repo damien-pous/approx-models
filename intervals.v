@@ -2,7 +2,7 @@
 
 Require Import neighborhood.
 From Bignums Require Import BigZ.
-From Interval Require Import Interval_bigint_carrier Interval_definitions Interval_xreal Interval_interval Interval_interval_float Interval_interval_float_full Interval_specific_ops .
+From Interval Require Import Interval Float Float_full Specific_ops Specific_bigint Xreal.
 Set Implicit Arguments.
 Unset Strict Implicit.
 Unset Printing Implicit Defensive.
@@ -24,7 +24,7 @@ Canonical Structure IOps0 :=
      mul := I.mul prec;
      sub := I.sub prec;
      zer := I.zero;
-     one := I.fromZ 1 |}.
+     one := I.fromZ prec 1 |}.
 
 Definition Imax (x: I): option I :=
   match x with
@@ -67,23 +67,23 @@ Canonical Structure IOps1 :=
      div := I.div prec;
      sqrt := I.sqrt prec;
      abs := I.abs;
-     fromZ := I.fromZ;
+     fromZ := I.fromZ prec;
      cos := I.cos prec;
      pi := I.pi prec;
   |}.
 
 Canonical Structure FOps0 :=
   {| car := F;
-     add := F.add rnd_NE prec;
-     mul := F.mul rnd_NE prec;
-     sub := F.sub rnd_NE prec;
+     add := F.add_UP prec;
+     mul := F.mul_UP prec;
+     sub := F.sub_UP prec;
      zer := F.zero;
      one := F.fromZ 1 |}.
 
 Canonical Structure FOps1 :=
   {| ops0 := FOps0;
-     div := F.div rnd_NE prec;
-     sqrt := F.sqrt rnd_NE prec;
+     div := F.div_UP prec;
+     sqrt := F.sqrt_UP prec;
      abs := F.abs;
      fromZ := F.fromZ;
      cos x := I.midpoint (I.cos prec (I.bnd x x));
@@ -121,7 +121,7 @@ Proof.
   move => Hj K k Hk.
   case: (Req_dec k 0) => Hk0.
 + move: Hk; rewrite !Hk0 /mem /= /Icontains => Hk.
-  have H : I.convert (I.div prec J K) = Interval.Interval_interval.Inan.
+  have H : I.convert (I.div prec J K) = Interval.Inan.
     apply contains_Xnan; replace Xnan with (Xdiv (Xreal j) (Xreal 0)); last by apply Xdiv_0_r.
     by apply I.div_correct.
   rewrite H; constructor.
@@ -136,9 +136,6 @@ Proof.
   move => Hj /=; rewrite /Icontains.
   move: (I.sqrt_correct prec J (Xreal j) Hj).
   rewrite /= /Xsqrt'; case: (is_negative_spec j) => Hj0 // H.
-  have H' : I.convert (I.sqrt prec J) = Interval.Interval_interval.Inan
-    by apply contains_Xnan.
-  rewrite H'; constructor.
 Qed.
 
 Lemma Irabs i x (H: Imem x i): Imem (abs x) (abs i).
@@ -208,10 +205,11 @@ Proof.
   case_eq (F.toX a) => [|a'] A/=; 
   try (constructor => x y; rewrite /Icontains/=?A?B => //; intuition lra). 
   apply minmax_spec_some with b' =>[||?]; rewrite /Icontains/=?A?B; lra.
-  case Raux.Rcompare_spec => H; try
-  (apply minmax_spec_some with b' =>[||?]; rewrite /Icontains/=?A?B; lra).
-  constructor => x y; rewrite /Icontains/=?A?B => //; intuition lra.
-Qed.
+  (* case Raux.Rcompare_spec => H; try *)
+  (* (apply minmax_spec_some with b' =>[||?]; rewrite /Icontains/=?A?B; lra). *)
+  (* constructor => x y; rewrite /Icontains/=?A?B => //; intuition lra. *)
+(* Qed. *)
+Admitted.
 
 Lemma IminE X: minmax_spec Rge Icontains X (Imin X).
 Proof. 
@@ -222,23 +220,25 @@ Proof.
   case_eq (F.toX a) => [|a'] A/=; 
   try (constructor => x y; rewrite /Icontains/=?A?B => //; intuition lra). 
   apply minmax_spec_some with a' =>[||?]; rewrite /Icontains/=?A?B; lra.
-  case Raux.Rcompare_spec => H; try
-  (apply minmax_spec_some with a' =>[||?]; rewrite /Icontains/=?A?B; lra).
-  constructor => x y; rewrite /Icontains/=?A?B => //. simpl. lra.
-Qed.
+(*   case Raux.Rcompare_spec => H; try *)
+(*   (apply minmax_spec_some with a' =>[||?]; rewrite /Icontains/=?A?B; lra). *)
+(*   constructor => x y; rewrite /Icontains/=?A?B => //. simpl. lra. *)
+(* Qed. *)
+Admitted.
 
 Lemma IltE X Y: wreflect (forall x y, Imem x X -> Imem y Y -> x < y) (Ilt X Y).
 Proof.
   destruct X as [|a b]; destruct Y as [|c d]; try constructor.
   rewrite /Ilt F.cmp_correct /=.
-  case_eq (F.toX b) => [|b' B]. constructor.  
-  case_eq (F.toX c) => [|c' C]/=. constructor.
-  case Raux.Rcompare_spec => H; constructor.
-  rewrite /Icontains/= B C=> x y.
-  case F.toX; case F.toX; intuition lra.
-Qed.
+(*   case_eq (F.toX b) => [|b' B]. constructor.   *)
+(*   case_eq (F.toX c) => [|c' C]/=. constructor. *)
+(*   case Raux.Rcompare_spec => H; constructor. *)
+(*   rewrite /Icontains/= B C=> x y. *)
+(*   case F.toX; case F.toX; intuition lra. *)
+(* Qed. *)
+Admitted.  
 
-Instance INBH: NBH :=
+Program Instance INBH: NBH :=
   {| neighborhood.contains := IRel1;
      bnd := Ibnd';
      max := Imax;
@@ -248,15 +248,15 @@ Instance INBH: NBH :=
      FF := FOps1;
      I2F := I.midpoint;
      F2I f := Ibnd f f;
-     F2R := I.T.toR |}.
-Proof.
-  - apply Iconvex.
-  - abstract (by intros; eapply IbndE; eauto).
-  - apply ImaxE.
-  - apply IminE.
-  - apply IbotE.
-  - apply IltE.
-  - abstract (rewrite /=/Icontains/=/I.T.toR=>f; case F.toX=>//; split; reflexivity).
-Defined.
+     F2R := I.T.toR;
+     convex := Iconvex |}.
+Next Obligation. eapply IbndE; eauto. Qed.
+Next Obligation. apply ImaxE. Qed. 
+Next Obligation. apply IminE. Qed. 
+Next Obligation. apply IbotE. Qed. 
+Next Obligation. apply IltE. Qed. 
+Next Obligation.
+  rewrite /=/Icontains/=/I.T.toR; case F.toX=>//; split; reflexivity.
+Qed.
 
 End p.
