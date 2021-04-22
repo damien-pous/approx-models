@@ -12,7 +12,7 @@ Florent Bréhard, Assia Mahboubi, Damien Pous
 
 **Requirements**
 
-Coq 8.12 or 8.13 with libraries interval, coquelicot 3.1.0, mathcomp
+Coq 8.12 or 8.13 with libraries interval, coquelicot 3.1.0
 
 **Description**
 
