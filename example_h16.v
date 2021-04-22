@@ -24,32 +24,36 @@ Section s.
  Definition xmax: C := sqrt (x0 + r_sqrt2).
  Definition ymin: C := sqrt (y0 - r_sqrt2).
  Definition ymax: C := sqrt (y0 + r_sqrt2).
- Let sqrx (f: Fx): Fx := truncate N (f * f).
- Let sqry (f: Fy): Fy := truncate N (f * f).
- Let deltay: Fx := sqrt' N' (cst r2 - sqrx (sqrx id - cst x0)).
- Let deltax: Fy := sqrt' N' (cst r2 - sqry (sqry id - cst y0)).
- Let ydown: Fx := sqrt' N' (cst y0 - deltay).
- Let yup: Fx := sqrt' N' (cst y0 + deltay).
- Let yupdown: Fx := div' N' 1 yup - div' N' 1 ydown.
- Let xleft: Fy := sqrt' N' (cst x0 - deltax).
- Let xright: Fy := sqrt' N' (cst x0 + deltax).
- Let xleftright: Fy := div' N' 1 (xleft * deltax) + div' N' 1 (xright * deltax).
- Let powx f n: Fx := match n with 1 => f | 2 => sqrx f | 3 => truncate N (f*sqrx f) | 4 => sqrx (sqrx f) | _ => 1 end.
- Let powy f n: Fy := match n with 1 => f | 2 => sqry f | 3 => truncate N (f*sqry f) | 4 => sqry (sqry f) | _ => 1 end.
+ Definition xmin' := xmin-1.
+ Definition xmax' := xmax+1.
+ Definition ymin' := ymin-1.
+ Definition ymax' := ymax+1.
+ Let sqrx (f: Fx): Fx := mtruncate N (f * f).
+ Let sqry (f: Fy): Fy := mtruncate N (f * f).
+ Let deltay: Fx := msqrt N' (mcst r2 - sqrx (sqrx mid - mcst x0)).
+ Let deltax: Fy := msqrt N' (mcst r2 - sqry (sqry mid - mcst y0)).
+ Let ydown: Fx := msqrt N' (mcst y0 - deltay).
+ Let yup: Fx := msqrt N' (mcst y0 + deltay).
+ Let yupdown: Fx := mdiv N' 1 yup - mdiv N' 1 ydown.
+ Let xleft: Fy := msqrt N' (mcst x0 - deltax).
+ Let xright: Fy := msqrt N' (mcst x0 + deltax).
+ Let xleftright: Fy := mdiv N' 1 (xleft * deltax) + mdiv N' 1 (xright * deltax).
+ Let powx f n: Fx := match n with 1 => f | 2 => sqrx f | 3 => mtruncate N (f*sqrx f) | 4 => sqrx (sqrx f) | _ => 1 end.
+ Let powy f n: Fy := match n with 1 => f | 2 => sqry f | 3 => mtruncate N (f*sqry f) | 4 => sqry (sqry f) | _ => 1 end.
  Infix "^" := powx.
  Let integrand1 (i j : nat): Fx :=
    match j with
-   | 0 => id ^ i * yupdown
-   | S j' => id ^ i * (yup ^ j' - ydown ^ j')
+   | 0 => mid ^ i * yupdown
+   | S j' => mid ^ i * (yup ^ j' - ydown ^ j')
    end.
  Infix "^" := powy.
  Let integrand2 (i j : nat): Fy :=
    match i with
-   | 0 => xleftright * (id ^ j * (id ^ 2 - cst y0))
-   | S i' => div' N' ((xleft ^ i' + xright ^ i') * id ^ j * (id ^ 2 - cst y0)) deltax
+   | 0 => xleftright * (mid ^ j * (mid ^ 2 - mcst y0))
+   | S i' => mdiv N' ((xleft ^ i' + xright ^ i') * mid ^ j * (mid ^ 2 - mcst y0)) deltax
    end.
- Let Integral1 (i j : nat) := integrate (integrand1 i j) xmin xmax.
- Let Integral2 (i j : nat) := integrate (integrand2 i j) ymin ymax.
+ Let Integral1 (i j : nat) := mintegrate (integrand1 i j) xmin xmax.
+ Let Integral2 (i j : nat) := mintegrate (integrand2 i j) ymin ymax.
  Let Integral i j := Integral1 i j + Integral2 i j.
  Definition TotalIntegral :=
    (Integral 0 0,
@@ -73,33 +77,38 @@ Section s.
  Proof. unfold parametric, r. rel. Qed.
  Hint Resolve rr: rel. 
 
- Hypothesis Hx: is_lt xmin xmax. 
+ Hypothesis Hx: is_lt xmin' xmax'. 
  Let Dx: Domain.
- apply D with @xmin @xmax.
- abstract (unfold parametric,xmin; rel). 
- abstract (unfold parametric,xmax; rel). 
+ apply D with @xmin' @xmax'.
+ abstract (unfold parametric,xmin',xmin; rel). 
+ abstract (unfold parametric,xmax',xmax; rel). 
  exact Hx.
  Defined.
 
- Hypothesis Hy: is_lt ymin ymax. 
+ Hypothesis Hy: is_lt ymin' ymax'. 
  Let Dy: Domain.
- apply D with @ymin @ymax.
- abstract (unfold parametric,ymin; rel). 
- abstract (unfold parametric,ymax; rel). 
+ apply D with @ymin' @ymax'.
+ abstract (unfold parametric,ymin',ymin; rel). 
+ abstract (unfold parametric,ymax',ymax; rel). 
  exact Hy. 
  Defined.
 
  Let Bx := rescale Dx chebyshev.basis.
  Let By := rescale Dy chebyshev.basis.
 
- Definition calcul nbh :=
-   let '(a,b,c,d,e) := @TotalIntegral II (MFunOps nbh Bx) (MFunOps nbh By)
+ Definition calcul {N: NBH} :=
+   let '(a,b,c,d,e) := @TotalIntegral II (MFunOps Bx) (MFunOps By)
    in (width a, width b, width c, width d, width e).
    
 End s.
 
 (* DAMIEN: below, we used to play with the precision (commented column)
-   no longer obvious to do with the neighborhood instances provided in intervals.v
+   no longer as obvious to do with the neighborhood instances provided in intervals.v
+   the first ones, using IPrimitive.nbh / IBigInt.nbh are not with 63/64 bits now
+ *)
+
+(* TOCHECK: seems to be broken now, we always get [nan]
+   I guess this is because now we do check that arguments of evaluations and bounds of integrals belong to the domain. Possibly these checks fail because the example is wrong...
  *)
 
 (* first one is always slow: native_compute must initialise *)
@@ -125,8 +134,7 @@ Module FBigInt300 <: FloatOpsP.
 End FBigInt300. 
 Module IBigInt300 := Make FBigInt300.
 
-(* commented: rather heavy
+(* TOCHECK: rather heavy and thus commented out *)
 Time Eval native_compute in (fun Hx Hy => @calcul 88     100  65 (* 128 *) Hx Hy IBigInt128.nbh).
 Time Eval native_compute in (fun Hx Hy => @calcul 89     100  95 (* 128 *) Hx Hy IBigInt128.nbh).
 Time Eval native_compute in (fun Hx Hy => @calcul 895   1000 135 (* 300 *) Hx Hy IBigInt300.nbh).
-*)

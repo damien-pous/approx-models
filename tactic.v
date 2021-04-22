@@ -122,3 +122,15 @@ Proof.
   reflexivity.
   intro X. vm_compute in X.
 Abort.
+
+Lemma ex6: -0.1 <= RInt (fun x => 0%R) (-1/3) (1/3) <= 0.1.
+Proof.
+  bound (e_integrate f_zer (fromZ (-1)/fromZ 3) (fromZ 1/fromZ 3)).
+Qed.
+
+Lemma ex6': -0.1 <= RInt (fun x => 0%R) (-3) (3) <= 0.1.
+Proof.
+  Fail bound (e_integrate f_zer (fromZ (-3)) (fromZ 3)).
+  bound (e_integrate f_zer (fromZ (-3)) (fromZ 3)) 10%Z
+        (approx.Valid (rescale.valid (DZ (-3) 3) chebyshev.valid)).
+Qed.
