@@ -51,8 +51,8 @@ Context {C : Ops1} {F: FunOps C}.
 Definition NearAbs : F := sqrt' N (cst eps + id * id).
 End s.
 
-Definition D10: Domain. apply (@DfromZ2 (-1) 0). lra. Defined.
-Definition D01: Domain. apply (@DfromZ2 0 1). lra. Defined.
+Definition D10: Domain := DZ (-1) 0.
+Definition D01: Domain := DZ 0 1.
 
 (* note the choice of [Iprimitive.nbh] below *)
 Definition F11 := MFunOps Iprimitive.nbh chebyshev.basis.

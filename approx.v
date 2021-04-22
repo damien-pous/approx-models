@@ -1,6 +1,6 @@
-(** * rigorous approximations (models) in a generic basis *)
+(** * Rigorous approximations (models) in a generic basis *)
 
-Require Export vectorspace neighborhood.
+Require Export vectorspace.
 Require div sqrt.
 
 Set Implicit Arguments.
@@ -9,24 +9,18 @@ Unset Printing Implicit Defensive.
 
 (** models: polynomials with a remainder *)
 (** the basis is written in the type in order to differentiate models in different bases *)
-Record Model (T: nat -> R -> R) C := { pol: seq C; rem: C }.
+Record Model (T: nat -> R -> R) C := { pol: list C; rem: C }.
 
 (** ** operations on rigorous approximations *)
 Section n.
- Context {N: NBH} {T: nat -> R -> R} {B: BasisOps T}.
- Let BI := B II.
- Let BR := B ROps1.
- Let BF := B FF.
- Existing Instances BI BR BF. 
+ Context {N: NBH} {T: nat -> R -> R} {B: BasisOps}.
  Notation Model := (Model T (car (ops0 (@II N)))).
  Notation eval := (vectorspace.eval T).
- Notation dom := (dom BR).
- Notation Dom := (Dom BI). 
 
  (** range of a polynomial *)
  Let srange p: II :=
    match brange with
-   | None => beval p Dom
+   | None => beval p (bnd lo hi)
    | Some range => let (m,M):=range p in bnd m M
    end.
 
@@ -52,6 +46,7 @@ Section n.
  Let mzer: Model := msingle 0.
  Let mone: Model := msingle 1.
 
+ (** by defining this structure, we get nice notations for the above operations on models *)
  Let MOps0: Ops0 :=
    {|
      car:=Model;
@@ -61,6 +56,7 @@ Section n.
      zer:=mzer;
      one:=mone;
    |}.
+ Local Canonical Structure MOps0.
 
  (** identity *)
  Let mid: Model := msingle bid.
@@ -69,30 +65,36 @@ Section n.
  Let mcst c: Model := mscal c mone.
 
  (** integration *)
- Let mintegrate (M: Model) (a b: II): II :=
+ Let mintegrate_unsafe (M: Model) (a b: II): II :=
    let N := bprim (pol M) in 
    beval N b - beval N a + (b-a)*rem M.
+ Let mintegrate (M: Model) (a b: II): II :=
+   if Dom a && Dom b then mintegrate_unsafe M a b else bot.
+ 
+ (** evaluation, without checking that the argument belongs to the domain *)
+ Let meval_unsafe (M: Model) (x: II): II := beval (pol M) x + rem M.
 
  (** evaluation *)
- Let meval (M: Model) (x: II): II := beval (pol M) x + rem M.
-
+ Let meval (M: Model) (x: II): II :=
+   if Dom x then meval_unsafe M x else bot.
+ 
  (** range *)
  Let mrange (M: Model): II := srange (pol M) + rem M.
 
  (** truncation of a model *)
  Let mtruncate (n: nat) (F: Model): Model :=
-   let (p,q) := split_seq n (pol F) in 
+   let (p,q) := split_list n (pol F) in 
    {| pol := p; rem:=rem F + srange q |}.
 
  (** division: h' and w' are given by an oracle
     h' ~ f'/g'
     w' ~ 1 /g' *)
- Let mdiv_aux (f' g' h' w': Model): Model :=
-   let k1' := msub mone (mmul w' g') in
-   let k2' := mmul w' (msub (mmul g' h') f') in
+ Definition mdiv_aux (f' g' h' w': Model): Model :=
+   let k1' := 1 - w'*g' in
+   let k2' := w' * (g' * h' - f') in
    match mag (mrange k1'), mag (mrange k2') with
    | Some mu', Some b' =>
-     if is_lt mu' 1 then {| pol := pol h'; rem := rem h' + sym (div b' (1 - mu')) |}
+     if is_lt mu' 1 then {| pol := pol h'; rem := rem h' + sym (b' / (1 - mu')) |}
      else mbot
    | _,_ => mbot
    end.
@@ -101,11 +103,12 @@ Section n.
     g' ~ sqrt f'
     k' ~ 1 / 2g' *)
  Let msqrt_aux (f' h' w': Model) (x0' : II): Model :=
-   if ~~ (is_lt lo x0' && is_lt x0' hi) then mbot else
-   let y0' := meval w' x0' in
+   (* TODO: move to a plain meval with monadic style *)
+   if ~~ Dom x0' then mbot else
+   let y0' := meval_unsafe w' x0' in
    if ~~ is_lt 0 y0' then mbot else
-   let k1' := msub mone (mscal (fromZ 2) (mmul w' h')) in
-   let k2' := mmul w' (msub (mmul h' h') f') in
+   let k1' := 1 - (mscal (fromZ 2) (w' * h')) in
+   let k2' := w' * (h' * h' - f') in
    match mag (mrange k1'), mag (mrange w'), mag (mrange k2') with
    | Some mu0', Some mu1', Some b' =>
      let delta' := pow 2 (1 - mu0') - fromZ 8 * b' * mu1' in
@@ -119,8 +122,8 @@ Section n.
    end.
 
  (** auxiliary conversion functions to perform interpolation with floating points *)
- Let mcf (M: Model): seq FF := map I2F (pol M).
- Let mfc (p: seq FF): Model := {| pol := map F2I p; rem := 0 |}.
+ Let mcf (M: Model): list FF := map I2F (pol M).
+ Let mfc (p: list FF): Model := {| pol := map F2I p; rem := 0 |}.
 
  (** division and square root, using interpolation as oracle *)
  Let mdiv n (M N: Model): Model :=
@@ -138,23 +141,22 @@ Section n.
              ((lo+hi)//2).
 
  (** packing all operations together *)
- Canonical Structure MFunOps: FunOps II :=
+ Definition MFunOps: FunOps II :=
   {|
     funcar:=MOps0;
-    id:=mid;
-    cst:=mcst;
-    neighborhood.eval:=meval;
-    integrate:=mintegrate;
-    div':=mdiv;
-    sqrt':=msqrt;
-    truncate:=mtruncate;
-    range:=mrange;
+    neighborhood.mid:=mid;
+    neighborhood.mcst:=mcst;
+    neighborhood.meval:=meval;
+    neighborhood.mintegrate:=mintegrate;
+    neighborhood.mdiv:=mdiv;
+    neighborhood.msqrt:=msqrt;
+    neighborhood.mtruncate:=mtruncate;
+    neighborhood.mrange:=mrange;
   |}.
 
  (** ** correctness of the above operations in valid bases *)
  
- Context {HB: ValidBasisOps N B}.
- Canonical Structure MOps0' := MOps0.
+ Context {HB: ValidBasisOps T B}.
  
  (** containment relation for models *)
  Definition mcontains (M: Model) (f: R -> R) :=
@@ -169,15 +171,23 @@ Section n.
 
  (** *** basic operations *)
  
- Lemma rmeval (M: Model) f:
-   mcontains M f -> forall X x, contains X x -> dom x -> contains (meval M X) (f x).
+ Lemma rmeval_unsafe (M: Model) f:
+   mcontains M f -> forall X x, contains X x -> dom x -> contains (meval_unsafe M X) (f x).
  Proof.
    intros (p&Hp&H) X x Xx HX. rewrite /meval.
    replace (f x) with (eval p x + (f x - eval p x)) by (simpl; ring).
    apply radd; auto. rewrite -evalE. by apply rbeval. 
  Qed.
+
+ Lemma rmeval (M: Model) f:
+   mcontains M f -> forall X x, contains X x -> contains (meval M X) (f x).
+ Proof.
+   intros Mf X x Xx. rewrite /meval.
+   case DomE. 2: apply botE.
+   intro H. now apply rmeval_unsafe; auto. 
+ Qed.
  
- Lemma rdom x: dom x -> contains Dom x.
+ Lemma rdom x: dom x -> contains (bnd lo hi) x.
  Proof. rewrite /dom /Dom. apply bndE. apply rlo. apply rhi. Qed.
 
  Lemma eval_srange P p x: scontains P p -> dom x -> contains (srange P) (eval p x).
@@ -194,9 +204,9 @@ Section n.
    - move=>_. rewrite -evalE. apply rbeval=>//. by apply rdom. 
  Qed.   
 
- Lemma eval_mrange M f x : mcontains M f -> dom x -> contains (mrange M) (f x).
+ Lemma eval_mrange M f : mcontains M f -> forall x, dom x -> contains (mrange M) (f x).
  Proof.
-   move => [p [Hp Hf]] Hx.
+   move => [p [Hp Hf]] x Hx.
    rewrite /mrange; replace (f x) with (eval p x + (f x - eval p x)); last by rewrite /=; ring.
    apply radd; auto. by apply eval_srange. 
  Qed.
@@ -260,7 +270,7 @@ Section n.
    apply rmscal => //; apply rmone.
  Qed.
  
- Lemma rmid: mcontains mid id.
+ Lemma rmid: mcontains mid ssrfun.id.
  Proof.
    exists bid; split. apply rbid.
    move=> x Hx. rewrite eval_id/=. replace (_-_) with R0 by (simpl;ring). apply rzer.
@@ -272,7 +282,7 @@ Section n.
    intros. apply botE.
  Qed.
 
- Canonical Structure contains_Rel0: Rel0 MOps0 (f_Ops0 R ROps0) :=
+ Canonical Structure mcontains_Rel0: Rel0 MOps0 (f_Ops0 R ROps0) :=
    {|
      rel := mcontains;
      radd := rmadd;
@@ -282,13 +292,13 @@ Section n.
      rone := rmone;    
    |}.
 
- Lemma mtruncateE n: forall F f, mcontains F f -> mcontains (mtruncate n F) f.
+ Lemma rmtruncate n: forall F f, mcontains F f -> mcontains (mtruncate n F) f.
  Proof.
    intros F f (p&Hp&H). unfold mtruncate.
-   generalize (rsplit_seq n Hp).
-   generalize (eval_split_seq T n p).  
-   simpl. case split_seq=> p1 p2.
-   case split_seq=> P1 P2. simpl. 
+   generalize (rsplit_list n Hp).
+   generalize (eval_split_list T n p).  
+   simpl. case split_list=> p1 p2.
+   case split_list=> P1 P2. simpl. 
    intros E [R1 R2]. exists p1. split=>//. 
    intros x Hx.  
    replace (_-_) with ((f x - eval p x) + eval p2 x) by (rewrite E; simpl; ring).
@@ -326,10 +336,10 @@ Section n.
      apply RiemannInt.continuity_implies_RiemannInt=>//; try lra; move => t Ht; apply H; lra.
  Qed.   
  
- Lemma rmintegrate: forall M f, 
+ Lemma rmintegrate_unsafe: forall M f, 
      mcontains M f -> (forall x, dom x -> continuity_pt f x) ->
      forall A a, contains A a -> dom a ->
-     forall D d, contains D d -> dom d -> contains (integrate M A D) (RInt f a d).
+     forall D d, contains D d -> dom d -> contains (mintegrate_unsafe M A D) (RInt f a d).
  Proof.
    move => M f [p [Hp Hf]] Hfcont A a Ha HA D d Hd HD; rewrite /mintegrate.
    have Hfint : ex_RInt f a d by apply cont_ex_RInt. 
@@ -352,7 +362,7 @@ Section n.
    - rewrite -opp_RInt_swap; last by apply ex_RInt_swap.
      replace (_/_) with ((RInt (f-eval p) d a / (a-d))) by (rewrite /opp/=; field; lra).
      apply H=>//. congruence. by apply ex_RInt_swap.
-   move=> {ad} ad. 
+   move=>{ad}=>ad. 
    
    case (minE (rem M)) => [U u Uu rMu|] Hu.
    have Hu': forall x, dom x -> u <= f x - eval p x. by intros; apply Rge_le, Hu, Hf.
@@ -373,6 +383,17 @@ Section n.
    case (Rle_lt_dec (RInt (f-eval p) a d/(d-a)) (f a-eval p a))=>E.  
    eapply Hu. apply Hf. by apply Rle_ge. 
    eapply Hv. apply Hf. by apply Rlt_le. 
+ Qed.
+
+ Lemma rmintegrate: forall M f, 
+     mcontains M f -> (forall x, dom x -> continuity_pt f x) ->
+     forall A a, contains A a -> 
+     forall D d, contains D d -> contains (mintegrate M A D) (RInt f a d).
+ Proof.
+   intros. rewrite /mintegrate.
+   case DomE. 2: apply botE. intro Da.
+   case DomE. 2: apply botE. intro Db.
+   now apply rmintegrate_unsafe; auto.
  Qed.
  
  (** *** division *)
@@ -409,27 +430,24 @@ Section n.
 
  Lemma rmdiv n:
    forall M f, mcontains M f ->
-   forall N g, mcontains N g -> mcontains (div' n M N) (f_bin Rdiv f g).
+   forall N g, mcontains N g -> mcontains (mdiv n M N) (f_bin Rdiv f g).
  Proof.
    move => M f Mf P g Pg. eapply rmdiv_aux=>//; 
-   apply msingle', seq_rel_map, F2IE.
+   apply msingle', list_rel_map, F2IE.
  Qed.
 
  (** *** square root *)
  
  Lemma rmsqrt_aux (f' h' w': Model) (x0' : II) (f h w : R -> R) x0:
    mcontains f' f -> mcontains h' h -> mcontains w' w ->
-   contains x0' x0 -> dom x0 -> 
+   contains x0' x0 -> 
    (forall x, dom x -> continuity_pt w x) ->
    mcontains (msqrt_aux f' h' w' x0') (fun x => R_sqrt.sqrt (f x)).
  Proof.
-   move => Hf Hh Hw X0 Vx0 Hwcont. rewrite /msqrt_aux.
-   case is_ltE => [lox0|]. 2: apply rmbot.
-   specialize (lox0 _ _ rlo X0). 
-   case is_ltE => [x0hi|]. 2: apply rmbot. 
-   specialize (x0hi _ _ X0 rhi). 
+   move => Hf Hh Hw X0 Hwcont. rewrite /msqrt_aux.
+   case DomE. 2: apply rmbot. intro Vx0. specialize (Vx0 _ X0).
    case is_ltE => [Hwx0|]. 2: apply rmbot.
-   specialize (Hwx0 _ _ (rzer _) (rmeval Hw X0 Vx0)).
+   specialize (Hwx0 _ _ (rzer _) (rmeval_unsafe Hw X0 Vx0)).
    simpl negb.
    case magE => [Mu0 mu0 MU0 Hmu0|]. 2: apply rmbot. 
    case magE => [Mu1 mu1 MU1 Hmu1|]. 2: apply rmbot. 
@@ -471,17 +489,27 @@ Section n.
  Qed.
 
  Lemma rmsqrt n M f: 
-   mcontains M f -> mcontains (sqrt' n M) (f_unr R_sqrt.sqrt f).
+   mcontains M f -> mcontains (msqrt n M) (f_unr R_sqrt.sqrt f).
  Proof.
    move => Mf. eapply rmsqrt_aux with _ _ ((lo+hi)//2) => //;
-    try apply msingle', seq_rel_map, F2IE.
-   apply rdvn, radd. apply rlo. apply rhi. 
-   generalize lohi. rewrite /dom/=/BR. lra.  
+    try apply msingle', list_rel_map, F2IE. rel. 
    move => ??. apply eval_cont.
  Qed.
 
+ Instance Valid: ValidFunOps contains dom MFunOps.
+ Proof.
+   exists mcontains_Rel0.
+   - exact rmid.
+   - exact rmcst.
+   - exact rmeval. 
+   - exact rmintegrate. 
+   - exact rmdiv. 
+   - exact rmsqrt.
+   - exact rmtruncate.
+   - exact eval_mrange.
+ Qed.
 End n.
+Arguments MFunOps {_ _} _.
+Arguments Valid {_ _ _} _.
 
-Arguments MFunOps _ [_] _.
-
-Hint Resolve rmid rmcst rmeval: rel.
+Global Hint Resolve rmid rmcst rmeval: rel.

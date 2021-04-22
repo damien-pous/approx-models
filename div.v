@@ -1,56 +1,50 @@
+(** * Newton method for computing division *)
+
 Require Import ZArith Reals Psatz.
 Require Import ssreflect.
-
 Require Import Coquelicot.Coquelicot.
-Require Import posreal_complements cball domfct contraction.
+Require Import posreal_complements cball domfct banach.
+
 Set Implicit Arguments.
 Unset Strict Implicit.
 Unset Printing Implicit Defensive.
 
 Section TubeDiv.
 
-Variable (I : R -> Prop).
+(** D is the domain of the considered functions *)
+Variable (D : R -> Prop).
+(** real valued functions with domain D form a complete space *)
 Notation "{R,I -> R}" := (@domfct_CompleteSpace R_CompleteSpace R_CompleteSpace I).
-Notation dball := (@ball {R,I -> R}).
-Notation dcball := (@cball {R,I -> R}).
-Notation dball0 := (@ball {R,I -> R} (fun _ => 0)).
-Notation dcball0 := (@cball {R,I -> R} (fun _ => 0)).
 
+
+(** this is purely a lemma about real numbers and functions, no intervals or models involved *)
 Lemma newton (f g h w : R -> R) mu b :
-  (forall t, I t -> Rabs (1 - w t * g t) <= mu) ->
-  (forall t, I t -> Rabs (w t * (g t * h t - f t)) <= b) ->
+  (forall t, D t -> Rabs (1 - w t * g t) <= mu) ->
+  (forall t, D t -> Rabs (w t * (g t * h t - f t)) <= b) ->
   0 <= mu < 1 -> 0 <= b -> 
-  forall t, I t -> Rabs (h t - f t / g t) <= b / (1 - mu).
+  forall t, D t -> Rabs (h t - f t / g t) <= b / (1 - mu).
 Proof.
-  move => Hmu Hb [Hmu0 Hmu1] Hb0.
-  apply R_dcballE, cball_sym.
-  set mmu := mknonnegreal Hmu0; set bb := mknonnegreal Hb0.
-  have Hr : 0 <= b / (1 - mu)
-    by apply Rdiv_le_0_compat => //; lra.
-  set r := mknonnegreal Hr.
-  have Hw t : I t -> w t <> 0
-    by move => It Hwt; move: (Hmu t It); rewrite Hwt Rmult_0_l Rminus_0_r Rabs_R1; lra.
-  have Hg t : I t -> g t <> 0
-    by move => It Hgt; move: (Hmu t It); rewrite Hgt Rmult_0_r Rminus_0_r Rabs_R1; lra.
-  set F : {R,I -> R} -> {R,I -> R} := fun k t => k t - w t * (g t * k t - f t).
-  set SB := mkSBall (h : {R,I -> R}) bb r.
-  have SBP : SBallProp F mmu SB.
-    apply mkSBallProp => /=.
-    + move => k1 k2 d _ _ /R_dcballE Hk.
-      apply R_dcballE => t It.
-      replace (_-_) with ((1 - w t * g t) * (k2 t - k1 t)); last by rewrite /F; ring.
-      rewrite Rabs_mult; apply Rmult_le_compat; try apply Rabs_pos; auto.
-    + apply R_dcballE => t It /=.
-      replace (_-_) with (-(w t * (g t * h t - f t))); last by rewrite /F; ring.
-      rewrite Rabs_Ropp; auto.
-    + field_simplify; lra.
-  move: (BF_lim_is_fixpoint (Hmu1 : mmu < 1) SBP) (BF_lim_inside_sball (Hmu1 : mmu < 1) SBP).
-  set bf := lim (BF F mmu SB); rewrite /SBall_pred /=.
-  move => /Rdomfct_close Hbf.
-  apply domfct_cball_ext_r => t It.
-  apply Rmult_eq_reg_l with (g t); auto; field_simplify; auto. 
-  apply Rminus_diag_uniq, Rmult_eq_reg_l with (w t); auto. 
-  move: (Hbf t It); rewrite /F /=; lra.
+  (** proof script by Quentin Corradi (M2 student at ENS Lyon, autumn 2020) *)
+  intros Hmu Hb Dmu Db t Dt.
+  assert (Hw: forall t, D t -> w t <> 0).
+   intros t' Dt' Hw0. specialize (Hmu t' Dt').
+   replace (Rabs (1 - w t'*g t')) with 1 in Hmu. lra.
+   rewrite Hw0 Rmult_0_l Rminus_0_r Rabs_R1 //.
+  assert (Hg: forall t, D t -> g t <> 0).
+   intros t' Dt' Hg0. specialize (Hmu t' Dt').
+   replace (Rabs (1 - w t'*g t')) with 1 in Hmu. lra.
+   rewrite Hg0 Rmult_0_r Rminus_0_r Rabs_R1 //.
+  apply Rmult_le_reg_l with (Rabs (w t*g t)).
+  apply Rabs_pos_lt, Rmult_integral_contrapositive. now auto.
+  apply Rle_trans with b. rewrite -Rabs_mult.
+  replace (w t*g t*(h t - f t/g t)) with (w t*(g t*h t - f t)) by (field; auto). now auto.
+  apply Rmult_le_reg_r with (1 - mu). lra.
+  replace (Rabs (w t*g t)*(b/(1 - mu))*(1 - mu)) with (b*Rabs (w t*g t)) by (field; lra).
+  apply Rmult_le_compat_l. assumption.
+  apply Rplus_le_reg_r with (mu - Rabs (w t*g t)).
+  ring_simplify. apply Rle_trans with (Rabs (1 - w t*g t)).
+  replace (-Rabs (w t*g t) + 1) with (Rabs 1 - Rabs (w t*g t)) by (rewrite -{2}Rabs_R1; ring).
+  apply Rabs_triang_inv. now auto.
 Qed.
 
 End TubeDiv.

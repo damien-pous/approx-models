@@ -1,13 +1,16 @@
+(** * Newton method for computing square root *)
+
 Require Import ZArith Reals Psatz.
 Require Import ssreflect.
-
 Require Import Coquelicot.Coquelicot.
-Require Import posreal_complements cball domfct contraction.
+Require Import posreal_complements cball domfct banach.
+
 Set Implicit Arguments.
 Unset Strict Implicit.
 Unset Printing Implicit Defensive.
 
 Section Quadratic.
+
 Variable (b mu0 mu1 : R).
 Hypothesis Hb_0 : 0 <= b.
 Hypothesis Hmu0_0 : 0 <= mu0.
@@ -74,10 +77,6 @@ End Quadratic.
 Section TubeSqrt.
 Variable (I : R -> Prop).
 Notation "{R,I -> R}" := (@domfct_CompleteSpace R_CompleteSpace R_CompleteSpace I).
-Notation dball := (@ball {R,I -> R}).
-Notation dcball := (@cball {R,I -> R}).
-Notation dball0 := (@ball {R,I -> R} (fun _ => 0)).
-Notation dcball0 := (@cball {R,I -> R} (fun _ => 0)).
 
 
 Lemma newton (f h w : R -> R) mu0 mu1 b :

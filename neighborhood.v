@@ -3,6 +3,7 @@
 Require Export Psatz Rbase Rfunctions Ranalysis.
 Require Export Coquelicot.Coquelicot.
 Require Export Setoid Morphisms.
+Require Export List. Export ListNotations.
 Require Export ssreflect ssrbool ssrfun.
 
 Set Implicit Arguments.
@@ -20,6 +21,18 @@ Proof. cbv. tauto. Qed.
 Instance Rplus_Rle: Proper (Rle ==> Rle ==> Rle) Rplus.
 Proof. repeat intro. lra. Qed.
 
+(** a few notations for natural numbers *)
+Notation "n .-1" := (Nat.pred n) (at level 2) : nat_scope.
+Notation "n .+1" := (S n) (at level 2) : nat_scope.
+Notation "n .+2" := n.+1.+1 (at level 2) : nat_scope.
+Notation "n .+3" := n.+2.+1 (at level 2) : nat_scope.
+Notation "n .+4" := n.+2.+2 (at level 2) : nat_scope.
+Notation "n .+5" := n.+1.+4 (at level 2) : nat_scope.
+
+(** injection from natural numbers to real numbers  *)
+Notation INRS := S_INR.
+Lemma INR0: INR O = 0. Proof. reflexivity. Qed.
+
 (** blocking identity to document irrelevant values *)
 Lemma IRRELEVANT (A: Type): A -> A.
 Proof. by []. Qed. 
@@ -29,7 +42,7 @@ Proof. by []. Qed.
 (** ** Operations on scalars *)
 
 (** basic operations *)
-(** (will be instantiated on R, I, F, seq C, Model C) *)
+(** (will be instantiated on R, I, F, list C, Model C) *)
 Record Ops0 :=                  
   {
     car:> Type;
@@ -39,24 +52,26 @@ Record Ops0 :=
     zer: car;
     one: car;
   }.
+
 (** extended operations *)
 (** (will be instantiated on R, I, F) *)
 Record Ops1 :=
   {
     ops0:> Ops0;
     fromZ: Z -> ops0;
-    div: ops0 -> ops0 -> ops0;  (* also on Model C, but with parameters *)
-    sqrt: ops0 -> ops0;         (* idem *)
+    div: ops0 -> ops0 -> ops0;  (** also on Model C, but with parameters *)
+    sqrt: ops0 -> ops0;         (** idem *)
     cos: ops0 -> ops0;
     abs: ops0 -> ops0;
     pi: ops0;
   }.
 
-(** derived operations  *)
+(** derived operations *)
 Definition fromN {C: Ops1} (n: nat) := fromZ C (Z.of_nat n). 
 Definition dvn {C: Ops1} n x: C := div x (fromN n).
 
 (** notations *)
+Declare Scope RO_scope.
 Infix "+" := add: RO_scope. 
 Infix "*" := mul: RO_scope.
 Infix "-" := sub: RO_scope.
@@ -136,21 +151,21 @@ Record Rel1 (R S: Ops1) :=
     rcos: forall x y, rel0 x y -> rel0 (cos x) (cos y);
     rpi: rel0 pi pi;
   }.
-Hint Resolve radd rsub rmul rfromZ rzer rone rdiv rsqrt rabs rcos rpi: rel.
+Global Hint Resolve radd rsub rmul rfromZ rzer rone rdiv rsqrt rabs rcos rpi: rel.
 Ltac rel := by ((* repeat unshelve *) eauto 100 with rel).
 
 (** parametricity of derived operations *)
 Lemma rpow R S (T: Rel0 R S) n: forall x y, T x y -> T (pow n x) (pow n y).
 Proof. induction n; simpl; rel. Qed.
-Hint Resolve rpow: rel.
+Global Hint Resolve rpow: rel.
 
 Lemma rfromN R S (T: Rel1 R S) n: T (fromN n) (fromN n).
 Proof. unfold fromN; rel. Qed.
-Hint Resolve rfromN: rel.
+Global Hint Resolve rfromN: rel.
 
 Lemma rdvn R S (T: Rel1 R S) n: forall x y, T x y -> T (x//n) (y//n).
 Proof. rewrite /dvn; rel. Qed.
-Hint Resolve rdvn: rel.
+Global Hint Resolve rdvn: rel.
 
 (** ** Neighborhoods  *)
 
@@ -162,11 +177,17 @@ Inductive minmax_spec A le (contains: A -> R -> Prop) (a: A): option A -> Prop :
 Inductive wreflect (P : Prop): bool -> Prop :=
  | wReflectT: P -> wreflect P true | wReflectF: wreflect P false.
 
-(** neighborhoods *)
+(** neighborhoods: an abstract interface for computing with floating points and intervals 
+    convention: 
+    - uppercase letters for intervals, lowercase letters for real numbers
+    - same letter when a real is assumed to belong to an interval: 
+      y: R, Y: II   often means that we also have   H: contains Y y.
+    
+ *)
 Class NBH :=
   {
     (** intervals *)
-    II:> Ops1;
+    II: Ops1;
     (** (parametric) containment relation *)
     contains: Rel1 II ROps1;
     (** convexity of intervals  *)
@@ -175,22 +196,28 @@ Class NBH :=
     bnd: II -> II -> II;
     max: II -> option II;    
     min: II -> option II;    
-    bot: II;                   (* [-oo;+oo] *)
+    bot: II;                   (** [-oo;+oo] *)
     is_lt: II -> II -> bool; 
+    is_le: II -> II -> bool; 
     (** specification of the above operations *)
     bndE: forall X x, contains X x -> forall Y y, contains Y y -> forall z, x<=z<=y -> contains (bnd X Y) z;
     maxE: forall X, minmax_spec Rle contains X (max X);
     minE: forall X, minmax_spec Rge contains X (min X);
     botE: forall x, contains bot x;
     is_ltE: forall X Y, wreflect (forall x y, contains X x -> contains Y y -> x<y) (is_lt X Y);
+    is_leE: forall X Y, wreflect (forall x y, contains X x -> contains Y y -> x<=y) (is_le X Y);
     (** (almost unspecified) floating point operations *)
     FF: Ops1;
     I2F: II -> FF;
     F2I: FF -> II;
     width: II -> FF;  (* width of an interval (unspecified, just for inspection) *)
-    F2R: FF -> R;   (* needed to guarantee that F2I produces non-empty intervals *)
+    F2R: FF -> R;   (** needed to guarantee that F2I produces non-empty intervals *)
     F2IE: forall f, contains (F2I f) (F2R f);
+    (** is an interval contained within the given bounds (needed only in the very end, for concrete examples) *)
+    subseteq: II -> R -> R -> Prop; (** note that this one is in Prop  *)
+    subseteqE: forall X (a b: R), subseteq X a b -> forall x, contains X x -> a <= x <= b;
   }.
+Coercion II: NBH >-> Ops1.
 
 (** derived operations and their specification *)
 Definition mag {N: NBH} x: option II := max (abs x).
@@ -210,61 +237,65 @@ Proof.
 Qed.
 
 
-
 (** ** abstract operations on functions *)
 Record FunOps (C: Type) :=
   {
     (* pointwise operations *)
     funcar:> Ops0;
     (* operations specific to functions *)
-    id: funcar;                 
-    cst: C -> funcar;
-    eval: funcar -> C -> C;
-    integrate: funcar -> C -> C -> C;
-    div': Z -> funcar -> funcar -> funcar;
-    sqrt': Z -> funcar -> funcar;
+    mid: funcar;                 
+    mcst: C -> funcar;
+    meval: funcar -> C -> C;
+    mintegrate: funcar -> C -> C -> C;
+    mdiv: Z -> funcar -> funcar -> funcar;
+    msqrt: Z -> funcar -> funcar;
     (* [truncate] is the identity on reals; it makes it possible to truncate polynomials in models *)
-    truncate: nat -> funcar -> funcar;
+    mtruncate: nat -> funcar -> funcar;
     (* range is meaningless on reals; it returns the range of the model otherwise *)
-    range: funcar -> C;
+    mrange: funcar -> C;
   }.
-Arguments id {_ _}.
-Arguments cst {_ _}.
+Arguments mid {_ _}.
+Arguments mcst {_ _}.
 
 (** corresponding operations on [R->R] *)
-Canonical Structure RFunOps: FunOps R :=
+Definition RFunOps: FunOps R :=
   {|
     funcar := f_Ops0 R ROps0;
-    id x := x;
-    cst c _ := c;
-    eval f x := f x;
-    integrate := RInt;
-    div' _ := f_bin Rdiv;
-    sqrt' _ := f_unr R_sqrt.sqrt;
-    truncate _ f := f;
-    range _ := R0;
+    mid x := x;
+    mcst c _ := c;
+    meval f x := f x;
+    mintegrate := RInt;
+    mdiv _ := f_bin Rdiv;
+    msqrt _ := f_unr R_sqrt.sqrt;
+    mtruncate _ f := f;
+    mrange _ := R0;
   |}.
 
-(** validity of function operations (not yet used) *)
-Class ValidFunOps I (contains: Rel1 I ROps1) (F: FunOps I) :=
+(** validity of function operations (will probably be reworked) *)
+Class ValidFunOps I (contains: Rel0 I ROps0) (dom: R -> Prop) (F: FunOps I) :=
   {
-    fcontains:> Rel0 F RFunOps;
-    rid: fcontains id id;                 
-    rcst: forall C c, contains C c -> fcontains (cst C) (cst c);
-    reval: forall F f, fcontains F f -> forall X x, contains X x -> contains (eval F X) (eval f x);
-    (* dessous: would need [f] continuous and [a],[b] in the domain *)
-    rintegrate: forall F f, fcontains F f ->
-                forall A a, contains A a -> 
-                forall C c, contains C c -> 
-                            contains (integrate F A C) (integrate f a c);
-    rdiv': forall n F f, fcontains F f ->
-           forall G g, fcontains G g -> 
-                         fcontains (div' n F G) (div' n f g);
-    rsqrt': forall n F f, fcontains F f ->
-                         fcontains (sqrt' n F) (sqrt' n f);
+    fcontains: Rel0 F RFunOps;
+    rmid: fcontains mid mid;
+    rmcst: forall C c, contains C c -> fcontains (mcst C) (mcst c);
+    rmeval: forall F f, fcontains F f ->
+            forall X x, contains X x -> 
+                        contains (meval F X) (meval f x);
+    rmintegrate: forall F f, fcontains F f -> (forall x, dom x -> continuity_pt f x) ->
+                 forall A a, contains A a ->
+                 forall C c, contains C c ->
+                             contains (mintegrate F A C) (mintegrate f a c);
+    rmdiv: forall n F f, fcontains F f ->
+           forall   G g, fcontains G g -> 
+                         fcontains (mdiv n F G) (mdiv n f g);
+    rmsqrt: forall n F f, fcontains F f ->
+                          fcontains (msqrt n F) (msqrt n f);
+    rmtruncate: forall n F f, fcontains F f ->
+                              fcontains (mtruncate n F) f;
+    eval_mrange: forall F f, fcontains F f ->
+                 forall x, dom x -> contains (mrange F) (f x);
   }.
 Coercion fcontains: ValidFunOps >-> Rel0.
-Hint Resolve rid rcst reval rintegrate rdiv' rsqrt': rel.
+Global Hint Resolve rmid rmcst (* rmeval rmintegrate *) rmdiv rmsqrt: rel.
 
 (** ** 'generic' domains *)
 Class Domain :=
@@ -273,10 +304,12 @@ Class Domain :=
     dlohi: dlo<dhi;
     rdlo: forall R S (T: Rel1 R S), T dlo dlo;
     rdhi: forall R S (T: Rel1 R S), T dhi dhi }.
+Global Hint Resolve rdlo rdhi: rel.
 
-Definition DfromZ2 (a b: Z) (H: IZR a < IZR b): Domain :=
+Definition DfromZ2 (a b: Z) (H: Z.compare a b = Lt): Domain :=
   {| dlo C := fromZ a;
      dhi C := fromZ b;
-     dlohi := H;
+     dlohi := IZR_lt _ _ (proj1 (Z.compare_lt_iff _ _) H);
      rdlo R S T := rfromZ T a;
      rdhi R S T := rfromZ T b |}.
+Notation DZ a b := (@DfromZ2 a b eq_refl).

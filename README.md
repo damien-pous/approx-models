@@ -22,7 +22,7 @@ For more details, see the corresponding [article](https://hal.laas.fr/hal-020885
   + `cball.v` : closed balls in uniform spaces
   + `posreal_complement.v` : canonical structure based automation for automating manifest positivity (resp. non-negativity) proofs
   + `domfct.v` : instance of uniform space structure for functions restricted to a subtype
-  + `contraction.v` : proof of the Banach fixedpoint theorem
+  + `banach.v` : proof of the Banach fixedpoint theorem
 
 
 * Abstractions for approximations
@@ -42,6 +42,9 @@ For more details, see the corresponding [article](https://hal.laas.fr/hal-020885
   + `sqrt.v` : Newton method for square root
   + `approx.v` : rigorous approximation in monomial basis, for division and square root
 
+* High-level tactic
+  + `syntax.v` : Syntax of the supported expressions
+  + `tactic.v` : Tactic for certifying bounds
 
 * Examples and benchmarks
 

@@ -31,7 +31,8 @@ Canonical Structure IOps0 :=
      zer := I.zero;
      one := I.fromZ prec 1 |}.
 
-Definition Fleq a b := match F.cmp a b with Xlt | Xeq => true | _ => false end.
+Definition Fle a b := match F.cmp a b with Xlt | Xeq => true | _ => false end.
+Definition Flt a b := match F.cmp a b with Xlt => true | _ => false end.
 
 Definition Imax (x: I): option I :=
   match x with
@@ -59,16 +60,16 @@ Definition Imin (x: I): option I :=
   | _ => None
   end.
 
-Definition Ilt (x y: I): bool :=
+Definition Ile (x y: I): bool :=
   match x,y with
-  | Ibnd _ a,Ibnd b _  => if F.cmp a b is Xlt then true else false
+  | Ibnd _ a,Ibnd b _  => Fle a b
   | _,_ => false
   end.
 
-Definition subseteq11 (X: I) :=
-  match X with
-  | Ibnd x y => Fleq (F.fromZ (-1)) x && Fleq y (F.fromZ 1)
-  | _ => false
+Definition Ilt (x y: I): bool :=
+  match x,y with
+  | Ibnd _ a,Ibnd b _  => Flt a b
+  | _,_ => false
   end.
 
 Definition subseteq (X: I) (a b: R) :=
@@ -339,10 +340,39 @@ Lemma IminE X: minmax_spec Rge Icontains X (Imin X).
     case F.toX; intuition lra.
 Qed.
 
+Lemma IleE X Y: wreflect (forall x y, Imem x X -> Imem y Y -> x <= y) (Ile X Y).
+Proof.
+  destruct X as [|a b]; destruct Y as [|c d]; try constructor.
+  rewrite /Ile/Fle F.cmp_correct /=.
+  case_eq (F.classify b)=>Hb; try constructor;
+    case_eq (F.classify c)=>Hc; try constructor=>x y.
+  rewrite I.F'.real_correct/=. 2: by rewrite F.classify_correct Hb.
+  rewrite I.F'.real_correct/=. 2: by rewrite F.classify_correct Hc.
+  case Raux.Rcompare_spec => H; constructor=>x y.
+  - rewrite 2!ImemE.
+    rewrite (I.F'.real_correct b)/=. 2: by rewrite F.classify_correct Hb.
+    rewrite (I.F'.real_correct c)/=. 2: by rewrite F.classify_correct Hc.
+    case F.toX; case F.toX; intuition lra.
+  - rewrite 2!ImemE.
+    rewrite (I.F'.real_correct b)/=. 2: by rewrite F.classify_correct Hb.
+    rewrite (I.F'.real_correct c)/=. 2: by rewrite F.classify_correct Hc.
+    case F.toX; case F.toX; intuition lra.
+  - rewrite 2!ImemE.
+    rewrite (F.valid_lb_correct c) Hc. intuition discriminate.  
+  - rewrite ImemE.
+    rewrite (F.valid_ub_correct b) Hb. intuition discriminate.  
+  - rewrite ImemE.
+    rewrite (F.valid_ub_correct b) Hb. intuition discriminate.  
+  - rewrite ImemE.
+    rewrite (F.valid_ub_correct b) Hb. intuition discriminate.  
+  - rewrite 2!ImemE.
+    rewrite (F.valid_lb_correct c) Hc. intuition discriminate.  
+Qed.
+
 Lemma IltE X Y: wreflect (forall x y, Imem x X -> Imem y Y -> x < y) (Ilt X Y).
 Proof.
   destruct X as [|a b]; destruct Y as [|c d]; try constructor.
-  rewrite /Ilt F.cmp_correct /=.
+  rewrite /Ilt/Flt F.cmp_correct /=.
   case_eq (F.classify b)=>Hb; try constructor;
     case_eq (F.classify c)=>Hc; try constructor=>x y.
   rewrite I.F'.real_correct/=. 2: by rewrite F.classify_correct Hb.
@@ -391,21 +421,6 @@ Proof.
   by case F.classify.
 Qed.
 
-Lemma subseteq11E X: subseteq11 X -> forall x, Imem x X -> -1 <= x <= 1.
-Proof.
-  intros H x. revert H. destruct X as [|l u]=>//=.
-  move => /andP[].
-  rewrite ImemE /Fleq 2!F.cmp_correct classify_fromZ//.
-  case_eq (F.classify l)=> Hl//; 
-  case_eq (F.classify u)=> Hu//; rewrite ?classify_fromZ// ?F.fromZ_correct//. 
-  - rewrite I.F'.real_correct/=. 2: by rewrite F.classify_correct Hl.
-    rewrite I.F'.real_correct/=. 2: by rewrite F.classify_correct Hu.
-    case Raux.Rcompare_spec => H//; case Raux.Rcompare_spec => H'//; lra.
-  - rewrite F.valid_ub_correct Hu. intuition discriminate. 
-  - rewrite F.valid_lb_correct Hl. intuition discriminate. 
-  - rewrite F.valid_ub_correct Hu. intuition discriminate. 
-Qed.
-
 Lemma subseteqE X a b: subseteq X a b -> forall x, Imem x X -> a <= x <= b.
 Proof.
   intros H x. revert H. destruct X as [|l u]=>//=.
@@ -413,7 +428,7 @@ Proof.
 Qed.
 
 Instance nbh: NBH.
-exists IOps1 IRel1 Ibnd' Imax Imin Inan Ilt FOps1 F2I F2R (* subseteq11 subseteq *).
+exists IOps1 IRel1 Ibnd' Imax Imin Inan Ilt Ile FOps1 F2I F2R subseteq.
 Proof.
   - apply Iconvex.
   - abstract (by intros; eapply IbndE; eauto).
@@ -421,11 +436,11 @@ Proof.
   - apply IminE.
   - apply IbotE.
   - apply IltE.
+  - apply IleE.
   - exact I.midpoint.
   - exact width.
   - apply Fsingle.
-  (* - apply subseteq11E. *)
-  (* - apply subseteqE. *)
+  - apply subseteqE.
 Defined.
 
 End Make.

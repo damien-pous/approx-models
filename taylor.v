@@ -1,16 +1,12 @@
 (** * Operations on monomial basis (to obtain Taylor models) *)
 
-Require Import neighborhood vectorspace.
+Require Import vectorspace.
+
 Set Implicit Arguments.
 Unset Strict Implicit.
 Unset Printing Implicit Defensive.
 
-Notation "n .+1" := (S n) (at level 2, left associativity,
-  format "n .+1") : nat_scope.
-
 Definition M k x := x^k.
-
-
 
 (** naive evaluation (defined in vectorspace) *)
 Notation eval_ := (eval_ M).
@@ -59,7 +55,7 @@ Proof. apply eval_ex_derive_. Qed.
 
 Fixpoint eval' (R: Ops0) (P: list R) (x: R): R :=
   match P with
-  | [::] => 0
+  | [] => 0
   | a::Q => a + x * eval' Q x
   end. 
 Lemma evalR P x: eval' P x = eval P x.
@@ -72,32 +68,32 @@ Qed.
 
 Section r.
  Context {C: Ops0}.
- Notation poly := (seq C).
+ Notation poly := (list C).
 
- Definition sone: poly := [::1].
+ Definition sone: poly := [1].
  
- Definition scst a: poly := [::a].
+ Definition scst a: poly := [a].
  
  Fixpoint Xk (k: nat): poly :=
    match k with
-   | O => [::1]
+   | O => [1]
    | S k => 0::Xk k
    end.
   
  (** multiplication *)
  Fixpoint smul (P Q: poly): poly :=
    match P with
-   | [::] => [::]
+   | [] => []
    | a::P => sadd (sscal a Q) (0::smul P Q)
    end.
 
  (** identity (X) *)
- Definition sid: poly := [::0;1].
+ Definition sid: poly := [0;1].
  
  (** composition *)
  Fixpoint comp (P Q: poly): poly :=
    match P with
-   | [::] => [::]
+   | [] => []
    | a::P => sadd (scst a) (smul (comp P Q) Q)
    end.
 
@@ -105,12 +101,12 @@ End r.
 
 Section r'.
  Context {C: Ops1}.
- Notation poly := (seq C).
+ Notation poly := (list C).
 
  (** primitive *)
  Fixpoint prim_ n (P: poly) :=
    match P with
-   | [::] => [::]
+   | [] => []
    | x::P => x//n :: prim_ (S n) P
    end.
 
@@ -120,20 +116,8 @@ End r'.
 
 
 (** interpolation (not implemented for monomial basis, for now) *)
-Parameter interpolate: forall {C: Ops1}, Z -> (C -> C) -> seq C.
+Parameter interpolate: forall {C: Ops1}, Z -> (C -> C) -> list C.
 
-Definition basis (D: Domain): BasisOps M :=
-  fun C => {|
-    vectorspace.lo := dlo;
-    vectorspace.hi := dhi;
-    vectorspace.bmul := smul;
-    vectorspace.bone := sone;
-    vectorspace.bid := sid;
-    vectorspace.bprim := prim;
-    vectorspace.beval := @eval' C;
-    vectorspace.brange := None;
-    vectorspace.interpolate := interpolate
-  |}.
 
 (** ** correctness of the operations on reals  *)
 
@@ -197,7 +181,7 @@ Proof. rewrite eval_prim; apply (RInt_correct (eval p)); apply eval_ex_RInt. Qed
 Section s.
  Context {R S: Ops0}.
  Variable T: Rel0 R S.
- Notation sT := (seq_rel T).
+ Notation sT := (list_rel T).
  Lemma rsmul: forall x y, sT x y -> forall x' y', sT x' y' -> sT (smul x x') (smul y y').
  Proof. induction 1; simpl; rel. Qed.
  Lemma rsone: sT sone sone.
@@ -218,7 +202,7 @@ End s.
 Section s'.
  Context {R S: Ops1}.
  Variable T: Rel1 R S.
- Notation sT := (seq_rel T).
+ Notation sT := (list_rel T).
  Lemma rprim_: forall x y, sT x y -> forall n, sT (prim_ n x) (prim_ n y).
  Proof. induction 1; simpl; rel. Qed.
  Hint Resolve rprim_ reval: rel.
@@ -226,9 +210,29 @@ Section s'.
  Proof. intros. constructor; rel. Qed.
 End s'.
 
-(** packing everything together *)
+(** packing everything together, we get a valid basis *)
 
-Instance valid {D: Domain} {N: NBH}: ValidBasisOps N (basis D).
+Definition basis_on (D: Domain) (C: Ops1): BasisOps_on C :=
+  {|
+    vectorspace.lo := dlo;
+    vectorspace.hi := dhi;
+    vectorspace.bmul := smul;
+    vectorspace.bone := sone;
+    vectorspace.bid := sid;
+    vectorspace.bprim := prim;
+    vectorspace.beval := @eval' C;
+    vectorspace.brange := None;
+    vectorspace.interpolate := interpolate
+  |}.
+
+Definition basis {N: NBH} D: BasisOps :=
+  {|
+    BR := basis_on D ROps1;
+    BI := basis_on D II;
+    BF := basis_on D FF;
+  |}.
+
+Instance valid {N: NBH} (D: Domain): ValidBasisOps M (basis D).
 Proof.
   constructor.
   - exact dlohi.
