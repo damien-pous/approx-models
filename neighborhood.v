@@ -152,7 +152,7 @@ Record Rel1 (R S: Ops1) :=
     rpi: rel0 pi pi;
   }.
 Global Hint Resolve radd rsub rmul rfromZ rzer rone rdiv rsqrt rabs rcos rpi: rel.
-Ltac rel := by ((* repeat unshelve *) eauto 100 with rel).
+Ltac rel := by eauto 100 with rel.
 
 (** parametricity of derived operations *)
 Lemma rpow R S (T: Rel0 R S) n: forall x y, T x y -> T (pow n x) (pow n y).
@@ -167,7 +167,7 @@ Lemma rdvn R S (T: Rel1 R S) n: forall x y, T x y -> T (x//n) (y//n).
 Proof. rewrite /dvn; rel. Qed.
 Global Hint Resolve rdvn: rel.
 
-(** ** Neighborhoods  *)
+(** ** Neighborhoods *)
 
 (** utilities for specifications  *)
 Inductive minmax_spec A le (contains: A -> R -> Prop) (a: A): option A -> Prop :=
@@ -181,9 +181,7 @@ Inductive wreflect (P : Prop): bool -> Prop :=
     convention: 
     - uppercase letters for intervals, lowercase letters for real numbers
     - same letter when a real is assumed to belong to an interval: 
-      y: R, Y: II   often means that we also have   H: contains Y y.
-    
- *)
+      y: R, Y: II   often means that we also have   H: contains Y y. *)
 Class NBH :=
   {
     (** intervals *)
@@ -210,10 +208,10 @@ Class NBH :=
     FF: Ops1;
     I2F: II -> FF;
     F2I: FF -> II;
-    width: II -> FF;  (* width of an interval (unspecified, just for inspection) *)
+    width: II -> FF;  (** width of an interval (unspecified, just for inspection) *)
     F2R: FF -> R;   (** needed to guarantee that F2I produces non-empty intervals *)
     F2IE: forall f, contains (F2I f) (F2R f);
-    (** is an interval contained within the given bounds (needed only in the very end, for concrete examples) *)
+    (** is an interval contained within the given bounds? (needed only in the very end, for concrete examples) *)
     subseteq: II -> R -> R -> Prop; (** note that this one is in Prop  *)
     subseteqE: forall X (a b: R), subseteq X a b -> forall x, contains X x -> a <= x <= b;
   }.
@@ -272,7 +270,7 @@ Definition RFunOps: FunOps R :=
   |}.
 
 (** validity of function operations (will probably be reworked) *)
-Class ValidFunOps I (contains: Rel0 I ROps0) (dom: R -> Prop) (F: FunOps I) :=
+Class ValidFunOps I (contains: I -> R -> Prop) (dom: R -> Prop) (F: FunOps I) :=
   {
     fcontains: Rel0 F RFunOps;
     rmid: fcontains mid mid;
