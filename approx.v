@@ -8,14 +8,12 @@ Unset Strict Implicit.
 Unset Printing Implicit Defensive.  
 
 (** models: polynomials with a remainder *)
-(** the basis is written in the type in order to differentiate models in different bases *)
-Record Model (T: nat -> R -> R) C := { pol: list C; rem: C }.
+Record Model C := { pol: list C; rem: C }.
 
 (** ** operations on rigorous approximations *)
 Section n.
- Context {N: NBH} {T: nat -> R -> R} {B: BasisOps}.
- Notation Model := (Model T (car (ops0 (@II N)))).
- Notation eval := (vectorspace.eval T).
+ Context {N: NBH} {B: BasisOps}.
+ Notation Model := (Model (car (ops0 (@II N)))).
 
  (** range of a polynomial *)
  Let srange p: II :=
@@ -156,7 +154,8 @@ Section n.
 
  (** ** correctness of the above operations in valid bases *)
  
- Context {HB: ValidBasisOps T B}.
+ Context {T} {HB: ValidBasisOps T B}.
+ Notation eval := (vectorspace.eval T).
  
  (** containment relation for models *)
  Definition mcontains (M: Model) (f: R -> R) :=
@@ -509,7 +508,7 @@ Section n.
    - exact eval_mrange.
  Qed.
 End n.
-Arguments MFunOps {_ _} _.
+Arguments MFunOps {_} _.
 Arguments Valid {_ _ _} _.
 
 Global Hint Resolve rmid rmcst rmeval: rel.

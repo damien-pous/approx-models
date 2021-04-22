@@ -1,5 +1,7 @@
 (** Example 1: rigorous approximations of the absolute value function *)
 
+(* DAMIEN to FLORENT : I inserted a few 'TOCHECK' for you... *)
+
 Require Import Reals.
 Open Scope R_scope.
 
@@ -48,18 +50,18 @@ Section s.
 Variable N : Z.
 Variable eps : forall {C : Ops1}, C. Arguments eps {C}.
 Context {C : Ops1} {F: FunOps C}.
-Definition NearAbs : F := sqrt' N (cst eps + id * id).
+Definition NearAbs : F := msqrt N (mcst eps + mid * mid).
 End s.
 
 Definition D10: Domain := DZ (-1) 0.
 Definition D01: Domain := DZ 0 1.
 
-(* note the choice of [Iprimitive.nbh] below *)
-Definition F11 := MFunOps Iprimitive.nbh chebyshev.basis.
-Definition F10 := MFunOps Iprimitive.nbh (rescale D10 chebyshev.basis).
-Definition F01 := MFunOps Iprimitive.nbh (rescale D01 chebyshev.basis).
+(* implicit use of [Iprimitive.nbh] below *)
+Definition F11 := MFunOps chebyshev.basis.
+Definition F10 := MFunOps (rescale D10 chebyshev.basis).
+Definition F01 := MFunOps (rescale D01 chebyshev.basis).
 
-Definition wrem {nbh: NBH} f (x: Model f II) := width (rem x). 
+Definition wrem {nbh: NBH} (x: Model II) := width (rem x). 
 
 (* First, compute rigorous approximations over [-1,1] and check remainders *)
 
@@ -100,6 +102,7 @@ Time Eval vm_compute in (wrem (@NearAbs 90 (fun C => 1/fromZ 1000) II F11)).
 Time Eval vm_compute in (wrem (@NearAbs 100 (fun C => 1/fromZ 1000) II F11)).
 
 (* eps = 1/10000 *)
+(* TOCHECK: here we get nan values *)
 Time Eval vm_compute in (wrem (@NearAbs 10 (fun C => 1/fromZ 10000) II F11)).
 Time Eval vm_compute in (wrem (@NearAbs 20 (fun C => 1/fromZ 10000) II F11)).
 Time Eval vm_compute in (wrem (@NearAbs 30 (fun C => 1/fromZ 10000) II F11)).
@@ -136,7 +139,7 @@ Time Eval native_compute in (wrem (@NearAbs 180 (fun C => fromZ 2) II F11)).
 Time Eval native_compute in (wrem (@NearAbs 190 (fun C => fromZ 2) II F11)).
 Time Eval native_compute in (wrem (@NearAbs 200 (fun C => fromZ 2) II F11)).
 
-(* coqapprox no longer fails! *)
+(* TOCHECK: coqapprox no longer fails! *)
 Fact coqapprox_no_longer_fails (x : R) : 0 <= x <= 1 -> R_sqrt.sqrt (1/100 + x^2) <= 200.
 Proof.
    intros.
@@ -144,7 +147,7 @@ Proof.
    interval with (i_depth 1, i_bisect x, i_prec 64).
 Qed.
 
-(* below: does it make sense without i_bisect_taylor? *)
+(* TOCHECK: below, does it make sense without i_bisect_taylor? *)
 (* 
 Fact compare_with_coqapprox (x : R) : -1 <= x <= 1 -> R_sqrt.sqrt (2 + x^2) <= 0.
 Proof.
@@ -174,8 +177,8 @@ Abort.
 *)
 
 Definition NearAbsRem01 eps (N : Z) :=
-  let Rem01 := @NearAbs N eps II F01 - id in
-  width (range Rem01).
+  let Rem01 := @NearAbs N eps II F01 - mid in
+  width (mrange Rem01).
 
 Time Eval vm_compute in (NearAbsRem01 (fun C => 1/fromZ 100) 4).
 Time Eval vm_compute in (NearAbsRem01 (fun C => 1/fromZ 100) 5).
@@ -234,22 +237,22 @@ Fact coqapprox_compare (x : R) : 0 <= x <= 1 -> R_sqrt.sqrt (1/100 + x^2) - x <=
 Proof.
    intros.
    Time interval with (i_depth 60, i_bisect x, i_prec 64).
-Abort.
+Qed.
 
 
 
 Definition NearAbsRem' eps (N : Z) :=
   let f := @NearAbs N eps II F11 in
-  let fl := f + id in
-  let fr := f - id in
-  let gl := @NearAbs N eps II F10 + id in
-  let gr := @NearAbs N eps II F01 - id in
-  (eval fl (bnd (0-1) 0),
-   eval fr (bnd 0 1),
-   range gl,
-   range gr).
+  let fl := f + mid in
+  let fr := f - mid in
+  let gl := @NearAbs N eps II F10 + mid in
+  let gr := @NearAbs N eps II F01 - mid in
+  (meval fl (bnd (0-1) 0),
+   meval fr (bnd 0 1),
+   mrange gl,
+   mrange gr).
 
-(* DAMIEN: uncommented, not sure we get the expected results... *)
+(* TOCHECK: uncommented, not sure we get the expected results... *)
 Eval vm_compute in (NearAbsRem' (fun C => 1/fromZ 100) 40).   (* [.1002] *)
 Eval vm_compute in (NearAbsRem' (fun C => 1/fromZ 1000) 40).  (* [.0317] *)
 Eval vm_compute in (NearAbsRem' (fun C => 1/fromZ 10000) 10). (* nan *)
