@@ -8,7 +8,8 @@ Unset Strict Implicit.
 Unset Printing Implicit Defensive.  
 
 (** models: polynomials with a remainder *)
-Record Model C := { pol: list C; rem: C }.
+(** the third field is used to document potential runtime errors *)
+Record Model C := { pol: list C; rem: C; err: error }.
 
 (** ** operations on rigorous approximations *)
 Section n.
@@ -16,36 +17,44 @@ Section n.
  Notation Model := (Model (car (ops0 (@II N)))).
 
  (** range of a polynomial *)
- Let srange p: II :=
+ Definition srange p: II :=
    match brange with
    | None => beval p (bnd lo hi)
    | Some range => let (m,M):=range p in bnd m M
    end.
 
  (** model with empty remainder *)
- Let msingle p: Model := {| pol := p; rem := 0 |}.
+ Definition msingle p: Model := {| pol := p; rem := 0; err := None |}.
 
  (** uninformative model  *)
- Let mbot: Model := {| pol := 0; rem := bot |}.
+ Definition mbot: Model := {| pol := 0; rem := bot; err := None |}.
+
+ (** uninformative model resulting from a runtime error *)
+ Definition merr err: Model := {| pol := 0; rem := bot; err := Some err |}.
+
 
  (** basic operations on models *)
- Let madd (M N: Model): Model :=
+ Definition madd (M N: Model): Model :=
    {| pol := pol M + pol N;
-      rem := rem M + rem N |}.
- Let msub (M N: Model): Model :=
+      rem := rem M + rem N;
+      err := err M ^ err N |}.
+ Definition msub (M N: Model): Model :=
    {| pol := pol M - pol N ;
-      rem := rem M - rem N |}.
- Let mscal (x: II) (M: Model): Model :=
+      rem := rem M - rem N;
+      err := err M ^ err N |}.
+ Definition mscal (x: II) (M: Model): Model :=
    {| pol := sscal x (pol M);
-      rem := x * rem M |}.
- Let mmul (M N: Model): Model :=
+      rem := x * rem M;
+      err := err M |}.
+ Definition mmul (M N: Model): Model :=
    {| pol := pol M * pol N;
-      rem := srange (pol M) * rem N + srange (pol N) * rem M + rem M * rem N |}.
- Let mzer: Model := msingle 0.
- Let mone: Model := msingle 1.
+      rem := srange (pol M) * rem N + srange (pol N) * rem M + rem M * rem N;
+      err := err M ^ err N |}.
+ Definition mzer: Model := msingle 0.
+ Definition mone: Model := msingle 1.
 
  (** by defining this structure, we get nice notations for the above operations on models *)
- Let MOps0: Ops0 :=
+ Local Canonical Structure MOps0: Ops0 :=
    {|
      car:=Model;
      add:=madd;
@@ -54,35 +63,34 @@ Section n.
      zer:=mzer;
      one:=mone;
    |}.
- Local Canonical Structure MOps0.
 
  (** identity *)
- Let mid: Model := msingle bid.
+ Definition mid: Model := msingle bid.
 
  (** constant *)
- Let mcst c: Model := mscal c mone.
+ Definition mcst c: Model := mscal c mone.
 
  (** integration *)
- Let mintegrate_unsafe (M: Model) (a b: II): II :=
+ Definition mintegrate_unsafe (M: Model) (a b: II): II :=
    let N := bprim (pol M) in 
    beval N b - beval N a + (b-a)*rem M.
- Let mintegrate (M: Model) (a b: II): II :=
+ Definition mintegrate (M: Model) (a b: II): II :=
    if Dom a && Dom b then mintegrate_unsafe M a b else bot.
  
  (** evaluation, without checking that the argument belongs to the domain *)
- Let meval_unsafe (M: Model) (x: II): II := beval (pol M) x + rem M.
+ Definition meval_unsafe (M: Model) (x: II): II := beval (pol M) x + rem M.
 
  (** evaluation *)
- Let meval (M: Model) (x: II): II :=
+ Definition meval (M: Model) (x: II): II :=
    if Dom x then meval_unsafe M x else bot.
  
  (** range *)
- Let mrange (M: Model): II := srange (pol M) + rem M.
+ Definition mrange (M: Model): II := srange (pol M) + rem M.
 
  (** truncation of a model *)
- Let mtruncate (n: nat) (F: Model): Model :=
-   let (p,q) := split_list n (pol F) in 
-   {| pol := p; rem:=rem F + srange q |}.
+ Definition mtruncate (n: nat) (M: Model): Model :=
+   let (p,q) := split_list n (pol M) in 
+   {| pol := p; rem := rem M + srange q; err := err M |}.
 
  (** division: h' and w' are given by an oracle
     h' ~ f'/g'
@@ -92,45 +100,49 @@ Section n.
    let k2' := w' * (g' * h' - f') in
    match mag (mrange k1'), mag (mrange k2') with
    | Some mu', Some b' =>
-     if is_lt mu' 1 then {| pol := pol h'; rem := rem h' + sym (b' / (1 - mu')) |}
-     else mbot
-   | _,_ => mbot
+     if is_lt mu' 1 then {| pol := pol h';
+                            rem := rem h' + sym (b' / (1 - mu'));
+                            err := err f' ^ err g' |}
+     else merr "mdiv: non contractive operator"
+   | _,_ => merr "mdiv: error when checking the ranges of k1/k2"
    end.
 
  (** square root: g' and k' are given by an oracle 
     g' ~ sqrt f'
     k' ~ 1 / 2g' *)
- Let msqrt_aux (f' h' w': Model) (x0' : II): Model :=
+ Definition msqrt_aux (f' h' w': Model) (x0' : II): Model :=
    (* TODO: move to a plain meval with monadic style *)
-   if ~~ Dom x0' then mbot else
+   if ~~ Dom x0' then merr "msqrt: given point out of the domain" else
    let y0' := meval_unsafe w' x0' in
-   if ~~ is_lt 0 y0' then mbot else
+   if ~~ is_lt 0 y0' then merr "msqrt: potentially negative value" else
    let k1' := 1 - (mscal (fromZ 2) (w' * h')) in
    let k2' := w' * (h' * h' - f') in
    match mag (mrange k1'), mag (mrange w'), mag (mrange k2') with
    | Some mu0', Some mu1', Some b' =>
      let delta' := pow 2 (1 - mu0') - fromZ 8 * b' * mu1' in
-     if is_lt mu0' 1 && is_lt 0 delta' then
-       let rmin' := (1 - mu0' - sqrt delta')/(fromZ 4 * mu1') in
-       let mu' := mu0' + fromZ 2 * mu1' * rmin' in
-       if is_lt mu' 1 then
-       {| pol := pol h'; rem:=rem h' + sym rmin' |}             
-     else mbot else mbot
-   | _,_,_ => mbot
+     if is_lt mu0' 1 then
+       if is_lt 0 delta' then
+         let rmin' := (1 - mu0' - sqrt delta')/(fromZ 4 * mu1') in
+         let mu' := mu0' + fromZ 2 * mu1' * rmin' in
+         if is_lt mu' 1 then {| pol := pol h'; rem:=rem h' + sym rmin'; err:=err f' |}             
+         else merr "msqrt: missed mu'<1"
+       else merr "msqrt: missed 0<delta"
+     else merr "msqrt: missed mu0<1"
+   | _,_,_ => merr "msqrt: error when checking the ranges of k1/w/k2"
    end.
 
  (** auxiliary conversion functions to perform interpolation with floating points *)
- Let mcf (M: Model): list FF := map I2F (pol M).
- Let mfc (p: list FF): Model := {| pol := map F2I p; rem := 0 |}.
+ Definition mcf (M: Model): list FF := map I2F (pol M).
+ Definition mfc (p: list FF): Model := {| pol := map F2I p; rem := 0; err := None |}.
 
  (** division and square root, using interpolation as oracle *)
- Let mdiv n (M N: Model): Model :=
+ Definition mdiv n (M N: Model): Model :=
    let p := mcf M in
    let q := mcf N in
    mdiv_aux M N
             (mfc (interpolate n (fun x => beval p x / beval q x)))
             (mfc (interpolate n (fun x => 1 / beval q x))).
- Let msqrt n (M: Model): Model :=
+ Definition msqrt n (M: Model): Model :=
    let p := mcf M in
    let h := interpolate n (fun x: FF => sqrt (beval p x)) in
    msqrt_aux M
@@ -150,6 +162,7 @@ Section n.
     neighborhood.msqrt:=msqrt;
     neighborhood.mtruncate:=mtruncate;
     neighborhood.mrange:=mrange;
+    neighborhood.merror:=@err _;
   |}.
 
  (** ** correctness of the above operations in valid bases *)
@@ -511,4 +524,4 @@ End n.
 Arguments MFunOps {_} _.
 Arguments Valid {_ _ _} _.
 
-Global Hint Resolve rmid rmcst rmeval: rel.
+Global Hint Resolve rmid rmcst (* rmeval *): rel.

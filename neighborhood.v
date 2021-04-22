@@ -3,7 +3,7 @@
 Require Export Psatz Rbase Rfunctions Ranalysis.
 Require Export Coquelicot.Coquelicot.
 Require Export Setoid Morphisms.
-Require Export List. Export ListNotations.
+Require Export String List. Export ListNotations.
 Require Export ssreflect ssrbool ssrfun.
 
 Set Implicit Arguments.
@@ -235,6 +235,14 @@ Proof.
 Qed.
 
 
+(** type for potential runtime errors *)
+Definition error := option string.
+Definition merge_errors (a b: error): error :=
+  match a with None => b | _ => a end.
+Declare Scope error_scope.
+Bind Scope error_scope with error.
+Infix "^" := merge_errors: error_scope.
+
 (** ** abstract operations on functions *)
 Record FunOps (C: Type) :=
   {
@@ -251,6 +259,8 @@ Record FunOps (C: Type) :=
     mtruncate: nat -> funcar -> funcar;
     (* range is meaningless on reals; it returns the range of the model otherwise *)
     mrange: funcar -> C;
+    (* was an error raised during execution *)
+    merror: funcar -> error
   }.
 Arguments mid {_ _}.
 Arguments mcst {_ _}.
@@ -267,6 +277,7 @@ Definition RFunOps: FunOps R :=
     msqrt _ := f_unr R_sqrt.sqrt;
     mtruncate _ f := f;
     mrange _ := R0;
+    merror _ := None;
   |}.
 
 (** validity of function operations (will probably be reworked) *)

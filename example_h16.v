@@ -55,6 +55,18 @@ Section s.
  Let Integral1 (i j : nat) := mintegrate (integrand1 i j) xmin xmax.
  Let Integral2 (i j : nat) := mintegrate (integrand2 i j) ymin ymax.
  Let Integral i j := Integral1 i j + Integral2 i j.
+ Definition integrands1 :=
+   (integrand1 0 0,
+    integrand1 2 0,
+    integrand1 2 2,
+    integrand1 4 0,
+    integrand1 0 4).
+ Definition integrands2 :=
+   (integrand2 0 0,
+    integrand2 2 0,
+    integrand2 2 2,
+    integrand2 4 0,
+    integrand2 0 4).
  Definition TotalIntegral :=
    (Integral 0 0,
     Integral 2 0,
@@ -77,25 +89,33 @@ Section s.
  Proof. unfold parametric, r. rel. Qed.
  Hint Resolve rr: rel. 
 
- Hypothesis Hx: is_lt xmin' xmax'. 
+ Hypothesis Hx: is_lt xmin xmax. 
  Let Dx: Domain.
- apply D with @xmin' @xmax'.
- abstract (unfold parametric,xmin',xmin; rel). 
- abstract (unfold parametric,xmax',xmax; rel). 
+ apply D with @xmin @xmax.
+ abstract (unfold parametric,xmin; rel). 
+ abstract (unfold parametric,xmax; rel). 
  exact Hx.
  Defined.
 
- Hypothesis Hy: is_lt ymin' ymax'. 
+ Hypothesis Hy: is_lt ymin ymax. 
  Let Dy: Domain.
- apply D with @ymin' @ymax'.
- abstract (unfold parametric,ymin',ymin; rel). 
- abstract (unfold parametric,ymax',ymax; rel). 
+ apply D with @ymin @ymax.
+ abstract (unfold parametric,ymin; rel). 
+ abstract (unfold parametric,ymax; rel). 
  exact Hy. 
  Defined.
 
  Let Bx := rescale Dx chebyshev.basis.
  Let By := rescale Dy chebyshev.basis.
 
+ Definition intermediate1 {N: NBH} := 
+   let '(a,b,c,d,e) := @integrands1 II (MFunOps Bx)
+   in (merror a, merror b, merror c, merror d, merror e).
+
+ Definition intermediate2 {N: NBH} := 
+   let '(a,b,c,d,e) := @integrands2 II (MFunOps By)
+   in (merror a, merror b, merror c, merror d, merror e).
+ 
  Definition calcul {N: NBH} :=
    let '(a,b,c,d,e) := @TotalIntegral II (MFunOps Bx) (MFunOps By)
    in (width a, width b, width c, width d, width e).
@@ -110,6 +130,9 @@ End s.
 (* TOCHECK: seems to be broken now, we always get [nan]
    I guess this is because now we do check that arguments of evaluations and bounds of integrals belong to the domain. Possibly these checks fail because the example is wrong...
  *)
+
+Time Eval vm_compute in (fun Hx => @intermediate1  5      10  13 (*  32 *) Hx Iprimitive.nbh).
+Time Eval vm_compute in (fun Hy => @intermediate2  5      10  13 (*  32 *) Hy Iprimitive.nbh).
 
 (* first one is always slow: native_compute must initialise *)
 Time Eval native_compute in (fun Hx Hy => @calcul  5      10  13 (*  32 *) Hx Hy Iprimitive.nbh).

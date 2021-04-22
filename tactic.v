@@ -8,30 +8,6 @@ Unset Strict Implicit.
 Unset Printing Implicit Defensive.
 
 
-Eval vm_compute in
-    let e := (e_integrate ((1+f_id) / ((1-f_id)*(1-f_id)+1/fromZ 4)) 0 (pi/fromZ 4)) in
-    width (eSem (approx.MFunOps chebyshev.basis) 20 e).
-    (** increase 20 to get more digits *)
-
-(** Note that the neighborhood is set by default to [Iprimitive.nbh], i.e., intervals with primitive floating point endpoints 
-   other candidates include:
-   - [IBigInt.nbh]: intervals with floating points endpoints, floating points being represented via primitive 63bit integers (less axioms, a bit less efficient)
-   - [IZ.nbh]: intervals with floating points endpoints, floating points being represented via Coq integers (Z) (no axioms, no so efficient)
-  *)
-
-Eval vm_compute in
-    let e := (e_integrate ((1+f_id) / ((1-f_id)*(1-f_id)+1/fromZ 4)) 0 (pi/fromZ 4)) in
-    width (eSem (N:=IZ.nbh) (approx.MFunOps chebyshev.basis) 20 e).
-
-(** About neighborhood instances:
-Print Assumptions bound.          (** only four axioms for the (classical) construction of reals *)
-Print Assumptions approx.MFunOps. (** idem *)
-Print Assumptions chebyshev.basis.(** idem *)
-Print Assumptions IZ.nbh.         (** idem, only 4, everything is emulated *)
-Print Assumptions IBigInt.nbh.    (** plus axioms for primitive 63bits integers (Int63) *)
-Print Assumptions Iprimitive.nbh. (** plus axioms for primitive floats (PrimFloat) *)
- *)
-
 
 
 (** a user-defined tactic to prove bounds on concrete expressions *)
@@ -134,3 +110,37 @@ Proof.
   bound (e_integrate f_zer (fromZ (-3)) (fromZ 3)) 10%Z
         (approx.Valid (rescale.valid (DZ (-3) 3) chebyshev.valid)).
 Qed.
+
+
+(** below: other tests, to be moved somewhere else  *)
+
+Eval vm_compute in
+    let e := (e_integrate ((1+f_id) / ((1-f_id)*(1-f_id)+1/fromZ 4)) 0 (pi/fromZ 4)) in
+    width (eSem (approx.MFunOps chebyshev.basis) 20 e).
+    (** increase 20 to get more digits *)
+
+
+(* testing interpolation on rescaled bases *)
+Eval vm_compute in
+    let f: fxpr := f_id / sqrt ((1+f_id) / (fromZ 3+f_id)) in
+    merror (fSem (approx.MFunOps (rescale (DZ 18 200) chebyshev.basis)) 3 f).
+
+
+(** Note that the neighborhood is set by default to [Iprimitive.nbh], i.e., intervals with primitive floating point endpoints 
+   other candidates include:
+   - [IBigInt.nbh]: intervals with floating points endpoints, floating points being represented via primitive 63bit integers (less axioms, a bit less efficient)
+   - [IZ.nbh]: intervals with floating points endpoints, floating points being represented via Coq integers (Z) (no axioms, not so efficient)
+  *)
+
+Eval vm_compute in
+    let e := (e_integrate ((1+f_id) / ((1-f_id)*(1-f_id)+1/fromZ 4)) 0 (pi/fromZ 4)) in
+    width (eSem (N:=IZ.nbh) (approx.MFunOps chebyshev.basis) 20 e).
+
+(** About neighborhood instances:
+Print Assumptions bound.          (** only four axioms for the (classical) construction of reals *)
+Print Assumptions approx.MFunOps. (** idem *)
+Print Assumptions chebyshev.basis.(** idem *)
+Print Assumptions IZ.nbh.         (** idem, only 4, everything is emulated *)
+Print Assumptions IBigInt.nbh.    (** plus axioms for primitive 63bits integers (Int63) *)
+Print Assumptions Iprimitive.nbh. (** plus axioms for primitive floats (PrimFloat) *)
+ *)
