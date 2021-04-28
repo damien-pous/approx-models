@@ -24,10 +24,11 @@ Section s.
  Definition xmax: C := sqrt (x0 + r_sqrt2).
  Definition ymin: C := sqrt (y0 - r_sqrt2).
  Definition ymax: C := sqrt (y0 + r_sqrt2).
- Definition xmin' := xmin-1.
- Definition xmax' := xmax+1.
- Definition ymin' := ymin-1.
- Definition ymax' := ymax+1.
+ (* sligthly larger domains *)
+ Definition xmin' := xmin-1/fromZ 100.
+ Definition xmax' := xmax+1/fromZ 100.
+ Definition ymin' := ymin-1/fromZ 100.
+ Definition ymax' := ymax+1/fromZ 100.
  Let sqrx (f: Fx): Fx := mtruncate N (f * f).
  Let sqry (f: Fy): Fy := mtruncate N (f * f).
  Let deltay: E Fx := msqrt N' (mcst r2 - sqrx (sqrx mid - mcst x0)).
@@ -101,19 +102,19 @@ Section s.
  Proof. unfold parametric, r. rel. Qed.
  Hint Resolve rr: rel. 
 
- Hypothesis Hx: is_lt xmin xmax. 
+ Hypothesis Hx: is_lt xmin' xmax'. 
  Let Dx: Domain.
- apply D with @xmin @xmax.
- abstract (unfold parametric,xmin; rel). 
- abstract (unfold parametric,xmax; rel). 
+ apply D with @xmin' @xmax'.
+ abstract (unfold parametric,xmin',xmin; rel). 
+ abstract (unfold parametric,xmax',xmax; rel). 
  exact Hx.
  Defined.
 
- Hypothesis Hy: is_lt ymin ymax. 
+ Hypothesis Hy: is_lt ymin' ymax'. 
  Let Dy: Domain.
- apply D with @ymin @ymax.
- abstract (unfold parametric,ymin; rel). 
- abstract (unfold parametric,ymax; rel). 
+ apply D with @ymin' @ymax'.
+ abstract (unfold parametric,ymin',ymin; rel). 
+ abstract (unfold parametric,ymax',ymax; rel). 
  exact Hy. 
  Defined.
 
@@ -139,9 +140,7 @@ End s.
    the first ones, using IPrimitive.nbh / IBigInt.nbh are not with 63/64 bits now
  *)
 
-(* TOCHECK: seems to be broken now, we always get [nan]
-   I guess this is because now we do check that arguments of evaluations and bounds of integrals belong to the domain. Possibly these checks fail because the example is wrong...
- *)
+(* TOCHECK *)
 
 Time Eval vm_compute in @intermediate1  5      10  13 (*  32 *) eq_refl Iprimitive.nbh.
 Time Eval vm_compute in @intermediate2  5      10  13 (*  32 *) eq_refl Iprimitive.nbh.
@@ -153,7 +152,7 @@ Time Eval native_compute in @calcul  5      10  13 (*  32 *) eq_refl eq_refl Ipr
 Time Eval native_compute in @calcul 78     100  15 (*  32 *) eq_refl eq_refl Iprimitive.nbh.
 
 (* quite slower with IBigInt... *)
-Time Eval native_compute in (fun Hx Hy => @calcul 78     100  15 (*  32 *) Hx Hy IBigInt.nbh).
+Time Eval native_compute in @calcul 78     100  15 (*  32 *) eq_refl eq_refl IBigInt.nbh.
 
 From Interval Require Import Specific_bigint Specific_ops.
 Import BigZ.
@@ -170,7 +169,7 @@ Module FBigInt300 <: FloatOpsP.
 End FBigInt300. 
 Module IBigInt300 := Make FBigInt300.
 
-(* TOCHECK: rather heavy and thus commented out *)
+(* TOCHECK: we obtain very large intervals... *)
 Time Eval native_compute in @calcul 88     100  65 (* 128 *) eq_refl eq_refl IBigInt128.nbh.
 Time Eval native_compute in @calcul 89     100  95 (* 128 *) eq_refl eq_refl IBigInt128.nbh.
 Time Eval native_compute in @calcul 895   1000 135 (* 300 *) eq_refl eq_refl IBigInt300.nbh.
