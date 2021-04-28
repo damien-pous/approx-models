@@ -30,31 +30,43 @@ Section s.
  Definition ymax' := ymax+1.
  Let sqrx (f: Fx): Fx := mtruncate N (f * f).
  Let sqry (f: Fy): Fy := mtruncate N (f * f).
- Let deltay: Fx := msqrt N' (mcst r2 - sqrx (sqrx mid - mcst x0)).
- Let deltax: Fy := msqrt N' (mcst r2 - sqry (sqry mid - mcst y0)).
- Let ydown: Fx := msqrt N' (mcst y0 - deltay).
- Let yup: Fx := msqrt N' (mcst y0 + deltay).
- Let yupdown: Fx := mdiv N' 1 yup - mdiv N' 1 ydown.
- Let xleft: Fy := msqrt N' (mcst x0 - deltax).
- Let xright: Fy := msqrt N' (mcst x0 + deltax).
- Let xleftright: Fy := mdiv N' 1 (xleft * deltax) + mdiv N' 1 (xright * deltax).
+ Let deltay: E Fx := msqrt N' (mcst r2 - sqrx (sqrx mid - mcst x0)).
+ Let deltax: E Fy := msqrt N' (mcst r2 - sqry (sqry mid - mcst y0)).
+ Let ydown: E Fx := deltay >>= fun deltay => msqrt N' (mcst y0 - deltay).
+ Let yup: E Fx := deltay >>= fun deltay => msqrt N' (mcst y0 + deltay).
+ Let yupdown: E Fx :=
+   ydown >>= fun ydown =>
+               yup >>= fun yup =>
+                         mdiv N' 1 yup >>= fun a =>
+                                             mdiv N' 1 ydown >>= fun b => ret (a-b).
+ Let xleft: E Fy := deltax >>= fun deltax => msqrt N' (mcst x0 - deltax).
+ Let xright: E Fy := deltax >>= fun deltax => msqrt N' (mcst x0 + deltax).
+ Let xleftright: E Fy :=
+   deltax >>= fun deltax =>
+   xleft >>= fun xleft =>  
+   xright >>= fun xright =>  
+   mdiv N' 1 (xleft * deltax) >>= fun a =>
+   mdiv N' 1 (xright * deltax) >>= fun b => 
+   ret (a+b).
  Let powx f n: Fx := match n with 1 => f | 2 => sqrx f | 3 => mtruncate N (f*sqrx f) | 4 => sqrx (sqrx f) | _ => 1 end.
  Let powy f n: Fy := match n with 1 => f | 2 => sqry f | 3 => mtruncate N (f*sqry f) | 4 => sqry (sqry f) | _ => 1 end.
  Infix "^" := powx.
- Let integrand1 (i j : nat): Fx :=
+ Let integrand1 (i j : nat): E Fx :=
    match j with
-   | 0 => mid ^ i * yupdown
-   | S j' => mid ^ i * (yup ^ j' - ydown ^ j')
+   | 0 => yupdown >>= fun yupdown => ret (mid ^ i * yupdown)
+   | S j' => yup >>= fun yup => ydown >>= fun ydown => ret (mid ^ i * (yup ^ j' - ydown ^ j'))
    end.
  Infix "^" := powy.
- Let integrand2 (i j : nat): Fy :=
+ Let integrand2 (i j : nat): E Fy :=
    match i with
-   | 0 => xleftright * (mid ^ j * (mid ^ 2 - mcst y0))
-   | S i' => mdiv N' ((xleft ^ i' + xright ^ i') * mid ^ j * (mid ^ 2 - mcst y0)) deltax
+   | 0 => xleftright >>= fun xleftright => ret (xleftright * (mid ^ j * (mid ^ 2 - mcst y0)))
+   | S i' => xleft >>= fun xleft =>
+             xright >>= fun xright =>
+             deltax >>= mdiv N' ((xleft ^ i' + xright ^ i') * mid ^ j * (mid ^ 2 - mcst y0))
    end.
- Let Integral1 (i j : nat) := mintegrate (integrand1 i j) xmin xmax.
- Let Integral2 (i j : nat) := mintegrate (integrand2 i j) ymin ymax.
- Let Integral i j := Integral1 i j + Integral2 i j.
+ Let Integral1 (i j : nat) := integrand1 i j >>= fun fx => mintegrate fx xmin xmax.
+ Let Integral2 (i j : nat) := integrand2 i j >>= fun fy => mintegrate fy ymin ymax.
+ Let Integral i j := Integral1 i j >>= fun a => Integral2 i j >>= fun b => ret (a+b).
  Definition integrands1 :=
    (integrand1 0 0,
     integrand1 2 0,
@@ -110,15 +122,15 @@ Section s.
 
  Definition intermediate1 {N: NBH} := 
    let '(a,b,c,d,e) := @integrands1 II (MFunOps Bx)
-   in (merror a, merror b, merror c, merror d, merror e).
+   in (a, b, c, d, e).
 
  Definition intermediate2 {N: NBH} := 
    let '(a,b,c,d,e) := @integrands2 II (MFunOps By)
-   in (merror a, merror b, merror c, merror d, merror e).
+   in (a, b, c, d, e).
  
  Definition calcul {N: NBH} :=
    let '(a,b,c,d,e) := @TotalIntegral II (MFunOps Bx) (MFunOps By)
-   in (width a, width b, width c, width d, width e).
+   in (a, b, c, d, e).
    
 End s.
 
@@ -131,13 +143,14 @@ End s.
    I guess this is because now we do check that arguments of evaluations and bounds of integrals belong to the domain. Possibly these checks fail because the example is wrong...
  *)
 
-Time Eval vm_compute in (fun Hx => @intermediate1  5      10  13 (*  32 *) Hx Iprimitive.nbh).
-Time Eval vm_compute in (fun Hy => @intermediate2  5      10  13 (*  32 *) Hy Iprimitive.nbh).
+Time Eval vm_compute in @intermediate1  5      10  13 (*  32 *) eq_refl Iprimitive.nbh.
+Time Eval vm_compute in @intermediate2  5      10  13 (*  32 *) eq_refl Iprimitive.nbh.
+Time Eval vm_compute in @calcul         5      10  13 (*  32 *) eq_refl eq_refl Iprimitive.nbh.
 
 (* first one is always slow: native_compute must initialise *)
-Time Eval native_compute in (fun Hx Hy => @calcul  5      10  13 (*  32 *) Hx Hy Iprimitive.nbh).
-Time Eval native_compute in (fun Hx Hy => @calcul  5      10  13 (*  32 *) Hx Hy Iprimitive.nbh).
-Time Eval native_compute in (fun Hx Hy => @calcul 78     100  15 (*  32 *) Hx Hy Iprimitive.nbh).
+Time Eval native_compute in @calcul  5      10  13 (*  32 *) eq_refl eq_refl Iprimitive.nbh.
+Time Eval native_compute in @calcul  5      10  13 (*  32 *) eq_refl eq_refl Iprimitive.nbh.
+Time Eval native_compute in @calcul 78     100  15 (*  32 *) eq_refl eq_refl Iprimitive.nbh.
 
 (* quite slower with IBigInt... *)
 Time Eval native_compute in (fun Hx Hy => @calcul 78     100  15 (*  32 *) Hx Hy IBigInt.nbh).
@@ -158,6 +171,6 @@ End FBigInt300.
 Module IBigInt300 := Make FBigInt300.
 
 (* TOCHECK: rather heavy and thus commented out *)
-Time Eval native_compute in (fun Hx Hy => @calcul 88     100  65 (* 128 *) Hx Hy IBigInt128.nbh).
-Time Eval native_compute in (fun Hx Hy => @calcul 89     100  95 (* 128 *) Hx Hy IBigInt128.nbh).
-Time Eval native_compute in (fun Hx Hy => @calcul 895   1000 135 (* 300 *) Hx Hy IBigInt300.nbh).
+Time Eval native_compute in @calcul 88     100  65 (* 128 *) eq_refl eq_refl IBigInt128.nbh.
+Time Eval native_compute in @calcul 89     100  95 (* 128 *) eq_refl eq_refl IBigInt128.nbh.
+Time Eval native_compute in @calcul 895   1000 135 (* 300 *) eq_refl eq_refl IBigInt300.nbh.

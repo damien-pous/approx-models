@@ -123,32 +123,38 @@ Context {N: NBH} (MM: FunOps II).
 Variable deg: Z.
 
 (** approximation of an expression using intervals / models *)
-Fixpoint eSem (e: expr): II :=
+Definition e_unr {A B} (f: A -> B) (x: E A): E B :=
+  x >>= fun a => ret (f a).
+Definition e_bin {A B C} (f: A -> B -> C) (x: E A) (y: E B): E C :=
+  x >>= fun a => y >>= fun b => ret (f a b).
+
+Fixpoint eSem (e: expr): E II :=
   match e with
-  | e_add e f => eSem e + eSem f
-  | e_sub e f => eSem e - eSem f
-  | e_mul e f => eSem e * eSem f
-  | e_div e f => eSem e / eSem f
-  | e_sqrt e => sqrt (eSem e)
-  | e_cos e => cos (eSem e)
-  | e_abs e => abs (eSem e)
-  | e_fromZ z => fromZ z
-  | e_pi => pi
-  | e_eval f x => meval (fSem f) (eSem x)
-  | e_integrate f a b => mintegrate (fSem f) (eSem a) (eSem b)
+  | e_add e f => e_bin (@add _) (eSem e) (eSem f)
+  | e_sub e f => e_bin (@sub _) (eSem e) (eSem f)
+  | e_mul e f => e_bin (@mul _) (eSem e) (eSem f)
+  | e_div e f => e_bin (@div _) (eSem e) (eSem f)
+  | e_sqrt e => e_unr (@sqrt _) (eSem e)
+  | e_cos e => e_unr (@cos _) (eSem e)
+  | e_abs e => e_unr (@abs _) (eSem e)
+  | e_fromZ z => ret (fromZ z)
+  | e_pi => ret pi
+  | e_eval f x => (fSem f >>= fun f => eSem x >>= fun x => meval f x)
+  | e_integrate f a b => (fSem f >>= fun f => eSem a >>= fun a => eSem b >>= fun b => mintegrate f a b)
   end
-with fSem (e: fxpr): MM :=
+with fSem (e: fxpr): E MM :=
   match e with
-  | f_add e f => fSem e + fSem f
-  | f_sub e f => fSem e - fSem f
-  | f_mul e f => fSem e * fSem f
-  | f_div e f => mdiv deg (fSem e) (fSem f) (** note the degree used here *)
-  | f_sqrt e => msqrt deg (fSem e)          (** note the degree used here *)
-  | f_id => mid
-  | f_cst e => mcst (eSem e)
-  | f_trunc e => mtruncate (Z.to_nat deg) (fSem e)     (** note the degree used here *)
+  | f_add e f => e_bin (@add _) (fSem e) (fSem f)
+  | f_sub e f => e_bin (@sub _) (fSem e) (fSem f)
+  | f_mul e f => e_bin (@mul _) (fSem e) (fSem f)
+  | f_div e f => (fSem e >>= fun e => fSem f >>= fun f => mdiv deg e f)  (** note the degree used here *)
+  | f_sqrt e => (fSem e >>= fun e => msqrt deg e)          (** note the degree used here *)
+  | f_id => ret mid
+  | f_cst e => e_unr mcst (eSem e)
+  | f_trunc e => e_unr (mtruncate (Z.to_nat deg)) (fSem e)     (** note the degree used here *)
   end.
 
+(*TMP
 
 Notation "a && b" := (if a then b else false).
 Fixpoint echeck (e: expr): bool :=
@@ -240,6 +246,6 @@ Qed.
 (** small corollary, useful to obtain a tactic *)
 Lemma bound x a b: echeck x -> (let X := eSem x in subseteq X a b) -> a <= esem x <= b.
 Proof. intros Hx H. exact (subseteqE H (econtains Hx)). Qed.
-
+*)
 End s.
 
