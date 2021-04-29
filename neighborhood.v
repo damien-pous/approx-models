@@ -242,6 +242,7 @@ Definition err {A} (e: string): E A := inr e.
 Definition bind {A B} (x: E A) (f: A -> E B): E B :=
   match x with inl a => f a | inr e => inr e end.
 Infix ">>=" := bind (at level 30).
+Notation "'LET' x ::= f 'IN' g" := (f >>= fun x => g) (at level 20).  
 Inductive Ep {A} (P: A -> Prop): E A -> Prop :=
   ep_ret: forall a, P a -> Ep P (ret a).
 Definition Ep' {A B} (P: A -> B -> Prop): E A -> B -> Prop :=

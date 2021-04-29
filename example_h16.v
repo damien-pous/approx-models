@@ -6,13 +6,12 @@ Set Implicit Arguments.
 Unset Strict Implicit.
 Unset Printing Implicit Defensive.
 
-Open Scope RO_scope.
-
 Section s.
  Variables rp rq: Z.
  Let r {C: Ops1}: C := fromZ rp / fromZ rq.
  Variable N: nat.
  Let N' := Z.of_nat N.
+ 
  Section t.
  Context {C: Ops1} {Fx: FunOps C} {Fy: FunOps C}.
  Let x0: C := fromZ 9 / fromZ 10.
@@ -20,10 +19,10 @@ Section s.
  Let sqrt2: C := sqrt (1+1). 
  Let r2: C := r*r. 
  Let r_sqrt2: C := r / sqrt2.
- Definition xmin: C := sqrt (x0 - r_sqrt2).
- Definition xmax: C := sqrt (x0 + r_sqrt2).
- Definition ymin: C := sqrt (y0 - r_sqrt2).
- Definition ymax: C := sqrt (y0 + r_sqrt2).
+ Let xmin: C := sqrt (x0 - r_sqrt2).
+ Let xmax: C := sqrt (x0 + r_sqrt2).
+ Let ymin: C := sqrt (y0 - r_sqrt2).
+ Let ymax: C := sqrt (y0 + r_sqrt2).
  (* sligthly larger domains *)
  Definition xmin' := xmin-1/fromZ 100.
  Definition xmax' := xmax+1/fromZ 100.
@@ -31,63 +30,52 @@ Section s.
  Definition ymax' := ymax+1/fromZ 100.
  Let sqrx (f: Fx): Fx := mtruncate N (f * f).
  Let sqry (f: Fy): Fy := mtruncate N (f * f).
- Let deltay: E Fx := msqrt N' (mcst r2 - sqrx (sqrx mid - mcst x0)).
- Let deltax: E Fy := msqrt N' (mcst r2 - sqry (sqry mid - mcst y0)).
- Let ydown: E Fx := deltay >>= fun deltay => msqrt N' (mcst y0 - deltay).
- Let yup: E Fx := deltay >>= fun deltay => msqrt N' (mcst y0 + deltay).
- Let yupdown: E Fx :=
-   ydown >>= fun ydown =>
-               yup >>= fun yup =>
-                         mdiv N' 1 yup >>= fun a =>
-                                             mdiv N' 1 ydown >>= fun b => ret (a-b).
- Let xleft: E Fy := deltax >>= fun deltax => msqrt N' (mcst x0 - deltax).
- Let xright: E Fy := deltax >>= fun deltax => msqrt N' (mcst x0 + deltax).
- Let xleftright: E Fy :=
-   deltax >>= fun deltax =>
-   xleft >>= fun xleft =>  
-   xright >>= fun xright =>  
-   mdiv N' 1 (xleft * deltax) >>= fun a =>
-   mdiv N' 1 (xright * deltax) >>= fun b => 
-   ret (a+b).
  Let powx f n: Fx := match n with 1 => f | 2 => sqrx f | 3 => mtruncate N (f*sqrx f) | 4 => sqrx (sqrx f) | _ => 1 end.
+ Infix "^x" := powx (at level 30).
  Let powy f n: Fy := match n with 1 => f | 2 => sqry f | 3 => mtruncate N (f*sqry f) | 4 => sqry (sqry f) | _ => 1 end.
- Infix "^" := powx.
- Let integrand1 (i j : nat): E Fx :=
-   match j with
-   | 0 => yupdown >>= fun yupdown => ret (mid ^ i * yupdown)
-   | S j' => yup >>= fun yup => ydown >>= fun ydown => ret (mid ^ i * (yup ^ j' - ydown ^ j'))
-   end.
- Infix "^" := powy.
- Let integrand2 (i j : nat): E Fy :=
-   match i with
-   | 0 => xleftright >>= fun xleftright => ret (xleftright * (mid ^ j * (mid ^ 2 - mcst y0)))
-   | S i' => xleft >>= fun xleft =>
-             xright >>= fun xright =>
-             deltax >>= mdiv N' ((xleft ^ i' + xright ^ i') * mid ^ j * (mid ^ 2 - mcst y0))
-   end.
- Let Integral1 (i j : nat) := integrand1 i j >>= fun fx => mintegrate fx xmin xmax.
- Let Integral2 (i j : nat) := integrand2 i j >>= fun fy => mintegrate fy ymin ymax.
- Let Integral i j := Integral1 i j >>= fun a => Integral2 i j >>= fun b => ret (a+b).
- Definition integrands1 :=
-   (integrand1 0 0,
-    integrand1 2 0,
-    integrand1 2 2,
-    integrand1 4 0,
-    integrand1 0 4).
- Definition integrands2 :=
-   (integrand2 0 0,
-    integrand2 2 0,
-    integrand2 2 2,
-    integrand2 4 0,
-    integrand2 0 4).
- Definition TotalIntegral :=
-   (Integral 0 0,
-    Integral 2 0,
-    Integral 2 2,
-    Integral 4 0,
-    Integral 0 4).
+ Infix "^y" := powy (at level 30).
+ Definition Integrals :=
+   LET deltay ::= msqrt N' (mcst r2 - sqrx (sqrx mid - mcst x0)) IN
+   LET deltax ::= msqrt N' (mcst r2 - sqry (sqry mid - mcst y0)) IN
+   LET ydown ::= msqrt N' (mcst y0 - deltay) IN
+   LET yup ::= msqrt N' (mcst y0 + deltay) IN
+   LET yupdown ::= 
+     LET a ::= mdiv N' 1 yup IN
+     LET b ::= mdiv N' 1 ydown IN
+     ret (a-b)
+   IN
+   LET xleft ::= msqrt N' (mcst x0 - deltax) IN
+   LET xright ::= msqrt N' (mcst x0 + deltax) IN
+   LET xleftright ::=
+     LET a ::= mdiv N' 1 (xleft * deltax) IN
+     LET b ::= mdiv N' 1 (xright * deltax) IN
+     ret (a+b)
+   IN
+   let integrand1 (i j : nat) :=
+       match j with
+       | 0 => mid ^x i * yupdown
+       | S j' => mid ^x i * (yup ^x j' - ydown ^x j')
+       end
+   in
+   let integrand2 (i j : nat) :=
+       match i with
+       | 0 => ret (xleftright * (mid ^y j * (mid ^y 2 - mcst y0)))
+       | S i' => mdiv N' ((xleft ^y i' + xright ^y i') * mid ^y j * (mid ^y 2 - mcst y0)) deltax
+       end
+   in
+   let Integral1 (i j : nat) := mintegrate (integrand1 i j) xmin xmax in
+   let Integral2 (i j : nat) := LET fy ::= integrand2 i j IN mintegrate fy ymin ymax in
+   let Integral i j := LET a ::= Integral1 i j IN LET b ::= Integral2 i j IN ret (a+b) in
+   (LET I00 ::= Integral 0 0 IN
+    LET I20 ::= Integral 2 0 IN
+    LET I22 ::= Integral 2 2 IN
+    LET I40 ::= Integral 4 0 IN
+    LET I04 ::= Integral 0 4 IN
+    ret (I00, I20, I22, I40, I04))%nat.
  End t.
 
+
+ (* TODO: improve definition of domains... *)
  Definition parametric (a: forall {C: Ops1}, C) := forall (R S : Ops1) (T : Rel1 R S), T a a. 
   
  Lemma check_lt (a b: forall {C: Ops1}, C) (ra: parametric (@a)) (rb: parametric (@b))
@@ -105,33 +93,23 @@ Section s.
  Hypothesis Hx: is_lt xmin' xmax'. 
  Let Dx: Domain.
  apply D with @xmin' @xmax'.
- abstract (unfold parametric,xmin',xmin; rel). 
- abstract (unfold parametric,xmax',xmax; rel). 
+ abstract (unfold parametric,xmin'; rel). 
+ abstract (unfold parametric,xmax'; rel). 
  exact Hx.
  Defined.
 
  Hypothesis Hy: is_lt ymin' ymax'. 
  Let Dy: Domain.
  apply D with @ymin' @ymax'.
- abstract (unfold parametric,ymin',ymin; rel). 
- abstract (unfold parametric,ymax',ymax; rel). 
+ abstract (unfold parametric,ymin'; rel). 
+ abstract (unfold parametric,ymax'; rel). 
  exact Hy. 
  Defined.
 
  Let Bx := rescale Dx chebyshev.basis.
  Let By := rescale Dy chebyshev.basis.
-
- Definition intermediate1 {N: NBH} := 
-   let '(a,b,c,d,e) := @integrands1 II (MFunOps Bx)
-   in (a, b, c, d, e).
-
- Definition intermediate2 {N: NBH} := 
-   let '(a,b,c,d,e) := @integrands2 II (MFunOps By)
-   in (a, b, c, d, e).
  
- Definition calcul {N: NBH} :=
-   let '(a,b,c,d,e) := @TotalIntegral II (MFunOps Bx) (MFunOps By)
-   in (a, b, c, d, e).
+ Definition calcul {N: NBH} := @Integrals II (MFunOps Bx) (MFunOps By).
    
 End s.
 
@@ -142,8 +120,6 @@ End s.
 
 (* TOCHECK *)
 
-Time Eval vm_compute in @intermediate1  5      10  13 (*  32 *) eq_refl Iprimitive.nbh.
-Time Eval vm_compute in @intermediate2  5      10  13 (*  32 *) eq_refl Iprimitive.nbh.
 Time Eval vm_compute in @calcul         5      10  13 (*  32 *) eq_refl eq_refl Iprimitive.nbh.
 
 (* first one is always slow: native_compute must initialise *)

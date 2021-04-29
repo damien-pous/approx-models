@@ -42,15 +42,13 @@ Set Implicit Arguments.
 Unset Strict Implicit.
 Unset Printing Implicit Defensive.
 
-Open Scope RO_scope.
-
 Section Exemple1.
 
 Section s.
 Variable N : Z.
 Variable eps : forall {C : Ops1}, C. Arguments eps {C}.
 Context {C : Ops1} {F: FunOps C}.
-Definition NearAbs : F := msqrt N (mcst eps + mid * mid).
+Definition NearAbs : E F := msqrt N (mcst eps + mid * mid).
 End s.
 
 Definition D10: Domain := DZ (-1) 0.
@@ -61,7 +59,7 @@ Definition F11 := MFunOps chebyshev.basis.
 Definition F10 := MFunOps (rescale D10 chebyshev.basis).
 Definition F01 := MFunOps (rescale D01 chebyshev.basis).
 
-Definition wrem {nbh: NBH} (x: Model II) := width (rem x). 
+Definition wrem {nbh: NBH} (x: E (Model II)) := x >>= fun x => ret (width (rem x)). 
 
 (* First, compute rigorous approximations over [-1,1] and check remainders *)
 
@@ -177,8 +175,8 @@ Abort.
 *)
 
 Definition NearAbsRem01 eps (N : Z) :=
-  let Rem01 := @NearAbs N eps II F01 - mid in
-  width (mrange Rem01).
+  LET Rem01 ::= @NearAbs N eps II F01 IN
+  ret (width (mrange (Rem01 - mid))).
 
 Time Eval vm_compute in (NearAbsRem01 (fun C => 1/fromZ 100) 4).
 Time Eval vm_compute in (NearAbsRem01 (fun C => 1/fromZ 100) 5).
@@ -242,17 +240,19 @@ Qed.
 
 
 Definition NearAbsRem' eps (N : Z) :=
-  let f := @NearAbs N eps II F11 in
-  let fl := f + mid in
-  let fr := f - mid in
-  let gl := @NearAbs N eps II F10 + mid in
-  let gr := @NearAbs N eps II F01 - mid in
-  (meval fl (bnd (0-1) 0),
-   meval fr (bnd 0 1),
-   mrange gl,
-   mrange gr).
+  LET f11 ::= @NearAbs N eps II F11 IN
+  LET f10 ::= @NearAbs N eps II F10 IN
+  LET f01 ::= @NearAbs N eps II F01 IN
+  let fl := f11 + mid in
+  let fr := f11 - mid in
+  let gl := f10 + mid in
+  let gr := f01 - mid in
+  ret (meval fl (bnd (0-1) 0),
+       meval fr (bnd 0 1),
+       mrange gl,
+       mrange gr).
 
-(* TOCHECK: uncommented, not sure we get the expected results... *)
+(* TOCHECK: we get errors... *)
 Eval vm_compute in (NearAbsRem' (fun C => 1/fromZ 100) 40).   (* [.1002] *)
 Eval vm_compute in (NearAbsRem' (fun C => 1/fromZ 1000) 40).  (* [.0317] *)
 Eval vm_compute in (NearAbsRem' (fun C => 1/fromZ 10000) 10). (* nan *)
