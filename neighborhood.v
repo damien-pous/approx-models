@@ -3,8 +3,9 @@
 Require Export Psatz Rbase Rfunctions Ranalysis.
 Require Export Coquelicot.Coquelicot.
 Require Export Setoid Morphisms.
-Require Export String List. Export ListNotations.
+Require Export List. Export ListNotations.
 Require Export ssreflect ssrbool ssrfun.
+Require Import errors.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -235,19 +236,6 @@ Proof.
 Qed.
 
 
-(** type for potential runtime errors *)
-Definition E A := (A + string)%type.
-Definition ret {A} (a: A): E A := inl a.
-Definition err {A} (e: string): E A := inr e.
-Definition bind {A B} (x: E A) (f: A -> E B): E B :=
-  match x with inl a => f a | inr e => inr e end.
-Infix ">>=" := bind (at level 30).
-Notation "'LET' x ::= f 'IN' g" := (f >>= fun x => g) (at level 20).  
-Inductive Ep {A} (P: A -> Prop): E A -> Prop :=
-  ep_ret: forall a, P a -> Ep P (ret a).
-Definition Ep' {A B} (P: A -> B -> Prop): E A -> B -> Prop :=
-  fun x b => Ep (fun a => P a b) x.
-
 (** ** abstract operations on functions *)
 Record FunOps (C: Type) :=
   {
@@ -290,16 +278,16 @@ Class ValidFunOps I (contains: I -> R -> Prop) (dom: R -> Prop) (F: FunOps I) :=
     rmcst: forall C c, contains C c -> fcontains (mcst C) (mcst c);
     rmeval: forall F f, fcontains F f ->
             forall X x, contains X x -> 
-                        Ep' contains (meval F X) (f x);
+                        EP' contains (meval F X) (f x);
     rmintegrate: forall F f, fcontains F f -> (forall x, dom x -> continuity_pt f x) ->
                  forall A a, contains A a ->
                  forall C c, contains C c ->
-                             Ep' contains (mintegrate F A C) (RInt f a c);
+                             EP' contains (mintegrate F A C) (RInt f a c);
     rmdiv: forall n F f, fcontains F f ->
            forall   G g, fcontains G g -> 
-                         Ep' fcontains (mdiv n F G) (f_bin Rdiv f g);
+                         EP' fcontains (mdiv n F G) (f_bin Rdiv f g);
     rmsqrt: forall n F f, fcontains F f ->
-                          Ep' fcontains (msqrt n F) (f_unr R_sqrt.sqrt f);
+                          EP' fcontains (msqrt n F) (f_unr R_sqrt.sqrt f);
     rmtruncate: forall n F f, fcontains F f ->
                               fcontains (mtruncate n F) f;
     eval_mrange: forall F f, fcontains F f ->

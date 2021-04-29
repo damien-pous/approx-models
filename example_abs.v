@@ -36,7 +36,7 @@ Qed.
 
 
 (** * with our library *)
-Require Import approx rescale intervals.
+Require Import approx rescale intervals errors.
 Require chebyshev.
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -240,17 +240,18 @@ Qed.
 
 
 Definition NearAbsRem' eps (N : Z) :=
+  (
   LET f11 ::= @NearAbs N eps II F11 IN
-  LET f10 ::= @NearAbs N eps II F10 IN
-  LET f01 ::= @NearAbs N eps II F01 IN
   let fl := f11 + mid in
   let fr := f11 - mid in
+  ret (meval fl (bnd (fromZ (-1)) 0),
+       meval fr (bnd 0 1)),
+  LET f10 ::= @NearAbs N eps II F10 IN
+  LET f01 ::= @NearAbs N eps II F01 IN
   let gl := f10 + mid in
   let gr := f01 - mid in
-  ret (meval fl (bnd (0-1) 0),
-       meval fr (bnd 0 1),
-       mrange gl,
-       mrange gr).
+  ret (mrange gl, mrange gr)
+  ).
 
 (* TOCHECK: we get errors... *)
 Eval vm_compute in (NearAbsRem' (fun C => 1/fromZ 100) 40).   (* [.1002] *)

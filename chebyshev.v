@@ -260,7 +260,7 @@ Section ops.
     - [eval]  is the inefficient yet mathematically simple evaluation of a polynomial, available only on R *)
 
  (** domain *)
- Definition lo: C := 0-1.
+ Definition lo: C := fromZ (-1).
  Definition hi: C := 1.
 
  (** range on [-1;1]

@@ -1,6 +1,7 @@
 (** * Rigorous approximations (models) in a generic basis *)
 
 Require Export vectorspace.
+Require Import errors.
 Require div sqrt.
 
 Set Implicit Arguments.
@@ -155,7 +156,6 @@ Section n.
   |}.
 
  (** ** correctness of the above operations in valid bases *)
- (*TMP 
  Context {T} {HB: ValidBasisOps T B}.
  Notation eval := (vectorspace.eval T).
  
@@ -181,11 +181,11 @@ Section n.
  Qed.
 
  Lemma rmeval (M: Model) f:
-   mcontains M f -> forall X x, contains X x -> contains (meval M X) (f x).
+   mcontains M f -> forall X x, contains X x -> EP' contains (meval M X) (f x).
  Proof.
    intros Mf X x Xx. rewrite /meval.
-   case DomE. 2: apply botE.
-   intro H. now apply rmeval_unsafe; auto. 
+   case DomE=>// H. constructor.
+   now apply rmeval_unsafe; auto. 
  Qed.
  
  Lemma rdom x: dom x -> contains (bnd lo hi) x.
@@ -389,26 +389,27 @@ Section n.
  Lemma rmintegrate: forall M f, 
      mcontains M f -> (forall x, dom x -> continuity_pt f x) ->
      forall A a, contains A a -> 
-     forall D d, contains D d -> contains (mintegrate M A D) (RInt f a d).
+     forall D d, contains D d -> EP' contains (mintegrate M A D) (RInt f a d).
  Proof.
    intros. rewrite /mintegrate.
-   case DomE. 2: apply botE. intro Da.
-   case DomE. 2: apply botE. intro Db.
-   now apply rmintegrate_unsafe; auto.
+   case DomE=>//= Da. 
+   case DomE=>//= Db. 
+   constructor. now apply rmintegrate_unsafe; auto.
  Qed.
  
  (** *** division *)
  
  Lemma rmdiv_aux (f' g' h' w': Model) f g h w:
    mcontains f' f -> mcontains g' g -> mcontains h' h -> mcontains w' w ->
-   mcontains (mdiv_aux f' g' h' w') (f_bin Rdiv f g).
+   EP' mcontains (mdiv_aux f' g' h' w') (f_bin Rdiv f g).
  Proof.
    move => Hf Hg Hh Hw. rewrite /mdiv_aux.
-   case magE => [Mu mu MU Hm|]. 2: apply rmbot.  
-   case magE => [b c bc Hc|]. 2: apply rmbot.
-   case is_ltE => [Hmu|]. 2: apply rmbot.
+   case magE => [Mu mu MU Hm|]=>//. 
+   case magE => [b c bc Hc|]=>//.
+   case is_ltE => [Hmu|]=>//.
    specialize (Hmu _ 1 MU (rone _)). 
-   destruct (ssrfun.id Hh) as [p [Hp Hh']]. exists p; split=>//=.
+   destruct (ssrfun.id Hh) as [p [Hp Hh']].
+   constructor. exists p; split=>//=.
    move => x Hx. rewrite /f_bin.
    replace (_-_) with ((h x - eval p x) + -(h x - f x / g x)); last by rewrite /=; ring.
    apply radd. by apply Hh'.
@@ -431,7 +432,7 @@ Section n.
 
  Lemma rmdiv n:
    forall M f, mcontains M f ->
-   forall N g, mcontains N g -> mcontains (mdiv n M N) (f_bin Rdiv f g).
+   forall N g, mcontains N g -> EP' mcontains (mdiv n M N) (f_bin Rdiv f g).
  Proof.
    move => M f Mf P g Pg. eapply rmdiv_aux=>//; 
    apply msingle', list_rel_map, F2IE.
@@ -443,22 +444,21 @@ Section n.
    mcontains f' f -> mcontains h' h -> mcontains w' w ->
    contains x0' x0 -> 
    (forall x, dom x -> continuity_pt w x) ->
-   mcontains (msqrt_aux f' h' w' x0') (fun x => R_sqrt.sqrt (f x)).
+   EP' mcontains (msqrt_aux f' h' w' x0') (fun x => R_sqrt.sqrt (f x)).
  Proof.
    move => Hf Hh Hw X0 Hwcont. rewrite /msqrt_aux.
-   case DomE. 2: apply rmbot. intro Vx0. specialize (Vx0 _ X0).
-   case is_ltE => [Hwx0|]. 2: apply rmbot.
+   case DomE=>[Vx0|//=]. specialize (Vx0 _ X0).
+   case is_ltE => [Hwx0|]=>[|//=]. 
    specialize (Hwx0 _ _ (rzer _) (rmeval_unsafe Hw X0 Vx0)).
    simpl negb.
-   case magE => [Mu0 mu0 MU0 Hmu0|]. 2: apply rmbot. 
-   case magE => [Mu1 mu1 MU1 Hmu1|]. 2: apply rmbot. 
-   case magE => [BB b Bb Hb|]. 2: apply rmbot. 
-   case is_ltE => [Hmu01|]. 2: apply rmbot.
-   specialize (Hmu01 _ _ MU0 (rone _)).
-   case is_ltE => [Hmu0b|]. 2: apply rmbot.
+   case magE => [Mu0 mu0 MU0 Hmu0|]=>[|//=]. 
+   case magE => [Mu1 mu1 MU1 Hmu1|]=>[|//=].
+   case magE => [BB b Bb Hb|]=>[|//=].
+   case is_ltE =>// Hmu01. specialize (Hmu01 _ _ MU0 (rone _)).
+   case is_ltE =>// Hmu0b. 
    destruct (ssrfun.id Hh) as [p [Hp Hh']].
-   case is_ltE => [Hmu|]. 2: apply rmbot.
-   exists p; split =>// x Hx.
+   case is_ltE => [Hmu|] =>//. 
+   constructor. exists p; split =>// x Hx.
    replace (_-_) with ((h x - eval p x) + -(h x - R_sqrt.sqrt (f x))); last by rewrite /=; ring.
    apply radd; first by apply Hh'.
    set rmin := sqrt.rmin b mu0 mu1.
@@ -490,7 +490,7 @@ Section n.
  Qed.
 
  Lemma rmsqrt n M f: 
-   mcontains M f -> mcontains (msqrt n M) (f_unr R_sqrt.sqrt f).
+   mcontains M f -> EP' mcontains (msqrt n M) (f_unr R_sqrt.sqrt f).
  Proof.
    move => Mf. eapply rmsqrt_aux with _ _ ((lo+hi)//2) => //;
     try apply msingle', list_rel_map, F2IE. rel. 
@@ -509,9 +509,9 @@ Section n.
    - exact rmtruncate.
    - exact eval_mrange.
  Qed.
- *)
+
 End n.
 Arguments MFunOps {_} _.
-(*TMP Arguments Valid {_ _ _} _. *)
+Arguments Valid {_ _ _} _.
 
-(*TMP Global Hint Resolve rmid rmcst (* rmeval *): rel. *)
+Global Hint Resolve rmid rmcst (* rmeval *): rel.

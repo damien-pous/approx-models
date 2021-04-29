@@ -1,6 +1,6 @@
 (** * Packing everything together into a tactic *)
 
-Require Import intervals syntax rescale.
+Require Import intervals syntax rescale errors.
 Require taylor chebyshev approx.
 
 Set Implicit Arguments.
@@ -15,7 +15,12 @@ Tactic Notation "bound" uconstr(e) constr(d) constr(M) :=
   let f := constr:(@bound _ _ d _ M e) in
   (apply f || fail "the given expression does not match the goal");
   [ (now vm_compute) || fail "potential division by zero or square root of a negative value"
-  | let X := fresh "X" in intro X; vm_compute in X; cbv; (lra || fail "couldn't get these bounds") ].
+  | let X := fresh "X" in
+    intro X; vm_compute in X;
+    lazymatch eval hnf in X with
+    | err ?s => fail 1 s
+    | ret _ => cbv; (lra || fail "couldn't get these bounds")
+    end].
 
 (** by default: chebyshev on [-1;1], with primitive floats by default *)
 Tactic Notation "bound" uconstr(e) constr(d) :=
@@ -116,14 +121,14 @@ Qed.
 
 Eval vm_compute in
     let e := (e_integrate ((1+f_id) / ((1-f_id)*(1-f_id)+1/fromZ 4)) 0 (pi/fromZ 4)) in
-    width (eSem (approx.MFunOps chebyshev.basis) 20 e).
+    LET E ::= eSem (approx.MFunOps chebyshev.basis) 20 e IN ret (width E).
     (** increase 20 to get more digits *)
 
 
 (* testing interpolation on rescaled bases *)
 Eval vm_compute in
     let f: fxpr := f_id / sqrt ((1+f_id) / (fromZ 3+f_id)) in
-    merror (fSem (approx.MFunOps (rescale (DZ 18 200) chebyshev.basis)) 3 f).
+    fSem (approx.MFunOps (rescale (DZ 18 200) chebyshev.basis)) 3 f.
 
 
 (** Note that the neighborhood is set by default to [Iprimitive.nbh], i.e., intervals with primitive floating point endpoints 
@@ -134,7 +139,15 @@ Eval vm_compute in
 
 Eval vm_compute in
     let e := (e_integrate ((1+f_id) / ((1-f_id)*(1-f_id)+1/fromZ 4)) 0 (pi/fromZ 4)) in
-    width (eSem (N:=IZ.nbh) (approx.MFunOps chebyshev.basis) 20 e).
+    e_map width (eSem (N:=IZ.nbh) (approx.MFunOps chebyshev.basis) 20 e).
+
+
+(* TOCHECK: why is 1+1 not a singleton with primitive floats? *)
+Eval vm_compute in (fromZ 2: Iprimitive.nbh).
+Eval vm_compute in (1+1: Iprimitive.nbh). (* arg *)
+Eval vm_compute in (1+1: IZ.nbh).         (* ok *)
+Eval vm_compute in (1+1: IBigInt.nbh).    (* ok *)
+
 
 (** About neighborhood instances:
 Print Assumptions bound.          (** only four axioms for the (classical) construction of reals *)

@@ -5,6 +5,7 @@ domfct.v
 banach.v
 div.v
 sqrt.v
+errors.v
 neighborhood.v
 syntax.v
 vectorspace.v

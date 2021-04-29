@@ -1,6 +1,6 @@
 (** * Syntax for approximable expressions *)
 
-Require Import neighborhood.
+Require Import neighborhood errors.
 
 
 (* TODO: move FunOps stuff here? *)
@@ -123,38 +123,31 @@ Context {N: NBH} (MM: FunOps II).
 Variable deg: Z.
 
 (** approximation of an expression using intervals / models *)
-Definition e_unr {A B} (f: A -> B) (x: E A): E B :=
-  x >>= fun a => ret (f a).
-Definition e_bin {A B C} (f: A -> B -> C) (x: E A) (y: E B): E C :=
-  x >>= fun a => y >>= fun b => ret (f a b).
-
 Fixpoint eSem (e: expr): E II :=
   match e with
-  | e_add e f => e_bin (@add _) (eSem e) (eSem f)
-  | e_sub e f => e_bin (@sub _) (eSem e) (eSem f)
-  | e_mul e f => e_bin (@mul _) (eSem e) (eSem f)
-  | e_div e f => e_bin (@div _) (eSem e) (eSem f)
-  | e_sqrt e => e_unr (@sqrt _) (eSem e)
-  | e_cos e => e_unr (@cos _) (eSem e)
-  | e_abs e => e_unr (@abs _) (eSem e)
+  | e_add e f => e_map2 (@add _) (eSem e) (eSem f)
+  | e_sub e f => e_map2 (@sub _) (eSem e) (eSem f)
+  | e_mul e f => e_map2 (@mul _) (eSem e) (eSem f)
+  | e_div e f => e_map2 (@div _) (eSem e) (eSem f)
+  | e_sqrt e => e_map (@sqrt _) (eSem e)
+  | e_cos e => e_map (@cos _) (eSem e)
+  | e_abs e => e_map (@abs _) (eSem e)
   | e_fromZ z => ret (fromZ z)
   | e_pi => ret pi
-  | e_eval f x => (fSem f >>= fun f => eSem x >>= fun x => meval f x)
-  | e_integrate f a b => (fSem f >>= fun f => eSem a >>= fun a => eSem b >>= fun b => mintegrate f a b)
+  | e_eval f x => LET f ::= fSem f IN LET x ::= eSem x IN meval f x
+  | e_integrate f a b => LET f ::= fSem f IN LET a ::= eSem a IN LET b ::= eSem b IN mintegrate f a b
   end
 with fSem (e: fxpr): E MM :=
   match e with
-  | f_add e f => e_bin (@add _) (fSem e) (fSem f)
-  | f_sub e f => e_bin (@sub _) (fSem e) (fSem f)
-  | f_mul e f => e_bin (@mul _) (fSem e) (fSem f)
-  | f_div e f => (fSem e >>= fun e => fSem f >>= fun f => mdiv deg e f)  (** note the degree used here *)
-  | f_sqrt e => (fSem e >>= fun e => msqrt deg e)          (** note the degree used here *)
+  | f_add e f => e_map2 (@add _) (fSem e) (fSem f)
+  | f_sub e f => e_map2 (@sub _) (fSem e) (fSem f)
+  | f_mul e f => e_map2 (@mul _) (fSem e) (fSem f)
+  | f_div e f => LET e ::= fSem e IN LET f ::= fSem f IN mdiv deg e f  (** note the degree used here *)
+  | f_sqrt e => LET e ::= fSem e IN msqrt deg e (** note the degree used here *)
   | f_id => ret mid
-  | f_cst e => e_unr mcst (eSem e)
-  | f_trunc e => e_unr (mtruncate (Z.to_nat deg)) (fSem e)     (** note the degree used here *)
+  | f_cst e => e_map mcst (eSem e)
+  | f_trunc e => e_map (mtruncate (Z.to_nat deg)) (fSem e) (** note the degree used here *)
   end.
-
-(*TMP
 
 Notation "a && b" := (if a then b else false).
 Fixpoint echeck (e: expr): bool :=
@@ -175,11 +168,19 @@ with fcheck (f: fxpr): bool :=
   | f_add e f 
   | f_sub e f 
   | f_mul e f => fcheck e && fcheck f
-  | f_div e f => fcheck e && fcheck f && is_lt 0 (abs (mrange (fSem f)))
+  | f_div e f => fcheck e && fcheck f &&
+                 match fSem f with
+                 | err _ => false
+                 | ret f => is_lt 0 (abs (mrange f))
+                 end
   | f_id => true
   | f_cst e => echeck e
   | f_trunc e => fcheck e
-  | f_sqrt e => fcheck e && is_le 0 (mrange (fSem e))
+  | f_sqrt e => fcheck e && 
+                 match fSem e with
+                 | err _ => false
+                 | ret e => is_le 0 (mrange e)
+                 end
   end.
 
 Lemma andb_split (a b: bool): a && b -> a /\ b.
@@ -189,63 +190,83 @@ Context {dom: R -> Prop} (mcontains: ValidFunOps contains dom MM).
 
 Definition continuous f := forall x, dom x -> continuity_pt f x. 
 
-Lemma econtains (e: expr): echeck e -> contains (eSem e) (esem e)
-with fcontains (f: fxpr): fcheck f -> mcontains (fSem f) (fsem f) /\ continuous (fsem f).
+Lemma econtains (e: expr): echeck e -> EP' contains (eSem e) (esem e)
+with fcontains (f: fxpr): fcheck f -> EP' mcontains (fSem f) (fsem f) /\ continuous (fsem f).
 Proof.
   - destruct e; simpl; intro H.
-    -- apply andb_split in H as [? ?]; rel. 
-    -- apply andb_split in H as [? ?]; rel. 
-    -- apply andb_split in H as [? ?]; rel. 
-    -- rel.
-    -- rel. 
-    -- apply andb_split in H as [? ?]; rel.
-    -- rel.
-    -- rel.
-    -- rel.
-    -- apply andb_split in H as [? ?]. apply rmeval. apply fcontains=>//. now auto. 
+    -- apply andb_split in H as [? ?]. eapply ep_map2. 2,3: apply econtains; eauto. rel. 
+    -- apply andb_split in H as [? ?]. eapply ep_map2. 2,3: apply econtains; eauto. rel. 
+    -- apply andb_split in H as [? ?]. eapply ep_map2. 2,3: apply econtains; eauto. rel. 
+    -- constructor. rel.
+    -- constructor. rel. 
+    -- apply andb_split in H as [? ?]. eapply ep_map2. 2,3: apply econtains; eauto. rel.
+    -- eapply ep_map. 2: apply econtains; eauto. rel.
+    -- eapply ep_map. 2: apply econtains; eauto. rel.
+    -- eapply ep_map. 2: apply econtains; eauto. rel.
+    -- apply andb_split in H as [? ?].
+       eapply ep_bind=>[F Ff|]. 2: apply fcontains=>//.  
+       eapply ep_bind=>[X Xx|]. 2: apply econtains=>//.  
+       now apply rmeval.
     -- do 2 apply andb_split in H as [H ?].
-       apply fcontains in H as [? ?]. 
-       apply rmintegrate; eauto. 
+       eapply ep_bind=>[F Ff|]. 2: apply fcontains=>//.  
+       eapply ep_bind=>[A Aa|]. 2: apply econtains=>//.  
+       eapply ep_bind=>[B Bb|]. 2: apply econtains=>//.  
+       apply rmintegrate=>//.
+       intros. apply fcontains=>//.
   - destruct f; simpl; intro H.
     -- apply andb_split in H as [H1 H2].
        apply fcontains in H1 as [? ?].
        apply fcontains in H2 as [? ?].
-       split. now apply (radd (r:=mcontains)).
+       split. eapply ep_map2; eauto. intros. now apply (radd (r:=mcontains)).
        intros x X. apply continuity_pt_plus; auto. 
     -- apply andb_split in H as [H1 H2].
        apply fcontains in H1 as [? ?].
        apply fcontains in H2 as [? ?].
-       split. now apply (rsub (r:=mcontains)).
+       split. eapply ep_map2; eauto. intros. now apply (rsub (r:=mcontains)).
        intros x X. apply continuity_pt_minus; auto. 
     -- apply andb_split in H as [H1 H2].
        apply fcontains in H1 as [? ?].
        apply fcontains in H2 as [? ?].
-       split. now apply (rmul (r:=mcontains)).
+       split. eapply ep_map2; eauto. intros. now apply (rmul (r:=mcontains)).
        intros x X. apply continuity_pt_mult; auto. 
     -- apply andb_split in H as [H' H].
        apply andb_split in H' as [H1 H2].
        apply fcontains in H1 as [? ?].
-       apply fcontains in H2 as [? ?].
-       split. now apply rmdiv.
+       apply fcontains in H2 as [Ff2' Cf2].
+       split.
+       eapply ep_bind=>[F1 Ff1|]. 2: eauto. 
+       eapply ep_bind=>[F2 Ff2|]. 2: eauto. 
+       now apply rmdiv.
        intros x X. apply continuity_pt_div; auto.
-       revert H. case is_ltE. 2: easy.
-       intros H _. assert (0 < Rabs (fsem f2 x)). 
+       revert H. case Ff2'=>// F Ff2. case is_ltE=>//H _. 
+       assert (0 < Rabs (fsem f2 x)). 
        apply H. apply rzer. now apply rabs, eval_mrange.
        clear H. split_Rabs; lra.
-    -- apply andb_split in H as [H P]. apply fcontains in H as [? C].
-       split. now apply rmsqrt.
+    -- apply andb_split in H as [H P].
+       apply fcontains in H as [? C].
+       split.
+       eapply ep_bind=>[F Ff|]. 2: eauto. 
+       now apply rmsqrt.
        intros x X. apply (continuity_pt_comp (fsem f)). apply C, X. 
        apply continuity_pt_sqrt.
-       revert P. case is_leE=>//P _. apply P. apply rzer.
+       revert P. case H=>//F Ff. case is_leE=>//P _. apply P. apply rzer.
        now apply eval_mrange. 
-    -- split. apply rmid. intros x _. apply continuity_pt_id.
-    -- split. apply rmcst; auto. intros x _. now apply continuity_pt_const.
-    -- apply fcontains in H as [? ?]; split=>//. now apply rmtruncate.
+    -- split. constructor. apply rmid. intros x _. apply continuity_pt_id.
+    -- split. eapply ep_map. 2: apply econtains=>//. intro. apply rmcst; auto.
+       intros x _. now apply continuity_pt_const.
+    -- apply fcontains in H as [Ff ?]; split=>//=.
+       case Ff; constructor. 
+       now apply rmtruncate.
 Qed.
 
 (** small corollary, useful to obtain a tactic *)
-Lemma bound x a b: echeck x -> (let X := eSem x in subseteq X a b) -> a <= esem x <= b.
-Proof. intros Hx H. exact (subseteqE H (econtains Hx)). Qed.
-*)
-End s.
+Lemma bound x a b: echeck x ->
+                   (let X := eSem x in
+                    match X with ret X => subseteq X a b | err s => False end) ->
+                   a <= esem x <= b.
+Proof.
+  move=>Hx. case (econtains Hx)=>//=X Xx ab.
+  eapply subseteqE; eassumption. 
+Qed.
 
+End s.

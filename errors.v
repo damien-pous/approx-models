@@ -1,0 +1,43 @@
+(** * a monad for raising runtime errors *)
+
+Require Export String.
+Set Implicit Arguments.
+
+Inductive E A := ret(a: A) | err(e: string).
+Arguments err {_} _.
+
+Declare Scope error_scope.
+Bind Scope error_scope with E.
+Open Scope error_scope.
+
+Definition e_bind {A B} (x: E A) (f: A -> E B): E B :=
+  match x with ret a => f a | err e => err e end.
+Infix ">>=" := e_bind (at level 30): error_scope.
+Notation "'LET' x ::= f 'IN' g" := (e_bind f (fun x => g)) (at level 20): error_scope.  
+
+Print Scope error_scope.
+Locate "_ >>= _".
+Definition e_map {A B} (f: A -> B) (x: E A): E B :=
+  x >>= fun a => ret (f a).
+Definition e_map2 {A B C} (f: A -> B -> C) (x: E A) (y: E B): E C :=
+  x >>= fun a => y >>= fun b => ret (f a b).
+
+Inductive EP {A} (P: A -> Prop): E A -> Prop :=
+| ep_ret: forall a, P a -> EP P (ret a)
+| ep_err: forall s, EP P (err s).
+Global Hint Resolve ep_err: core.
+
+Definition EP' {A B} (P: A -> B -> Prop): E A -> B -> Prop :=
+  fun x b => EP (fun a => P a b) x.
+
+Lemma ep_bind {A B} (f: A -> E B) (P: A -> Prop) (Q: B -> Prop)
+      (F: forall a, P a -> EP Q (f a)): forall a, EP P a -> EP Q (a >>= f).
+Proof. intros ? [??|]; cbn; auto. Qed.
+
+Lemma ep_map {A B} (f: A -> B) (P: A -> Prop) (Q: B -> Prop)
+      (F: forall a, P a -> Q (f a)): forall a, EP P a -> EP Q (e_map f a).
+Proof. apply ep_bind; constructor; auto. Qed.
+
+Lemma ep_map2 {A B C} (f: A -> B -> C) (P: A -> Prop) (Q: B -> Prop) (R: C -> Prop)
+      (F: forall a b, P a -> Q b -> R (f a b)): forall a b, EP P a -> EP Q b -> EP R (e_map2 f a b).
+Proof. intros ?? [??|] [??|]; cbn; constructor; auto. Qed.

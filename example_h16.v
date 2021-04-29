@@ -1,6 +1,6 @@
 (** * Example 2: evaluation of Abelian integrals related to Hilbert's 16th problem  *)
 
-Require Import approx rescale intervals.
+Require Import approx rescale intervals errors.
 Require chebyshev.
 Set Implicit Arguments.
 Unset Strict Implicit.
