@@ -32,9 +32,9 @@ Proof.
   Fail bound (e_integrate f_id (fromZ (-2)) (fromZ 2)).
   (* with a rescaled chebyshev basis *)
   bound (e_integrate f_id (fromZ (-2)) (fromZ 2)) 5%Z
-        (approx.model (rescale.to (DZ (-2) 2) chebyshev.basis)).
+        (approx.model (rescale.to (DZ2 (-2) 2) chebyshev.basis)).
   Restart.
   (* with the monomial basis *)
   bound (e_integrate f_id (fromZ (-2)) (fromZ 2)) 5%Z
-        (approx.model (taylor.basis (DZ (-2) 2))).  
+        (approx.model (taylor.basis (DZ2 (-2) 2))).  
 Qed.

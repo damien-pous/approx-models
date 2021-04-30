@@ -51,21 +51,21 @@ Proof.
   Fail bound (e_integrate f_id (fromZ (-2)) (fromZ 2)).
   (* with a rescaled chebyshev basis *)
   bound (e_integrate f_id (fromZ (-2)) (fromZ 2)) 5%Z
-        (approx.model (rescale.to (DZ (-2) 2) chebyshev.basis)).
+        (approx.model (rescale.to (DZ2 (-2) 2) chebyshev.basis)).
   Restart.
   (* with the monomial basis *)
   bound (e_integrate f_id (fromZ (-2)) (fromZ 2)) 5%Z
-        (approx.model (taylor.basis (DZ (-2) 2))).  
+        (approx.model (taylor.basis (DZ2 (-2) 2))).  
 Qed.
 
 Lemma ex5': 0 <= RInt (fun x => x) (-2) 2 <= 0.
 Proof.
   (* we cannot be that precise! *)
   Fail bound (e_integrate f_id (fromZ (-2)) (fromZ 2)) 5%Z
-        (approx.model (rescale.to (DZ (-2) 2) chebyshev.basis)).
+        (approx.model (rescale.to (DZ2 (-2) 2) chebyshev.basis)).
   Restart.
   Fail bound (e_integrate f_id (fromZ (-2)) (fromZ 2)) 10%Z
-       (approx.model (taylor.basis (DZ (-2) 2))).
+       (approx.model (taylor.basis (DZ2 (-2) 2))).
 Abort.
 
 Lemma ex6: -0.1 <= RInt (fun x => 0%R) (-1/3) (1/3) <= 0.1.
@@ -77,7 +77,7 @@ Lemma ex6': -0.1 <= RInt (fun x => 0%R) (-3) (3) <= 0.1.
 Proof.
   Fail bound (e_integrate f_zer (fromZ (-3)) (fromZ 3)).
   bound (e_integrate f_zer (fromZ (-3)) (fromZ 3)) 10%Z
-        (approx.model (rescale.to (DZ (-3) 3) chebyshev.basis)).
+        (approx.model (rescale.to (DZ2 (-3) 3) chebyshev.basis)).
 Qed.
 
 
@@ -92,7 +92,7 @@ Eval vm_compute in
 (** testing interpolation on rescaled bases *)
 Eval vm_compute in
     let f: fxpr := f_id / sqrt ((1+f_id) / (fromZ 3+f_id)) in
-    fSem (approx.model (rescale.to (DZ 18 200) chebyshev.basis)) 3 f.
+    fSem (approx.model (rescale.to (DZ2 18 200) chebyshev.basis)) 3 f.
 
 
 (** Note that the neighborhood is set by default to [Iprimitive.nbh], i.e., intervals with primitive floating point endpoints 

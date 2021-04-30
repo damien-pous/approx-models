@@ -212,9 +212,7 @@ End s'.
 
 (** packing everything together, we get a basis *)
 
-Definition basis_on (D: Domain) (C: Ops1): BasisOps_on C := {|
-  vectorspace.lo := dlo;
-  vectorspace.hi := dhi;
+Definition basis_on (C: Ops1): BasisOps_on C := {|
   vectorspace.bmul := smul;
   vectorspace.bone := sone;
   vectorspace.bid := sid;
@@ -224,12 +222,12 @@ Definition basis_on (D: Domain) (C: Ops1): BasisOps_on C := {|
   vectorspace.interpolate := interpolate
 |}.
 
-Definition basis {N: NBH} D: Basis := {|
+Definition basis {N: NBH} (D: Domain): Basis := {|
   TT := M;
-  BR := basis_on D ROps1;
-  BI := basis_on D II;
-  BF := basis_on D FF;
-  vectorspace.lohi := dlohi;
+  BR := basis_on ROps1;
+  BI := basis_on II;
+  BF := basis_on FF;
+  vectorspace.bdom := D;
   vectorspace.evalE := evalR;
   vectorspace.eval_cont := eval_cont;
   vectorspace.eval_mul := eval_mul;
@@ -238,8 +236,6 @@ Definition basis {N: NBH} D: Basis := {|
   vectorspace.eval_prim' := eval_prim';
   vectorspace.eval_prim := eval_prim;
   vectorspace.eval_range := I;
-  vectorspace.rlo := @rdlo _ _ _ _;
-  vectorspace.rhi := @rdhi _ _ _ _;
   vectorspace.rbmul := @rsmul _ _ _;
   vectorspace.rbone := @rsone _ _ _;
   vectorspace.rbid := @rsid _ _ _;

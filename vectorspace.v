@@ -188,8 +188,6 @@ Global Hint Resolve rsadd rsscal rsopp rssub rszer rcons0 rcons00: rel.
 (** ** Basis: requirements for generating pseudo-polynomial models (in approx.v) *)
 
 Class BasisOps_on (C: Type) := {
-  lo: C;
-  hi: C;
   beval: list C -> C -> C;
   bmul: list C -> list C -> list C;
   bone: list C;
@@ -219,12 +217,10 @@ Class Basis {N: NBH} := {
   BI:> BasisOps_on II;
   BF:> BasisOps_on FF;
 
-  (** domain of the basis (derived from the above operations) *)
-  dom (x: R) := lo <= x <= hi;
-  Dom (X: II) := is_le lo X && is_le X hi;
+  (** domain of the basis *)
+  bdom:> Domain;
   
   (** properties of BR *)
-  lohi: lo < hi;
   evalE: forall p x, beval p x = eval TT p x;
   eval_cont: forall p x, continuity_pt (eval TT p) x;
   eval_mul: forall p q x, eval TT (bmul p q) x = eval TT p x * eval TT q x;
@@ -237,8 +233,6 @@ Class Basis {N: NBH} := {
                | None => True end;
   
   (** link between BI and BR *)
-  rlo: contains lo lo;
-  rhi: contains hi hi;
   rbmul: forall p q, scontains p q ->
          forall p' q', scontains p' q' ->
                          scontains (bmul p p') (bmul q q');
@@ -258,13 +252,5 @@ Class Basis {N: NBH} := {
            end;
 }.
 
-(** [Dom] properly underapproximate the domain *)
-Lemma DomE `{Basis} X: wreflect (forall x, contains X x -> dom x) (Dom X).
-Proof.
-  rewrite /Dom.
-  case is_leE=>[Lo|]. 2: constructor. 
-  case is_leE=>[Hi|]; constructor=> x Xx.
-  split; [apply Lo|apply Hi]=>//. apply rlo. apply rhi.
-Qed.
-Global Hint Resolve rlo rhi rbmul rbone rbid rbprim rbeval: rel.
+Global Hint Resolve rbmul rbone rbid rbprim rbeval: rel.
 

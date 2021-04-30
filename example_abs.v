@@ -51,8 +51,8 @@ Unset Printing Implicit Defensive.
 (* Definition NearAbs : E F := msqrt N (mcst eps + mid * mid). *)
 (* End s. *)
 
-Definition D10: Domain := DZ (-1) 0.
-Definition D01: Domain := DZ 0 1.
+Definition D10: Domain := DZ2 (-1) 0.
+Definition D01: Domain := DZ2 0 1.
 
 (* implicit use of [Iprimitive.nbh] below *)
 Definition F11 := approx.model chebyshev.basis.

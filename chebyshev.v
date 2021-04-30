@@ -543,8 +543,6 @@ End i.
 (** packing everything together, we get a basis *)
 
 Definition basis_on (C: Ops1): BasisOps_on C := {|
-  vectorspace.lo := lo;
-  vectorspace.hi := hi;
   vectorspace.bmul := pmul;
   vectorspace.bone := pone;
   vectorspace.bid := pid;
@@ -559,7 +557,7 @@ Definition basis {N: NBH}: Basis := {|
   BR := basis_on ROps1;
   BI := basis_on II;
   BF := basis_on FF;
-  vectorspace.lohi := lohi;
+  vectorspace.bdom := DZ2 (-1) 1;
   vectorspace.evalE := evalR;
   vectorspace.eval_cont := eval_cont;
   vectorspace.eval_mul := eval_mul;
@@ -568,8 +566,6 @@ Definition basis {N: NBH}: Basis := {|
   vectorspace.eval_prim' := eval_prim';
   vectorspace.eval_prim := eval_prim;
   vectorspace.eval_range := eval_range;
-  vectorspace.rlo := @rlo _ _ _;
-  vectorspace.rhi := @rhi _ _ _;
   vectorspace.rbmul := @rpmul _ _ _;
   vectorspace.rbone := @rpone _ _ _;
   vectorspace.rbid := @rpid _ _ _;

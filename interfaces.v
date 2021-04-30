@@ -192,7 +192,7 @@ Class NBH := {
   min: II -> option II;    
   bot: II;                   (** [-oo;+oo] *)
   is_lt: II -> II -> bool; 
-  is_le: II -> II -> bool; 
+  is_le: II -> II -> bool;
   (** specification of the above operations *)
   bndE: forall X x, contains X x -> forall Y y, contains Y y -> forall z, x<=z<=y -> contains (bnd X Y) z;
   maxE: forall X, minmax_spec Rle contains X (max X);
@@ -273,22 +273,60 @@ Coercion MM: FunOps >-> Ops0.
 Coercion mcontains: FunOps >-> Rel0.
 Global Hint Resolve rmid rmcst rmeval rmintegrate rmdiv rmsqrt: rel.
 
+(** ** domains *)
 
-(** ** 'generic' domains *)
-Class Domain := {
-  dlo: forall {C: Ops1}, C;
-  dhi: forall {C: Ops1}, C;
-  dlohi: dlo<dhi;
-  rdlo: forall R S (T: Rel1 R S), T dlo dlo;
-  rdhi: forall R S (T: Rel1 R S), T dhi dhi;
+Class Domain_on C := make_domain {
+  lo: C;
+  hi: C;
 }.
-Global Hint Resolve rdlo rdhi: rel.
 
-Definition DfromZ2 (a b: Z) (H: Z.compare a b = Lt): Domain := {|
-  dlo C := fromZ a;
-  dhi C := fromZ b;
-  dlohi := IZR_lt _ _ (proj1 (Z.compare_lt_iff _ _) H);
-  rdlo R S T := rfromZ T a;
-  rdhi R S T := rfromZ T b;
+Class Domain {N: NBH} := {
+  DR:> Domain_on R;
+  DI:> Domain_on II;
+  DF:> Domain_on FF;
+  lohi: lo<hi;
+  rlo: contains lo lo;
+  rhi: contains hi hi;
+}.
+Global Hint Resolve rlo rhi: rel.
+
+Definition dom `{Domain} (x: R) := lo <= x <= hi.
+Definition Dom `{Domain} (X: II) := is_le lo X && is_le X hi.
+
+Lemma DomE `{Domain} X: wreflect (forall x, contains X x -> dom x) (Dom X).
+Proof.
+  rewrite /Dom.
+  case is_leE=>[Lo|]. 2: constructor. 
+  case is_leE=>[Hi|]; constructor=> x Xx.
+  split; [apply Lo|apply Hi]=>//. apply rlo. apply rhi.
+Qed.
+
+
+(** constructing simple domains *)
+(** from relative numbers *)
+Definition DfromZ2 {N: NBH}(a b: Z) (H: Z.compare a b = Lt): Domain := {|
+  DR := make_domain (fromZ a) (fromZ b);
+  DI := make_domain (fromZ a) (fromZ b);
+  DF := make_domain (fromZ a) (fromZ b);
+  lohi := IZR_lt _ _ (proj1 (Z.compare_lt_iff _ _) H);
+  rlo := rfromZ _ a;
+  rhi := rfromZ _ b;
 |}.
-Notation DZ a b := (@DfromZ2 a b eq_refl).
+Notation DZ2 a b := (@DfromZ2 _ a b eq_refl).
+
+(** from floating points *)
+Program Definition DfromF2 {N: NBH}(a b: FF) (H: is_lt (F2I a) (F2I b)): Domain := {|
+  DR := make_domain (F2R a) (F2R b);
+  DI := make_domain (F2I a) (F2I b);
+  DF := make_domain a b;
+  rlo := F2IE a;
+  rhi := F2IE b;
+|}.
+Next Obligation.
+  revert H. case is_ltE=>//H _. apply H; apply F2IE. 
+Qed.
+Notation DF2 a b := (@DfromF2 _ a b eq_refl).
+
+(** from intervals *)
+Definition DfromI2 {N: NBH}(a b: II) := @DfromF2 N (I2F a) (I2F b).
+Notation DI2 a b := (@DfromI2 _ a b eq_refl).
