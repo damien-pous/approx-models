@@ -15,8 +15,6 @@ Definition e_bind {A B} (x: E A) (f: A -> E B): E B :=
 Infix ">>=" := e_bind (at level 30): error_scope.
 Notation "'LET' x ::= f 'IN' g" := (e_bind f (fun x => g)) (at level 20): error_scope.  
 
-Print Scope error_scope.
-Locate "_ >>= _".
 Definition e_map {A B} (f: A -> B) (x: E A): E B :=
   x >>= fun a => ret (f a).
 Definition e_map2 {A B C} (f: A -> B -> C) (x: E A) (y: E B): E C :=
