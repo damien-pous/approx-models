@@ -485,7 +485,7 @@ Canonical Structure FOps0 :=
      zer := PrimFloat.zero;
      one := PrimFloat.one |}.
 
-Definition Fpi := 3.1415926535897931%float.
+Definition Fpi := 0x1.921fb54442d18p+1%float.
 Canonical Structure FOps1 :=
   {| ops0 := FOps0;
      div := PrimFloat.div;

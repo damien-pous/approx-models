@@ -15,5 +15,7 @@ approx.v
 intervals.v
 rescale.v
 tactic.v
+examples.v
 example_abs.v
 example_h16.v
+tests.v

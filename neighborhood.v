@@ -12,6 +12,8 @@ Unset Strict Implicit.
 Unset Printing Implicit Defensive.
 Open Scope R_scope.
 
+(** ** preliminary tools *)
+
 (** instances for setoid_rewriting on Rle *)
 Instance Rle_PreOrder: PreOrder Rle.
 Proof. constructor; cbv; intros; lra. Qed.
@@ -256,26 +258,12 @@ Record FunOps (C: Type) :=
 Arguments mid {_ _}.
 Arguments mcst {_ _}.
 
-(** corresponding operations on [R->R] *)
-Definition RFunOps: FunOps R :=
-  {|
-    funcar := f_Ops0 R ROps0;
-    mid x := x;
-    mcst c _ := c;
-    meval f x := ret (f x);
-    mintegrate f a b := ret (RInt f a b);
-    mdiv _ f g := ret (f_bin Rdiv f g);
-    msqrt _ f := ret (f_unr R_sqrt.sqrt f);
-    mtruncate _ f := f;
-    mrange _ := R0;
-  |}.
-
 (** validity of function operations (will probably be reworked) *)
 Class ValidFunOps I (contains: I -> R -> Prop) (dom: R -> Prop) (F: FunOps I) :=
   {
-    fcontains: Rel0 F RFunOps;
-    rmid: fcontains mid mid;
-    rmcst: forall C c, contains C c -> fcontains (mcst C) (mcst c);
+    fcontains: Rel0 F (f_Ops0 R ROps0);
+    rmid: fcontains mid id;
+    rmcst: forall C c, contains C c -> fcontains (mcst C) (fun _ => c);
     rmeval: forall F f, fcontains F f ->
             forall X x, contains X x -> 
                         EP' contains (meval F X) (f x);
