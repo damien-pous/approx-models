@@ -507,7 +507,7 @@ End Zmap.
 
 (** interpolation *)
 Section i.
- Import neighborhood.
+ Import interfaces.
  Context {C: Ops1}.
  Variable n: Z.
  Variable f: C -> C.
@@ -540,47 +540,41 @@ Section i.
 End i.
 
 
-(** packing everything together, we get a valid basis *)
+(** packing everything together, we get a basis *)
 
-Definition basis_on (C: Ops1): BasisOps_on C :=
-  {|
-    vectorspace.lo := lo;
-    vectorspace.hi := hi;
-    vectorspace.bmul := pmul;
-    vectorspace.bone := pone;
-    vectorspace.bid := pid;
-    vectorspace.bprim := prim;
-    vectorspace.beval := @eval' C;
-    vectorspace.brange := Some range;
-    vectorspace.interpolate := interpolate
-  |}.
+Definition basis_on (C: Ops1): BasisOps_on C := {|
+  vectorspace.lo := lo;
+  vectorspace.hi := hi;
+  vectorspace.bmul := pmul;
+  vectorspace.bone := pone;
+  vectorspace.bid := pid;
+  vectorspace.bprim := prim;
+  vectorspace.beval := @eval' C;
+  vectorspace.brange := Some range;
+  vectorspace.interpolate := interpolate
+|}.
 
-Definition basis {N: NBH}: BasisOps :=
-  {|
-    BR := basis_on ROps1;
-    BI := basis_on II;
-    BF := basis_on FF;
-  |}.
-
-Instance valid {N: NBH}: ValidBasisOps T basis.
-Proof.
-  constructor.
-  - rewrite /=/lo/hi/=. lra.
-  - exact evalR.
-  - exact eval_cont.
-  - exact eval_mul. 
-  - exact eval_one. 
-  - exact eval_id. 
-  - exact eval_prim'. 
-  - exact eval_prim.
-  - exact eval_range.
-  - apply rlo. 
-  - apply rhi. 
-  - apply rpmul.
-  - apply rpone.
-  - apply rpid.
-  - apply rprim. 
-  - apply reval. 
-  - simpl. apply rrange.
-Qed.
+Definition basis {N: NBH}: Basis := {|
+  TT := T;
+  BR := basis_on ROps1;
+  BI := basis_on II;
+  BF := basis_on FF;
+  vectorspace.lohi := lohi;
+  vectorspace.evalE := evalR;
+  vectorspace.eval_cont := eval_cont;
+  vectorspace.eval_mul := eval_mul;
+  vectorspace.eval_one := eval_one;
+  vectorspace.eval_id := eval_id;
+  vectorspace.eval_prim' := eval_prim';
+  vectorspace.eval_prim := eval_prim;
+  vectorspace.eval_range := eval_range;
+  vectorspace.rlo := @rlo _ _ _;
+  vectorspace.rhi := @rhi _ _ _;
+  vectorspace.rbmul := @rpmul _ _ _;
+  vectorspace.rbone := @rpone _ _ _;
+  vectorspace.rbid := @rpid _ _ _;
+  vectorspace.rbprim := @rprim _ _ _;
+  vectorspace.rbeval := @reval _ _ _;
+  vectorspace.rbrange := @rrange _ _ _;
+|}.
 

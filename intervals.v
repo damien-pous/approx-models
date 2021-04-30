@@ -1,7 +1,7 @@
 (** * Implementation of neighborhoods based on floating point intervals *)
 
 Require Export Floats.
-Require Export neighborhood.
+Require Export interfaces.
 From Interval Require Import Xreal Interval Float Float_full.
 
 Set Implicit Arguments.

@@ -8,7 +8,6 @@ Unset Printing Implicit Defensive.
 
 Section r.
  Variable D: Domain.
- Section s. 
  Variable C: Ops1.
  Variable B: BasisOps_on C.
  Let a: C := dlo.
@@ -33,14 +32,6 @@ Section r.
      brange:=brange;
      interpolate:=r_interpolate;
    |}.
- End s.
- Context {N: NBH} (B: BasisOps).
- Definition rescale: BasisOps :=
-   {|
-     BR := rescale_on BR;
-     BI := rescale_on BI;
-     BF := rescale_on BF;
-   |}.
 End r.
 
 Lemma is_RInt_ext' (f: R->R) a a' b b' l: a=a' -> b=b' -> is_RInt f a b l -> is_RInt f a' b' l.
@@ -64,34 +55,41 @@ Proof.
   by rewrite RInt_comp_lin.
 Qed.  
 
-Definition rescale_T {N: NBH} {B: BasisOps} (D: Domain) (T: nat -> R -> R) n x :=
-  T n (lo + (x-dlo)*((hi-lo)/(dhi-dlo))).
-   
-Instance valid {N: NBH} {B: BasisOps} (D: Domain) {T} (HB: ValidBasisOps T B):
-  ValidBasisOps (rescale_T D T) (rescale D B).
-Proof.
- set a: II := dlo.
- set b: II := dhi.
- set bahilo: II := (b-a) / (hi-lo). 
- set hiloba: II := (hi-lo) / (b-a).
- set (f (x: II) := lo + (x-a) * hiloba).
- set (g (y: II) := a + (y-lo) * bahilo).
- set r_id: list II := sscal bahilo bid + sscal (a-lo*bahilo) 1.
- set (r_beval (p: list II) (x: II) := beval p (f x)).
- set (r_evalR (p: list R) (x: R) := beval p (lo + (x-dlo) * ((hi-lo)/(dhi-dlo)))).
- set (r_interpolate n h := interpolate n (fun x => h (g x))).
- set (r_prim (p: list II) := sscal bahilo (bprim p)). 
- set (r_M := rescale_T D T). 
- assert(r_eval: forall p x,
-           vectorspace.eval r_M p x = vectorspace.eval T p (lo + (x-dlo)*((hi-lo)/(dhi-dlo)))).
+Section s.
+ Context {N: NBH} (D: Domain) (B: Basis).
+
+ Let a: II := dlo.
+ Let b: II := dhi.
+ Let bahilo: II := (b-a) / (hi-lo). 
+ Let hiloba: II := (hi-lo) / (b-a).
+ Let f (x: II) := lo + (x-a) * hiloba.
+ Let g (y: II) := a + (y-lo) * bahilo.
+ Let r_id: list II := sscal bahilo bid + sscal (a-lo*bahilo) 1.
+ Let r_beval (p: list II) (x: II) := beval p (f x).
+ Let r_evalR (p: list R) (x: R) := beval p (lo + (x-dlo) * ((hi-lo)/(dhi-dlo))).
+ Let r_interpolate n h := interpolate n (fun x => h (g x)).
+ Let r_prim (p: list II) := sscal bahilo (bprim p). 
+ Let r_M n x := TT n (lo + (x-dlo)*((hi-lo)/(dhi-dlo))).
+ Let lohi: lo < hi := lohi. 
+ Let dlohi: dlo < dhi := dlohi. 
+
+ Lemma r_eval: forall p x,
+     vectorspace.eval r_M p x = vectorspace.eval TT p (lo + (x-dlo)*((hi-lo)/(dhi-dlo))).
+ Proof.
    intros. rewrite /vectorspace.eval.
    generalize O. elim p =>[|?? IHp] n//=. by rewrite IHp.
- generalize lohi dlohi => lohi' dlohi'.
- constructor =>//; try solve [apply D | apply HB].
- - intros. simpl. by rewrite evalE. 
- - intros. simpl. 
+ Qed.
+
+ Program Definition to: Basis := {|
+   TT := r_M;
+   BR := rescale_on D BR;
+   BI := rescale_on D BI;
+   BF := rescale_on D BF;
+ |}.
+ Next Obligation. by rewrite evalE r_eval. Qed.
+ Next Obligation. 
    eapply continuity_pt_ext. intro. rewrite r_eval. reflexivity.
-   apply (continuity_pt_comp (fun x0 => (lo + (x0 - dlo) * ((hi - lo) / (dhi - dlo)))) (vectorspace.eval T p)). 
+   apply (continuity_pt_comp (fun x0 => (lo + (x0 - dlo) * ((hi - lo) / (dhi - dlo)))) (vectorspace.eval TT p)). 
    apply continuity_pt_plus.
    by apply continuity_pt_const.
    apply continuity_pt_mult. 
@@ -99,11 +97,14 @@ Proof.
    by apply continuity_pt_const.
    by apply continuity_pt_const.
    apply eval_cont.
- - intros. rewrite 3!r_eval. apply (@eval_mul _ _ _ HB).
- - intros. rewrite r_eval. apply (@eval_one _ _ _ HB).
- - intros. rewrite r_eval /= eval_add 2!eval_scal eval_id eval_one /=.
-   field. lra. 
- - simpl. intros.
+ Qed.
+ Next Obligation. rewrite 3!r_eval. apply eval_mul. Qed.
+ Next Obligation. rewrite r_eval. apply eval_one. Qed.
+ Next Obligation.
+   rewrite r_eval /= eval_add 2!eval_scal eval_id eval_one /=.
+   field. lra.
+ Qed.
+ Next Obligation.
    set (u := ((hi-lo)/(dhi-dlo)): R).
    set (v := lo- dlo * u : R).
    rewrite 2!eval_scal/= -Rmult_minus_distr_l.
@@ -113,30 +114,40 @@ Proof.
    intros=>/=. rewrite r_eval /scal/=/mult/v/u/=.
    rewrite -Rmult_assoc. replace (_/_*_) with R1 by (rewrite /=; field; lra).
    rewrite Rmult_1_l. f_equal. field; lra. 
- - intros =>/=. 
+ Qed.
+ Next Obligation.
    set (u := ((hi-lo)/(dhi-dlo)): R).
    set (v := lo- dlo * u : R).
    rewrite 2!eval_scal/= -Rmult_minus_distr_l 2!r_eval eval_prim /=.
-   symmetry. erewrite RInt_ext; last first. intros. rewrite r_eval.
+   symmetry. erewrite RInt_ext; last first. intros.
+   rewrite r_eval.
    replace (_+_) with (u*x + (lo - dlo*u)). 2: rewrite /u/=; field; lra. reflexivity.
    rewrite RInt_lin. 3: eexists; apply eval_prim'.
    set (e:=RInt _ _ _). replace (RInt _ _ _) with e. rewrite /u/=. field; lra.
    unfold e. f_equal; rewrite /u/=; field; lra.
    apply Rmult_integral_contrapositive; (split; last apply Rinv_neq_0_compat);
      rewrite /=; lra.
- - generalize eval_range; simpl. case brange=>[? H|_]//.
+ Qed.
+ Next Obligation.
+   generalize eval_range; simpl. case brange=>[? H|_]//.
    rewrite /dom/=; intros. rewrite r_eval/=. apply H.
    generalize lohi. generalize dlohi. rewrite /dom/=. split. 
    rewrite Rplus_comm -Rle_minus_l Rminus_eq_0 -Rmult_assoc /=.
    apply Rdiv_le_0_compat. apply Rmult_le_pos; lra. lra. 
    rewrite Rplus_comm -Rle_minus_r /Rdiv -Rmult_assoc Rle_div_l. 2: lra.
    rewrite Rmult_comm. apply Rmult_le_compat; lra.
- - apply rsadd; apply rsscal. apply rdiv; apply rsub; (apply D || apply HB). apply rbid.
-   apply rsub. apply rdlo. apply rmul. apply rlo. apply rdiv; apply rsub; (apply D || apply HB).
- - apply rbone.
- - intros. apply rsscal. apply rdiv; apply rsub; (apply D || apply HB).
-     by apply rbprim.
- - intros. simpl. apply rbeval=>//. 
-   apply radd. apply rlo. apply rmul. apply rsub=>//; apply rdlo.
-   apply rdiv; apply rsub; (apply D || apply HB).
-Qed.
+ Qed.
+ Next Obligation. apply rdlo. Qed.
+ Next Obligation. apply rdhi. Qed.
+ Next Obligation. now apply rbmul. Qed.
+ Next Obligation. now apply rbone. Qed.
+ Next Obligation.
+   apply rsadd; apply rsscal; try rel. apply rbid. apply rbone.
+ Qed.
+ Next Obligation.
+   apply rsscal. rel. by apply rbprim.
+ Qed.
+ Next Obligation. rel. Qed.
+ Next Obligation. apply rbrange. Qed.
+ 
+End s.

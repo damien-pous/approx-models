@@ -210,47 +210,41 @@ Section s'.
  Proof. intros. constructor; rel. Qed.
 End s'.
 
-(** packing everything together, we get a valid basis *)
+(** packing everything together, we get a basis *)
 
-Definition basis_on (D: Domain) (C: Ops1): BasisOps_on C :=
-  {|
-    vectorspace.lo := dlo;
-    vectorspace.hi := dhi;
-    vectorspace.bmul := smul;
-    vectorspace.bone := sone;
-    vectorspace.bid := sid;
-    vectorspace.bprim := prim;
-    vectorspace.beval := @eval' C;
-    vectorspace.brange := None;
-    vectorspace.interpolate := interpolate
-  |}.
+Definition basis_on (D: Domain) (C: Ops1): BasisOps_on C := {|
+  vectorspace.lo := dlo;
+  vectorspace.hi := dhi;
+  vectorspace.bmul := smul;
+  vectorspace.bone := sone;
+  vectorspace.bid := sid;
+  vectorspace.bprim := prim;
+  vectorspace.beval := @eval' C;
+  vectorspace.brange := None;
+  vectorspace.interpolate := interpolate
+|}.
 
-Definition basis {N: NBH} D: BasisOps :=
-  {|
-    BR := basis_on D ROps1;
-    BI := basis_on D II;
-    BF := basis_on D FF;
-  |}.
-
-Instance valid {N: NBH} (D: Domain): ValidBasisOps M (basis D).
-Proof.
-  constructor.
-  - exact dlohi.
-  - exact evalR.
-  - exact eval_cont.
-  - exact eval_mul. 
-  - exact eval_one. 
-  - exact eval_id. 
-  - exact eval_prim'. 
-  - exact eval_prim.
-  - by []. 
-  - apply rdlo. 
-  - apply rdhi.
-  - apply rsmul.  
-  - apply rsone.
-  - apply rsid.
-  - apply rprim. 
-  - apply reval. 
-  - by []. 
-Qed.
+Definition basis {N: NBH} D: Basis := {|
+  TT := M;
+  BR := basis_on D ROps1;
+  BI := basis_on D II;
+  BF := basis_on D FF;
+  vectorspace.lohi := dlohi;
+  vectorspace.evalE := evalR;
+  vectorspace.eval_cont := eval_cont;
+  vectorspace.eval_mul := eval_mul;
+  vectorspace.eval_one := eval_one;
+  vectorspace.eval_id := eval_id;
+  vectorspace.eval_prim' := eval_prim';
+  vectorspace.eval_prim := eval_prim;
+  vectorspace.eval_range := I;
+  vectorspace.rlo := @rdlo _ _ _ _;
+  vectorspace.rhi := @rdhi _ _ _ _;
+  vectorspace.rbmul := @rsmul _ _ _;
+  vectorspace.rbone := @rsone _ _ _;
+  vectorspace.rbid := @rsid _ _ _;
+  vectorspace.rbprim := @rprim _ _ _;
+  vectorspace.rbeval := @reval _ _ _;
+  vectorspace.rbrange := I;
+|}.
 

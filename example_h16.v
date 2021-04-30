@@ -7,27 +7,29 @@ Unset Strict Implicit.
 Unset Printing Implicit Defensive.
 
 Section s.
+ Context {NN: NBH}.
  Variables rp rq: Z.
  Let r {C: Ops1}: C := fromZ rp / fromZ rq.
- Variable N: nat.
- Let N' := Z.of_nat N.
- 
- Section t.
- Context {C: Ops1} {Fx: FunOps C} {Fy: FunOps C}.
- Let x0: C := fromZ 9 / fromZ 10.
- Let y0: C := fromZ 11 / fromZ 10.
- Let sqrt2: C := sqrt (1+1). 
- Let r2: C := r*r. 
- Let r_sqrt2: C := r / sqrt2.
- Let xmin: C := sqrt (x0 - r_sqrt2).
- Let xmax: C := sqrt (x0 + r_sqrt2).
- Let ymin: C := sqrt (y0 - r_sqrt2).
- Let ymax: C := sqrt (y0 + r_sqrt2).
+
+ Let x0: II := fromZ 9 / fromZ 10.
+ Let y0: II := fromZ 11 / fromZ 10.
+ Let sqrt2: II := sqrt (fromZ 2). 
+ Let r2: II := r*r. 
+ Let r_sqrt2: II := r / sqrt2.
+ Let xmin: II := sqrt (x0 - r_sqrt2).
+ Let xmax: II := sqrt (x0 + r_sqrt2).
+ Let ymin: II := sqrt (y0 - r_sqrt2).
+ Let ymax: II := sqrt (y0 + r_sqrt2).
  (* sligthly larger domains *)
  Definition xmin' := xmin-1/fromZ 100.
  Definition xmax' := xmax+1/fromZ 100.
  Definition ymin' := ymin-1/fromZ 100.
  Definition ymax' := ymax+1/fromZ 100.
+
+ Variable N: nat.
+ Section t.
+ Variables {Fx: FunOps} {Fy: FunOps}.
+ Let N' := Z.of_nat N.
  Let sqrx (f: Fx): Fx := mtruncate N (f * f).
  Let sqry (f: Fy): Fy := mtruncate N (f * f).
  Let powx f n: Fx := match n with 1 => f | 2 => sqrx f | 3 => mtruncate N (f*sqrx f) | 4 => sqrx (sqrx f) | _ => 1 end.
@@ -106,10 +108,10 @@ Section s.
  exact Hy. 
  Defined.
 
- Let Bx := rescale Dx chebyshev.basis.
- Let By := rescale Dy chebyshev.basis.
+ Let Bx := rescale.to Dx chebyshev.basis.
+ Let By := rescale.to Dy chebyshev.basis.
  
- Definition calcul {N: NBH} := @Integrals II (MFunOps Bx) (MFunOps By).
+ Definition calcul := Integrals (approx.model Bx) (approx.model By).
    
 End s.
 
@@ -120,15 +122,15 @@ End s.
 
 (* TOCHECK *)
 
-Time Eval vm_compute in @calcul         5      10  13 (*  32 *) eq_refl eq_refl Iprimitive.nbh.
+Time Eval vm_compute in     calcul               5  10  13 (*  32 *) eq_refl eq_refl.
 
 (* first one is always slow: native_compute must initialise *)
-Time Eval native_compute in @calcul  5      10  13 (*  32 *) eq_refl eq_refl Iprimitive.nbh.
-Time Eval native_compute in @calcul  5      10  13 (*  32 *) eq_refl eq_refl Iprimitive.nbh.
-Time Eval native_compute in @calcul 78     100  15 (*  32 *) eq_refl eq_refl Iprimitive.nbh.
+Time Eval native_compute in calcul               5  10  13 (*  32 *) eq_refl eq_refl.
+Time Eval native_compute in calcul               5  10  13 (*  32 *) eq_refl eq_refl.
+Time Eval native_compute in calcul              78 100  15 (*  32 *) eq_refl eq_refl.
 
 (* quite slower with IBigInt... *)
-Time Eval native_compute in @calcul 78     100  15 (*  32 *) eq_refl eq_refl IBigInt.nbh.
+Time Eval native_compute in @calcul IBigInt.nbh 78 100  15 (*  32 *) eq_refl eq_refl.
 
 From Interval Require Import Specific_bigint Specific_ops.
 Import BigZ.
@@ -146,6 +148,6 @@ End FBigInt300.
 Module IBigInt300 := Make FBigInt300.
 
 (* TOCHECK: we obtain very large intervals... *)
-Time Eval native_compute in @calcul 88     100  65 (* 128 *) eq_refl eq_refl IBigInt128.nbh.
-Time Eval native_compute in @calcul 89     100  95 (* 128 *) eq_refl eq_refl IBigInt128.nbh.
-Time Eval native_compute in @calcul 895   1000 135 (* 300 *) eq_refl eq_refl IBigInt300.nbh.
+Time Eval native_compute in @calcul IBigInt128.nbh 88   100  65 (* 128 *) eq_refl eq_refl.
+Time Eval native_compute in @calcul IBigInt128.nbh 89   100  95 (* 128 *) eq_refl eq_refl.
+Time Eval native_compute in @calcul IBigInt300.nbh 895 1000 135 (* 300 *) eq_refl eq_refl.

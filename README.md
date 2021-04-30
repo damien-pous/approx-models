@@ -26,15 +26,15 @@ For more details, see the corresponding [article](https://hal.laas.fr/hal-020885
 
 
 * Abstractions for approximations
-  + `neighborhood.v` : hierarchy of abstractions: basic operations, operations on functions, neighborhoods
+  + `interfaces.v` : hierarchy of abstractions: basic operations, neighborhoods, operations on functions
   + `vectorspace.v` : abstractions for generalized polynomials and linear combinations thereof, used for approximations
-  + `rescale.v` : afine rescaling for a basis of generalized polynomials
+  + `rescale.v` : affine rescaling for a basis of generalized polynomials
   
 
 * Instances of approximations
   + `intervals.v` : a simple instance of neighborhoods based on intervals with floating point endpoints
-  + `chebyshev.v` : Chebyshev basis
-  + `taylor.v ` : monomial basis, Taylor models
+  + `chebyshev.v` : Chebyshev basis, for Chebyshev models
+  + `taylor.v ` : monomial basis, for Taylor models
 
 
 * Instances of certificate based approximations for elementary functions
@@ -47,5 +47,7 @@ For more details, see the corresponding [article](https://hal.laas.fr/hal-020885
   + `tactic.v` : Tactic for certifying bounds
 
 * Examples and benchmarks
+  + `examples.v` : basic examples on how to use the library
+  + `tests.v` : tests for the library
 
-TODO
+TODO: example_abs, example_h16

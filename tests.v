@@ -51,21 +51,21 @@ Proof.
   Fail bound (e_integrate f_id (fromZ (-2)) (fromZ 2)).
   (* with a rescaled chebyshev basis *)
   bound (e_integrate f_id (fromZ (-2)) (fromZ 2)) 5%Z
-        (approx.Valid (rescale.valid (DZ (-2) 2) chebyshev.valid)).
+        (approx.model (rescale.to (DZ (-2) 2) chebyshev.basis)).
   Restart.
   (* with the monomial basis *)
   bound (e_integrate f_id (fromZ (-2)) (fromZ 2)) 5%Z
-        (approx.Valid (taylor.valid (DZ (-2) 2))).  
+        (approx.model (taylor.basis (DZ (-2) 2))).  
 Qed.
 
 Lemma ex5': 0 <= RInt (fun x => x) (-2) 2 <= 0.
 Proof.
   (* we cannot be that precise! *)
   Fail bound (e_integrate f_id (fromZ (-2)) (fromZ 2)) 5%Z
-        (approx.Valid (rescale.valid (DZ (-2) 2) chebyshev.valid)).
+        (approx.model (rescale.to (DZ (-2) 2) chebyshev.basis)).
   Restart.
   Fail bound (e_integrate f_id (fromZ (-2)) (fromZ 2)) 10%Z
-       (approx.Valid (taylor.valid (DZ (-2) 2))).
+       (approx.model (taylor.basis (DZ (-2) 2))).
 Abort.
 
 Lemma ex6: -0.1 <= RInt (fun x => 0%R) (-1/3) (1/3) <= 0.1.
@@ -77,7 +77,7 @@ Lemma ex6': -0.1 <= RInt (fun x => 0%R) (-3) (3) <= 0.1.
 Proof.
   Fail bound (e_integrate f_zer (fromZ (-3)) (fromZ 3)).
   bound (e_integrate f_zer (fromZ (-3)) (fromZ 3)) 10%Z
-        (approx.Valid (rescale.valid (DZ (-3) 3) chebyshev.valid)).
+        (approx.model (rescale.to (DZ (-3) 3) chebyshev.basis)).
 Qed.
 
 
@@ -85,14 +85,14 @@ Qed.
 
 Eval vm_compute in
     let e := (e_integrate ((1+f_id) / ((1-f_id)*(1-f_id)+1/fromZ 4)) 0 (pi/fromZ 4)) in
-    LET E ::= eSem (approx.MFunOps chebyshev.basis) 20 e IN ret (width E).
+    LET E ::= eSem (approx.model chebyshev.basis) 20 e IN ret (width E).
     (** increase 20 to get more digits *)
 
 
 (** testing interpolation on rescaled bases *)
 Eval vm_compute in
     let f: fxpr := f_id / sqrt ((1+f_id) / (fromZ 3+f_id)) in
-    fSem (approx.MFunOps (rescale (DZ 18 200) chebyshev.basis)) 3 f.
+    fSem (approx.model (rescale.to (DZ 18 200) chebyshev.basis)) 3 f.
 
 
 (** Note that the neighborhood is set by default to [Iprimitive.nbh], i.e., intervals with primitive floating point endpoints 
@@ -103,7 +103,7 @@ Eval vm_compute in
 
 Eval vm_compute in
     let e := (e_integrate ((1+f_id) / ((1-f_id)*(1-f_id)+1/fromZ 4)) 0 (pi/fromZ 4)) in
-    e_map width (eSem (N:=IZ.nbh) (approx.MFunOps chebyshev.basis) 20 e).
+    e_map width (eSem (N:=IZ.nbh) (approx.model chebyshev.basis) 20 e).
 
 
 (* TOCHECK: why is 1+1 not a singleton with primitive floats? *)
@@ -114,8 +114,8 @@ Eval vm_compute in (1+1: IBigInt.nbh).    (* ok *)
 
 
 (** About neighborhood instances:
-Print Assumptions bound.          (** only four axioms for the (classical) construction of reals *)
-Print Assumptions approx.MFunOps. (** idem *)
+Print Assumptions syntax.bound.   (** only four axioms for the (classical) construction of reals *)
+Print Assumptions approx.model.   (** idem *)
 Print Assumptions chebyshev.basis.(** idem *)
 Print Assumptions IZ.nbh.         (** idem, only 4, everything is emulated *)
 Print Assumptions IBigInt.nbh.    (** plus axioms for primitive 63bits integers (Int63) *)

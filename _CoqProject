@@ -6,7 +6,7 @@ banach.v
 div.v
 sqrt.v
 errors.v
-neighborhood.v
+interfaces.v
 syntax.v
 vectorspace.v
 chebyshev.v

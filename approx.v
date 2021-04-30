@@ -13,7 +13,7 @@ Record Model C := { pol: list C; rem: C }.
 
 (** ** operations on rigorous approximations *)
 Section n.
- Context {N: NBH} {B: BasisOps}.
+ Context {N: NBH} {B: Basis}.
  Notation Model := (Model (car (ops0 (@II N)))).
 
  (** range of a polynomial *)
@@ -141,23 +141,8 @@ Section n.
              (mfc (interpolate n (fun x: FF => 1 / (fromZ 2 * beval h x))))
              ((lo+hi)//2).
 
- (** packing all operations together *)
- Definition MFunOps: FunOps II :=
-  {|
-    funcar:=MOps0;
-    neighborhood.mid:=mid;
-    neighborhood.mcst:=mcst;
-    neighborhood.meval:=meval;
-    neighborhood.mintegrate:=mintegrate;
-    neighborhood.mdiv:=mdiv;
-    neighborhood.msqrt:=msqrt;
-    neighborhood.mtruncate:=mtruncate;
-    neighborhood.mrange:=mrange;
-  |}.
-
  (** ** correctness of the above operations in valid bases *)
- Context {T} {HB: ValidBasisOps T B}.
- Notation eval := (vectorspace.eval T).
+ Notation eval := (vectorspace.eval TT).
  
  (** containment relation for models *)
  Definition mcontains (M: Model) (f: R -> R) :=
@@ -297,7 +282,7 @@ Section n.
  Proof.
    intros F f (p&Hp&H). unfold mtruncate.
    generalize (rsplit_list n Hp).
-   generalize (eval_split_list T n p).  
+   generalize (eval_split_list TT n p).  
    simpl. case split_list=> p1 p2.
    case split_list=> P1 P2. simpl. 
    intros E [R1 R2]. exists p1. split=>//. 
@@ -481,7 +466,7 @@ Section n.
    + specialize (Hb' _ Hx). by rewrite <-Rabs_pos in Hb'. 
    + apply Rlt_le, Hmu0b. apply rzer. apply rsub. rewrite Rpow. apply rpow, rsub =>//. apply rone. rel.
    + apply Hmu; last apply rone.
-     apply radd => //. apply rmul. rel. apply rdiv; last rel. apply rsub.
+     apply radd => //. apply rmul. rel. apply rdiv; last rel. apply rsub. 
      apply rsub. apply rone. rel. apply rsqrt. apply rsub.
      rewrite /=. apply rmul. apply rsub. apply rone. rel. apply rmul. apply rsub. apply rone. rel. apply rone.
      apply rmul; first apply rmul; rel. 
@@ -497,21 +482,30 @@ Section n.
    move => ??. apply eval_cont.
  Qed.
 
- Instance Valid: ValidFunOps contains dom MFunOps.
- Proof.
-   exists mcontains_Rel0.
-   - exact rmid.
-   - exact rmcst.
-   - exact rmeval. 
-   - exact rmintegrate. 
-   - exact rmdiv. 
-   - exact rmsqrt.
-   - exact rmtruncate.
-   - exact eval_mrange.
- Qed.
+
+ (** packing all operations together *)
+ Definition model: FunOps :=
+  {|
+    MM:=MOps0;
+    interfaces.mid:=mid;
+    interfaces.mcst:=mcst;
+    interfaces.meval:=meval;
+    interfaces.mintegrate:=mintegrate;
+    interfaces.mdiv:=mdiv;
+    interfaces.msqrt:=msqrt;
+    interfaces.mtruncate:=mtruncate;
+    interfaces.mrange:=mrange;
+    interfaces.mdom := dom;
+    interfaces.mcontains := mcontains_Rel0;
+    interfaces.rmid := rmid;
+    interfaces.rmcst := rmcst;
+    interfaces.rmeval := rmeval;
+    interfaces.rmintegrate := rmintegrate;
+    interfaces.rmdiv := rmdiv;
+    interfaces.rmsqrt := rmsqrt;
+    interfaces.rmtruncate := rmtruncate;
+    interfaces.rmrange := eval_mrange;               
+  |}.
 
 End n.
-Arguments MFunOps {_} _.
-Arguments Valid {_ _ _} _.
-
-Global Hint Resolve rmid rmcst (* rmeval *): rel.
+Arguments model {_} _.

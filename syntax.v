@@ -1,9 +1,6 @@
 (** * Syntax for approximable expressions *)
 
-Require Import neighborhood errors.
-
-
-(* TODO: move FunOps stuff here? *)
+Require Import interfaces errors.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -39,52 +36,48 @@ Coercion f_cst: expr >-> fxpr.
 (** declaring structures to get nice notations on expressions *)
 Definition e_zer := e_fromZ 0.
 Definition e_one := e_fromZ 1.
-Canonical Structure eOps0: Ops0 :=
-  {|
-    car := expr;
-    add := e_add;
-    sub := e_sub;
-    mul := e_mul;
-    zer := e_zer;
-    one := e_one;
-  |}.
-Canonical Structure eOps1 :=
-  {|
-    ops0  := eOps0;
-    fromZ := e_fromZ;
-    div   := e_div;
-    sqrt  := e_sqrt;
-    cos   := e_cos;
-    abs   := e_abs;
-    pi    := e_pi;
-  |}.
+Canonical Structure eOps0: Ops0 := {|
+  car := expr;
+  add := e_add;
+  sub := e_sub;
+  mul := e_mul;
+  zer := e_zer;
+  one := e_one;
+|}.
+Canonical Structure eOps1 := {|
+  ops0  := eOps0;
+  fromZ := e_fromZ;
+  div   := e_div;
+  sqrt  := e_sqrt;
+  cos   := e_cos;
+  abs   := e_abs;
+  pi    := e_pi;
+|}.
 
 Definition f_zer := f_cst 0.
 Definition f_one := f_cst 1.
-Canonical Structure fOps0: Ops0 :=
-  {|
-    car := fxpr;
-    add := f_add;
-    sub := f_sub;
-    mul := f_mul;
-    zer := f_zer;
-    one := f_one;
-  |}.
+Canonical Structure fOps0: Ops0 := {|
+  car := fxpr;
+  add := f_add;
+  sub := f_sub;
+  mul := f_mul;
+  zer := f_zer;
+  one := f_one;
+|}.
 Definition f_pi := f_cst pi.
 Definition f_fromZ z := f_cst (fromZ z).
 (** fake value, not to be used... *)
 Definition f_dontuse (f: fxpr): fxpr. exact f. Qed.
-Canonical Structure fOps1: Ops1 :=
-  {|
-    ops0  := fOps0;
-    fromZ := f_fromZ;
-    div   := f_div;
-    sqrt  := f_sqrt;
-    pi    := f_pi;
-    (** cos, and abs, are not available on functions, only on scalars *)
-    cos   := f_dontuse;
-    abs   := f_dontuse;
-  |}.
+Canonical Structure fOps1: Ops1 := {|
+  ops0  := fOps0;
+  fromZ := f_fromZ;
+  div   := f_div;
+  sqrt  := f_sqrt;
+  pi    := f_pi;
+  (** cos, and abs, are not available on functions, only on scalars *)
+  cos   := f_dontuse;
+  abs   := f_dontuse;
+|}.
 
 
 (** real number semantics of expressions  *)
@@ -117,7 +110,7 @@ with fsem (e: fxpr) (x: R): R :=
 
 Section s.
 
-Context {N: NBH} (MM: FunOps II). 
+Context {N: NBH} (MM: FunOps). 
 
 (** interpolation degree for divisions and square roots *)
 Variable deg: Z.
@@ -186,9 +179,7 @@ with fcheck (f: fxpr): bool :=
 Lemma andb_split (a b: bool): a && b -> a /\ b.
 Proof. case a; simpl; intuition congruence. Qed.
 
-Context {dom: R -> Prop} (mcontains: ValidFunOps contains dom MM).
-
-Definition continuous f := forall x, dom x -> continuity_pt f x. 
+Definition continuous f := forall x, mdom x -> continuity_pt f x. 
 
 Lemma econtains (e: expr): echeck e -> EP' contains (eSem e) (esem e)
 with fcontains (f: fxpr): fcheck f -> EP' mcontains (fSem f) (fsem f) /\ continuous (fsem f).
@@ -240,7 +231,7 @@ Proof.
        intros x X. apply continuity_pt_div; auto.
        revert H. case Ff2'=>// F Ff2. case is_ltE=>//H _. 
        assert (0 < Rabs (fsem f2 x)). 
-       apply H. apply rzer. now apply rabs, eval_mrange.
+       apply H. apply rzer. now apply rabs, rmrange.
        clear H. split_Rabs; lra.
     -- apply andb_split in H as [H P].
        apply fcontains in H as [? C].
@@ -250,7 +241,7 @@ Proof.
        intros x X. apply (continuity_pt_comp (fsem f)). apply C, X. 
        apply continuity_pt_sqrt.
        revert P. case H=>//F Ff. case is_leE=>//P _. apply P. apply rzer.
-       now apply eval_mrange. 
+       now apply rmrange. 
     -- split. constructor. apply rmid. intros x _. apply continuity_pt_id.
     -- split. eapply ep_map. 2: apply econtains=>//. intro. apply rmcst; auto.
        intros x _. now apply continuity_pt_const.

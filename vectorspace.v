@@ -1,6 +1,6 @@
 (** * Operations on linear combinations (generalised polynomials) *)
 
-Require Export neighborhood.
+Require Export interfaces.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -37,6 +37,10 @@ Proof. by []. Qed.
 End r.
 Global Hint Constructors list_rel: rel.
 Global Hint Resolve list_rel_app list_rel_rev rpair: rel.
+
+(** derived containment relations in neighborhoods *)
+Definition scontains {N: NBH} := (list_rel contains).
+Definition pcontains {N: NBH} := (pair_rel contains).
 
 
 (** ** linear operations *)
@@ -181,92 +185,86 @@ End s.
 Global Hint Resolve rsadd rsscal rsopp rssub rszer rcons0 rcons00: rel.
 
 
-(** ** Basis operations and their validity  *)
-                                          
-(** elementary ingredients allowing to construct a FunOps based on models *)
+(** ** Basis: requirements for generating pseudo-polynomial models (in approx.v) *)
+
 Class BasisOps_on (C: Type) := {
-    lo: C;
-    hi: C;
-    beval: list C -> C -> C;
-    bmul: list C -> list C -> list C;
-    bone: list C;
-    bid: list C;
-    bprim: list C -> list C;
-    (* range is an optional operation (implemented locally if absent, e.g., for Taylor models) *)
-    brange: option (list C -> C*C); 
-    interpolate: Z -> (C -> C) -> list C;
-  }.
-Class BasisOps {N: NBH} := {
+  lo: C;
+  hi: C;
+  beval: list C -> C -> C;
+  bmul: list C -> list C -> list C;
+  bone: list C;
+  bid: list C;
+  bprim: list C -> list C;
+  (* range is an optional operation (implemented locally if absent, e.g., for Taylor models) *)
+  brange: option (list C -> C*C); 
+  interpolate: Z -> (C -> C) -> list C;
+}.
+
+(** Basis operations immediately give an Ops0 structure on [list C] *)
+Canonical Structure listOps0 (C: Ops1) (B: BasisOps_on C) := {|
+  car := list C;
+  add := sadd;
+  mul := bmul;
+  sub := ssub;
+  zer := szer;
+  one := bone|}.
+
+Class Basis {N: NBH} := {
+
+  (** the mathematical basis itself *)
+  TT: nat -> R -> R;
+
+  (** concrete operations on reals/intervals/floating points *)
   BR:> BasisOps_on R;
   BI:> BasisOps_on II;
   BF:> BasisOps_on FF;
+
+  (** domain of the basis (derived from the above operations) *)
+  dom (x: R) := lo <= x <= hi;
+  Dom (X: II) := is_le lo X && is_le X hi;
+  
+  (** properties of BR *)
+  lohi: lo < hi;
+  evalE: forall p x, beval p x = eval TT p x;
+  eval_cont: forall p x, continuity_pt (eval TT p) x;
+  eval_mul: forall p q x, eval TT (bmul p q) x = eval TT p x * eval TT q x;
+  eval_one: forall x, eval TT bone x = 1;
+  eval_id: forall x, eval TT bid x = x;
+  eval_prim': forall p a b, is_RInt (eval TT p) a b (eval TT (bprim p) b - eval TT (bprim p) a);
+  eval_prim: forall p a b, eval TT (bprim p) b - eval TT (bprim p) a = RInt (eval TT p) a b;
+  eval_range: match brange with
+               | Some range => (forall p x, dom x -> (range p).1 <= eval TT p x <= (range p).2)
+               | None => True end;
+  
+  (** link between BI and BR *)
+  rlo: contains lo lo;
+  rhi: contains hi hi;
+  rbmul: forall p q, scontains p q ->
+         forall p' q', scontains p' q' ->
+                         scontains (bmul p p') (bmul q q');
+  rbone: scontains bone bone;
+  rbid: scontains bid bid;
+  rbprim: forall p q, scontains p q ->
+                     scontains (bprim p) (bprim q);
+  rbeval: forall p q, scontains p q ->
+          forall x y, contains x y ->
+                      contains (beval p x) (beval q y);
+  rbrange: match brange,brange with
+           (* TODO: option_rel *)
+           | Some rangeI,Some rangeR =>
+             (forall p q, scontains p q -> pair_rel contains (rangeI p) (rangeR q))                                            
+           | None,None => True
+           | _,_ => False
+           end;
 }.
 
-(** extension of the [contains] relation to sequences and pairs  *)
-Definition scontains {N: NBH} := (list_rel contains).
-Definition pcontains {N: NBH} := (pair_rel contains).
-
-(** domain of a basis, as a predicate on reals *)
-Definition dom `{B: BasisOps} (x: R) := lo <= x <= hi.
-Definition Dom `{B: BasisOps} (X: II) := is_le lo X && is_le X hi.
-
-Section vb.
- Context {N: NBH} {T: nat -> R -> R} {B: BasisOps}.
- Notation eval := (eval T).
- Class ValidBasisOps :=
-   {
-     (** properties of BR *)
-     lohi: lo < hi;
-     evalE: forall p x, beval p x = eval p x;
-     eval_cont: forall p x, continuity_pt (eval p) x;
-     eval_mul: forall p q x, eval (bmul p q) x = eval p x * eval q x;
-     eval_one: forall x, eval bone x = 1;
-     eval_id: forall x, eval bid x = x;
-     eval_prim': forall p a b, is_RInt (eval p) a b (eval (bprim p) b - eval (bprim p) a);
-     eval_prim: forall p a b, eval (bprim p) b - eval (bprim p) a = RInt (eval p) a b;
-     eval_range: match brange with
-                  | Some range => (forall p x, dom x -> (range p).1 <= eval p x <= (range p).2)
-                  | None => True end;
-     
-     (** link between BI and BR *)
-     rlo: contains lo lo;
-     rhi: contains hi hi;
-     rbmul: forall p q, scontains p q ->
-            forall p' q', scontains p' q' ->
-                            scontains (bmul p p') (bmul q q');
-     rbone: scontains bone bone;
-     rbid: scontains bid bid;
-     rbprim: forall p q, scontains p q ->
-                        scontains (bprim p) (bprim q);
-     rbeval: forall p q, scontains p q ->
-             forall x y, contains x y ->
-                         contains (beval p x) (beval q y);
-     rbrange: match brange,brange with
-              (* TODO: option_rel *)
-              | Some rangeI,Some rangeR =>
-                (forall p q, scontains p q -> pair_rel contains (rangeI p) (rangeR q))                                            
-              | None,None => True
-              | _,_ => False
-              end;
-   }.
-
- (** [Dom] properly underapproximate the domain *)
- Lemma DomE `{ValidBasisOps} X: wreflect (forall x, contains X x -> dom x) (Dom X).
- Proof.
-   rewrite /Dom.
-   case is_leE=>[Lo|]. 2: constructor. 
-   case is_leE=>[Hi|]; constructor=> x Xx.
-   split; [apply Lo|apply Hi]=>//. apply rlo. apply rhi.
- Qed.
-End vb.
-Arguments ValidBasisOps {_} _ _.
+(** [Dom] properly underapproximate the domain *)
+Lemma DomE `{Basis} X: wreflect (forall x, contains X x -> dom x) (Dom X).
+Proof.
+  rewrite /Dom.
+  case is_leE=>[Lo|]. 2: constructor. 
+  case is_leE=>[Hi|]; constructor=> x Xx.
+  split; [apply Lo|apply Hi]=>//. apply rlo. apply rhi.
+Qed.
 Global Hint Resolve rlo rhi rbmul rbone rbid rbprim rbeval: rel.
 
-(** Basis operations immediately give an Ops0 structure on [list C] *)
-Canonical Structure listOps0 (C: Ops1) (B: BasisOps_on C) :=
-  {| car := list C;
-     add := sadd;
-     mul := bmul;
-     sub := ssub;
-     zer := szer;
-     one := bone|}.
