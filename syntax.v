@@ -127,8 +127,15 @@ Fixpoint eSem (e: expr): E II :=
   | e_abs e => e_map (@abs _) (eSem e)
   | e_fromZ z => ret (fromZ z)
   | e_pi => ret pi
-  | e_eval f x => LET f ::= fSem f IN LET x ::= eSem x IN meval f x
-  | e_integrate f a b => LET f ::= fSem f IN LET a ::= eSem a IN LET b ::= eSem b IN mintegrate f a b
+  | e_eval f x => 
+      LET f ::= fSem f IN
+      LET x ::= eSem x IN 
+      meval f x
+  | e_integrate f a b => 
+      LET f ::= fSem f IN 
+      LET a ::= eSem a IN 
+      LET b ::= eSem b IN 
+      mintegrate f (Some a) (Some b)
   end
 with fSem (e: fxpr): E MM :=
   match e with
@@ -179,7 +186,7 @@ with fcheck (f: fxpr): bool :=
 Lemma andb_split (a b: bool): a && b -> a /\ b.
 Proof. case a; simpl; intuition congruence. Qed.
 
-Definition continuous f := forall x, mdom x -> continuity_pt f x. 
+Definition continuous f := forall x, dom x -> continuity_pt f x. 
 
 Lemma econtains (e: expr): echeck e -> EP' contains (eSem e) (esem e)
 with fcontains (f: fxpr): fcheck f -> EP' mcontains (fSem f) (fsem f) /\ continuous (fsem f).
@@ -202,7 +209,7 @@ Proof.
        eapply ep_bind=>[F Ff|]. 2: apply fcontains=>//.  
        eapply ep_bind=>[A Aa|]. 2: apply econtains=>//.  
        eapply ep_bind=>[B Bb|]. 2: apply econtains=>//.  
-       apply rmintegrate=>//.
+       apply rmintegrate=>//; try by constructor.
        intros. apply fcontains=>//.
   - destruct f; simpl; intro H.
     -- apply andb_split in H as [H1 H2].

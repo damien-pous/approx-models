@@ -66,8 +66,17 @@ Section n.
  Definition mintegrate_unsafe (M: Model) (a b: II): II :=
    let N := bprim (pol M) in 
    beval N b - beval N a + (b-a)*rem M.
- Definition mintegrate (M: Model) (a b: II): E II :=
-   if Dom a && Dom b then ret (mintegrate_unsafe M a b) else err "mintegrate: invalid bounds".
+ Definition mintegrate (M: Model) (a b: option II): E II :=
+   match a,b with
+   | Some a, Some b =>
+     if Dom a && Dom b then ret (mintegrate_unsafe M a b) else err "mintegrate: invalid bounds"
+   | Some a, None =>
+     if Dom a then ret (mintegrate_unsafe M a hi) else err "mintegrate: invalid lower bound"
+   | None, Some b =>
+     if Dom b then ret (mintegrate_unsafe M lo b) else err "mintegrate: invalid upper bound"
+   | None, None =>
+     ret (mintegrate_unsafe M lo hi)
+   end.
  
  (** evaluation, without checking that the argument belongs to the domain *)
  Definition meval_unsafe (M: Model) (x: II): II := beval (pol M) x + rem M.
@@ -371,15 +380,24 @@ Section n.
    eapply Hv. apply Hf. by apply Rlt_le. 
  Qed.
 
+ (** here we deduce the requirements of [rmintegrate_unsafe] from purely computational assumptions 
+     it might be useful to use directly [mintegrate_unsafe] and [rmintegrate_unsafe] depending on the target application
+  *)
  Lemma rmintegrate: forall M f, 
      mcontains M f -> (forall x, dom x -> continuity_pt f x) ->
-     forall A a, contains A a -> 
-     forall D d, contains D d -> EP' contains (mintegrate M A D) (RInt f a d).
+     forall A a, ocontains lo A a -> 
+     forall D d, ocontains hi D d -> EP' contains (mintegrate M A D) (RInt f a d).
  Proof.
-   intros. rewrite /mintegrate.
-   case DomE=>//= Da. 
-   case DomE=>//= Db. 
-   constructor. now apply rmintegrate_unsafe; auto.
+   intros M f Mf Cf A a Aa D d Dd.
+   rewrite /mintegrate.
+   destruct Aa as [Aa|]; destruct Dd as [Dd|].
+   - case DomE=>//= Da. case DomE=>//= Db. 
+     constructor. now apply rmintegrate_unsafe; auto.
+   - case DomE=>//= Da.
+     constructor. apply rmintegrate_unsafe; try rel. generalize lohi. split; lra.
+   - case DomE=>//= Db.
+     constructor. apply rmintegrate_unsafe; try rel. generalize lohi. split; lra.
+   - constructor. apply rmintegrate_unsafe; try rel; generalize lohi; split; lra.
  Qed.
  
  (** *** division *)
@@ -487,15 +505,15 @@ Section n.
  Definition model: FunOps :=
   {|
     MM:=MOps0;
-    interfaces.mid:=mid;
-    interfaces.mcst:=mcst;
-    interfaces.meval:=meval;
-    interfaces.mintegrate:=mintegrate;
-    interfaces.mdiv:=mdiv;
-    interfaces.msqrt:=msqrt;
-    interfaces.mtruncate:=mtruncate;
-    interfaces.mrange:=mrange;
-    interfaces.mdom := dom;
+    interfaces.mid := mid;
+    interfaces.mcst := mcst;
+    interfaces.meval := meval;
+    interfaces.mintegrate := mintegrate;
+    interfaces.mdiv := mdiv;
+    interfaces.msqrt := msqrt;
+    interfaces.mtruncate := mtruncate;
+    interfaces.mrange := mrange;
+    interfaces.mdom := bdom;
     interfaces.mcontains := mcontains_Rel0;
     interfaces.rmid := rmid;
     interfaces.rmcst := rmcst;

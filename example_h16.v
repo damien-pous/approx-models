@@ -22,13 +22,13 @@ Section s.
  Let ymin: II := sqrt (y0 - r_sqrt2).
  Let ymax: II := sqrt (y0 + r_sqrt2).
  (* sligthly larger domains *)
- Definition xmin' := xmin-1/fromZ 100.
- Definition xmax' := xmax+1/fromZ 100.
- Definition ymin' := ymin-1/fromZ 100.
- Definition ymax' := ymax+1/fromZ 100.
+ (* Definition xmin' := xmin-1/fromZ 100. *)
+ (* Definition xmax' := xmax+1/fromZ 100. *)
+ (* Definition ymin' := ymin-1/fromZ 100. *)
+ (* Definition ymax' := ymax+1/fromZ 100. *)
 
- Hypothesis Hx: is_lt (F2I (I2F xmin')) (F2I (I2F xmax')). 
- Hypothesis Hy: is_lt (F2I (I2F ymin')) (F2I (I2F ymax')). 
+ Hypothesis Hx: is_lt (F2I (I2F xmin)) (F2I (I2F xmax)). 
+ Hypothesis Hy: is_lt (F2I (I2F ymin)) (F2I (I2F ymax)). 
 
  Let Fx := approx.model (rescale.to (DfromI2 Hx) chebyshev.basis).
  Let Fy := approx.model (rescale.to (DfromI2 Hy) chebyshev.basis).
@@ -68,8 +68,8 @@ Section s.
        | S i' => mdiv N' ((xleft ^y i' + xright ^y i') * mid ^y j * (mid ^y 2 - mcst y0)) deltax
        end
    in
-   let Integral1 (i j : nat) := mintegrate (integrand1 i j) xmin xmax in
-   let Integral2 (i j : nat) := LET fy ::= integrand2 i j IN mintegrate fy ymin ymax in
+   let Integral1 (i j : nat) := mintegrate (integrand1 i j) None None in
+   let Integral2 (i j : nat) := LET fy ::= integrand2 i j IN mintegrate fy None None in
    let Integral i j := LET a ::= Integral1 i j IN LET b ::= Integral2 i j IN ret (a+b) in
    (LET I00 ::= Integral 0 0 IN
     LET I20 ::= Integral 2 0 IN
@@ -108,7 +108,7 @@ Module FBigInt300 <: FloatOpsP.
 End FBigInt300. 
 Module IBigInt300 := Make FBigInt300.
 
-(* TOCHECK: we obtain very large intervals... looks ok now! (but pretty slow and thus commented out) *)
+(* TOCHECK: looks ok now! (but pretty slow and thus commented out) *)
 (*
 Time Eval native_compute in calcul IBigInt128.nbh 88   100  65.
 Time Eval native_compute in calcul IBigInt128.nbh 89   100  95.

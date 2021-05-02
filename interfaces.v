@@ -230,48 +230,11 @@ Proof.
   simpl; split_Rabs; lra.
 Qed.
 
-
-(** ** FunOps: abstraction for functions on real numbers *)
-
-Class FunOps {N: NBH} := {
-  (* pointwise operations *)
-  MM: Ops0;
-  (* operations specific to functions *)
-  mid: MM;                 
-  mcst: II -> MM;
-  meval: MM -> II -> E II;
-  mintegrate: MM -> II -> II -> E II;
-  mdiv: Z -> MM -> MM -> E MM;
-  msqrt: Z -> MM -> E MM;
-  (* [truncate] acts as the identity *)
-  mtruncate: nat -> MM -> MM;
-  mrange: MM -> II;
-
-  (* specification *)
-  mdom: R -> Prop;             (* domain of the considered functions *)
-  mcontains: Rel0 MM (f_Ops0 R ROps0);
-  rmid: mcontains mid id;
-  rmcst: forall C c, contains C c -> mcontains (mcst C) (fun _ => c);
-  rmeval: forall F f, mcontains F f ->
-          forall X x, contains X x -> 
-                      EP' contains (meval F X) (f x);
-  rmintegrate: forall F f, mcontains F f -> (forall x, mdom x -> continuity_pt f x) ->
-               forall A a, contains A a ->
-               forall C c, contains C c ->
-                           EP' contains (mintegrate F A C) (RInt f a c);
-  rmdiv: forall n F f, mcontains F f ->
-         forall   G g, mcontains G g -> 
-                       EP' mcontains (mdiv n F G) (f_bin Rdiv f g);
-  rmsqrt: forall n F f, mcontains F f ->
-                        EP' mcontains (msqrt n F) (f_unr R_sqrt.sqrt f);
-  rmtruncate: forall n F f, mcontains F f ->
-                            mcontains (mtruncate n F) f;
-  rmrange: forall F f, mcontains F f ->
-           forall x, mdom x -> contains (mrange F) (f x);
-}.
-Coercion MM: FunOps >-> Ops0.
-Coercion mcontains: FunOps >-> Rel0.
-Global Hint Resolve rmid rmcst rmeval rmintegrate rmdiv rmsqrt: rel.
+(** predicate for specifying bounds of integrals (see [rmintegrate] below) *)
+Inductive ocontains{N: NBH} x: option II -> R -> Prop :=
+| ocontains_some: forall A a, contains A a -> ocontains x (Some A) a
+| ocontains_none: ocontains x None x.
+Global Hint Constructors ocontains: rel.
 
 (** ** domains *)
 
@@ -330,3 +293,50 @@ Notation DF2 a b := (@DfromF2 _ a b eq_refl).
 (** from intervals *)
 Definition DfromI2 {N: NBH}(a b: II) := @DfromF2 N (I2F a) (I2F b).
 Notation DI2 a b := (@DfromI2 _ a b eq_refl).
+
+
+(** ** FunOps: abstraction for functions on real numbers *)
+
+Class FunOps {N: NBH} := {
+  (* domain of the considered functions *)
+  mdom:> Domain;
+  
+  (* pointwise operations *)
+  MM: Ops0;
+  (* operations specific to functions *)
+  mid: MM;                 
+  mcst: II -> MM;
+  meval: MM -> II -> E II;
+  (* integration; missing bounds are assumed to be those of the domain *)
+  mintegrate: MM -> option II -> option II -> E II;
+  mdiv: Z -> MM -> MM -> E MM;
+  msqrt: Z -> MM -> E MM;
+  (* [truncate] acts as the identity *)
+  mtruncate: nat -> MM -> MM;
+  mrange: MM -> II;
+
+  (* specification *)
+  mcontains: Rel0 MM (f_Ops0 R ROps0);
+  rmid: mcontains mid id;
+  rmcst: forall C c, contains C c -> mcontains (mcst C) (fun _ => c);
+  rmeval: forall F f, mcontains F f ->
+          forall X x, contains X x -> 
+                      EP' contains (meval F X) (f x);
+  rmintegrate: forall F f, mcontains F f -> (forall x, dom x -> continuity_pt f x) ->
+               forall A a, ocontains lo A a ->
+               forall C c, ocontains hi C c ->
+                           EP' contains (mintegrate F A C) (RInt f a c);
+  rmdiv: forall n F f, mcontains F f ->
+         forall   G g, mcontains G g -> 
+                       EP' mcontains (mdiv n F G) (f_bin Rdiv f g);
+  rmsqrt: forall n F f, mcontains F f ->
+                        EP' mcontains (msqrt n F) (f_unr R_sqrt.sqrt f);
+  rmtruncate: forall n F f, mcontains F f ->
+                            mcontains (mtruncate n F) f;
+  rmrange: forall F f, mcontains F f ->
+           forall x, dom x -> contains (mrange F) (f x);
+}.
+Coercion MM: FunOps >-> Ops0.
+Coercion mcontains: FunOps >-> Rel0.
+Global Hint Resolve rmid rmcst rmeval rmintegrate rmdiv rmsqrt: rel.
+
