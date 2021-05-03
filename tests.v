@@ -32,18 +32,8 @@ Lemma ex3: 0.405465108108 <= RInt (fun x => 1/(2+x)) 0 1 <= 0.405465108109.
 Qed.
 
 Lemma ex4: 2.08670 <= RInt (fun x => (1+x)/((1-x)*(1-x)+1/4)) 0 (pi/4)  <= 2.08672.
-  Fail bound (e_integrate ((1+f_id) / ((1-f_id)*(1-f_id)+1/fromZ 4)) 0 (pi/fromZ 4)) 20%Z.
+  bound (e_integrate ((1+f_id) / ((1-f_id)*(1-f_id)+1/fromZ 4)) 0 (pi/fromZ 4)) 20%Z.
 Abort.
-
-(** problem: above, [echeck] fails to verify that the denominator cannot be 0 
-
-    the range of   (1-X)² + 1/4 = 7/4 - 2 T1 X + 1/2 T2 X
-    is approximated as [ 7/4-2-1/2 ; 7/4 +2+1/2 ] = [-3/4;17/4] 
-    
-    we could try to evaluate the polynomial on the interval [0;pi/4] 
-    used in the integral, but we would again obtain something containing 0 
-    ([-1.8915926535898033; 2.8207963267949037], see below)   
-*)
 
 Lemma ex5: -0.1 <= RInt (fun x => x) (-2) 2 <= 0.1.
 Proof.
@@ -79,7 +69,6 @@ Proof.
   bound (e_integrate f_zer (fromZ (-3)) (fromZ 3)) 10%Z
         (approx.model (chebyshev.basis (DZ2 (-3) 3))).
 Qed.
-
 
 (** direct computations  *)
 

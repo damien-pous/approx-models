@@ -22,7 +22,7 @@ Lemma newton (f g h w : R -> R) mu b :
   (forall t, D t -> Rabs (1 - w t * g t) <= mu) ->
   (forall t, D t -> Rabs (w t * (g t * h t - f t)) <= b) ->
   0 <= mu < 1 -> 0 <= b -> 
-  forall t, D t -> Rabs (h t - f t / g t) <= b / (1 - mu).
+  forall t, D t -> g t <> 0 /\ Rabs (h t - f t / g t) <= b / (1 - mu).
 Proof.
   (** proof script by Quentin Corradi (M2 student at ENS Lyon, autumn 2020) *)
   intros Hmu Hb Dmu Db t Dt.
@@ -34,6 +34,7 @@ Proof.
    intros t' Dt' Hg0. specialize (Hmu t' Dt').
    replace (Rabs (1 - w t'*g t')) with 1 in Hmu. lra.
    rewrite Hg0 Rmult_0_r Rminus_0_r Rabs_R1 //.
+  split. by apply Hg. 
   apply Rmult_le_reg_l with (Rabs (w t*g t)).
   apply Rabs_pos_lt, Rmult_integral_contrapositive. now auto.
   apply Rle_trans with b. rewrite -Rabs_mult.

@@ -86,11 +86,10 @@ Lemma newton (f h w : R -> R) mu0 mu1 b :
   0 <= mu0 < 1 -> 0 < mu1 -> 0 <= b -> 0 <= delta b mu0 mu1 -> mu0 + 2 * mu1 * rmin b mu0 mu1 < 1 ->
   (forall t1 t2 t3, t1 <= t2 <= t3 -> I t1 -> I t3 -> I t2) ->
   (forall t, I t -> continuity_pt w t) -> (exists t0, I t0 /\ w t0 > 0) ->
-  forall t, I t -> Rabs (h t - sqrt (f t)) <= rmin b mu0 mu1.
+  forall t, I t -> 0 <= f t /\ Rabs (h t - sqrt (f t)) <= rmin b mu0 mu1.
 Proof.
   move => Hmu0 Hmu1 Hb [Hmu0_0 Hmu0_1] Hmu1_0 Hb_0 Hdelta Hmu_1 Iconvex Hwcont [t0 [It0 Hwt0]].
   set mmu0 := mknonnegreal Hmu0_0; set mmu1 := mkposreal Hmu1_0; set bb := mknonnegreal Hb_0.
-  apply R_dcballE, cball_sym.
   have Hw' t : I t -> w t <> 0
     by move => It Hwt; move: (Hmu0 t It); rewrite Hwt Rmult_0_r Rmult_0_l Rminus_0_r Rabs_R1; lra.
   have Hw t : I t -> w t > 0.
@@ -132,11 +131,14 @@ Proof.
   move: (BF_lim_is_fixpoint (Hmu_1 : mu < 1) SBP) (BF_lim_inside_sball (Hmu_1 : mu < 1) SBP).
   set bf := lim (BF F mu SB); rewrite /SBall_pred /=.
   move => /Rdomfct_close Hbf /R_dcballE Hbf'.
-  eapply domfct_cball_ext_r => t It; last by apply R_dcballE, Hbf'.
-  have Hsqr : bf t ^ 2 = f t.
+  have Hsqr : forall t, I t -> bf t ^ 2 = f t.
+    move=>t It.
     apply Rminus_diag_uniq, Rmult_eq_reg_l with (w t); last by apply Hw'.
     move: (Hbf t It); rewrite Rmult_0_r /F /=; lra.
-  rewrite /= -Hsqr /= Rmult_1_r sqrt_square => //.
+  move=>t It; split. rewrite -(Hsqr _ It). by apply pow2_ge_0. 
+  move: t It. apply R_dcballE, cball_sym.
+  eapply domfct_cball_ext_r => t It; last by apply R_dcballE, Hbf'.
+  rewrite /= -(Hsqr _ It) /= Rmult_1_r sqrt_square => //.
   have Habs : Rabs (1 - 2 * w t * bf t) <= mu.
     replace (_-_) with ((1 - 2 * w t * h t) + -(2 * w t * (bf t - h t))); last by ring.
     eapply Rle_trans; first apply Rabs_triang; apply Rplus_le_compat; auto.

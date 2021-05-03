@@ -323,7 +323,7 @@ Class FunOps {N: NBH} := {
   rmeval: forall F f, mcontains F f ->
           forall X x, contains X x -> 
                       EP' contains (meval F X) (f x);
-  rmintegrate: forall F f, mcontains F f -> (forall x, dom x -> continuity_pt f x) ->
+  rmintegrate: forall F f, mcontains F f ->
                forall A a, ocontains lo A a ->
                forall C c, ocontains hi C c ->
                            EP' contains (mintegrate F A C) (RInt f a c);

@@ -38,3 +38,18 @@ Proof.
   bound (e_integrate f_id (fromZ (-2)) (fromZ 2)) 5%Z
         (approx.model (taylor.basis (DZ2 (-2) 2))).  
 Qed.
+
+Lemma ex7: 1.578 <= RInt (fun x => sqrt (2+x)) 0 1 <= 1.579.
+Proof.
+  bound (e_integrate (sqrt (fromZ 2+f_id)) 0 1).
+Qed.
+
+Lemma ex7': 1.2189 <= RInt (fun x => sqrt (1+x)) 0 1 <= 1.219.
+Proof.
+  (* since we use Chebyshev basis on [-1;1] by default, 
+     we get too close from sqrt of a negative value here *)
+  Fail bound (e_integrate (sqrt (1+f_id)) 0 1).
+  (* solved by using a better basis *)
+  bound (e_integrate (sqrt (1+f_id)) 0 1)  5%Z
+        (approx.model (chebyshev.basis (DZ2 0 1))).
+Qed.
