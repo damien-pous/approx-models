@@ -27,11 +27,11 @@ Section s.
  (* Definition ymin' := ymin-1/fromZ 100. *)
  (* Definition ymax' := ymax+1/fromZ 100. *)
 
- Hypothesis Hx: is_lt (F2I (I2F xmin)) (F2I (I2F xmax)). 
- Hypothesis Hy: is_lt (F2I (I2F ymin)) (F2I (I2F ymax)). 
+ Hypothesis Hx: valid_I2 xmin xmax. 
+ Hypothesis Hy: valid_I2 ymin ymax. 
 
- Let Fx := approx.model (rescale.to (DfromI2 Hx) chebyshev.basis).
- Let Fy := approx.model (rescale.to (DfromI2 Hy) chebyshev.basis).
+ Let Fx := approx.model (chebyshev.basis (DfromI2 Hx)).
+ Let Fy := approx.model (chebyshev.basis (DfromI2 Hy)).
  
  Let sqrx (f: Fx): Fx := mtruncate N (f * f).
  Let sqry (f: Fy): Fy := mtruncate N (f * f).

@@ -21,7 +21,7 @@ Tactic Notation "bound" uconstr(e) constr(d) constr(M) :=
 
 (** by default: chebyshev on [-1;1], with primitive floats by default *)
 Tactic Notation "bound" uconstr(e) constr(d) :=
-  bound e d (approx.model chebyshev.basis).
+  bound e d (approx.model chebyshev.basis11).
 
 (** interpolation degree: 10 by default *)
 Tactic Notation "bound" uconstr(e) :=

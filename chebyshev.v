@@ -1,6 +1,7 @@
 (** * Chebyshev polynomials and arithmetic of Chebyshev basis *)
 
 Require Import vectorspace.
+Require rescale.
 Require Import FSets.FMapPositive Reals.
 
 Set Implicit Arguments.
@@ -552,7 +553,7 @@ Definition basis_on (C: Ops1): BasisOps_on C := {|
   vectorspace.interpolate := interpolate
 |}.
 
-Definition basis {N: NBH}: Basis := {|
+Definition basis11 {N: NBH}: Basis := {|
   TT := T;
   BR := basis_on ROps1;
   BI := basis_on II;
@@ -574,3 +575,4 @@ Definition basis {N: NBH}: Basis := {|
   vectorspace.rbrange := @rrange _ _ _;
 |}.
 
+Definition basis {N: NBH} (D: Domain) := rescale.to D basis11.

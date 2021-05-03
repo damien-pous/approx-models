@@ -55,9 +55,9 @@ Definition D10: Domain := DZ2 (-1) 0.
 Definition D01: Domain := DZ2 0 1.
 
 (* implicit use of [Iprimitive.nbh] below *)
-Definition F11 := approx.model chebyshev.basis.
-Definition F10 := approx.model (rescale.to D10 chebyshev.basis).
-Definition F01 := approx.model (rescale.to D01 chebyshev.basis).
+Definition F11 := approx.model chebyshev.basis11.
+Definition F10 := approx.model (chebyshev.basis D10).
+Definition F01 := approx.model (chebyshev.basis D01).
 
 Definition wrem (x: E (Model II)) := x >>= fun x => ret (width (rem x)). 
 

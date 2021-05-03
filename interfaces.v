@@ -291,7 +291,8 @@ Qed.
 Notation DF2 a b := (@DfromF2 _ a b eq_refl).
 
 (** from intervals *)
-Definition DfromI2 {N: NBH}(a b: II) := @DfromF2 N (I2F a) (I2F b).
+Definition valid_I2 {N: NBH}(a b: II) := is_lt (F2I (I2F a)) (F2I (I2F b)).
+Definition DfromI2 {N: NBH}(a b: II): valid_I2 a b -> Domain := @DfromF2 N (I2F a) (I2F b).
 Notation DI2 a b := (@DfromI2 _ a b eq_refl).
 
 
