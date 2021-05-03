@@ -20,6 +20,15 @@ Definition e_map {A B} (f: A -> B) (x: E A): E B :=
 Definition e_map2 {A B C} (f: A -> B -> C) (x: E A) (y: E B): E C :=
   x >>= fun a => y >>= fun b => ret (f a b).
 
+Definition assert (b: bool) (e: string): E (is_true b) :=
+  if b return E (is_true b) then ret eq_refl else err e.
+Notation "'ASSERT' b 'AS' x 'MSG' e 'IN' g" := (e_bind (assert b e) (fun x => g)) (at level 20): error_scope.
+
+Definition trycatch {A} (x: E A) (y: unit -> E A) :=
+  match x with err _ => y tt | _ => x end.
+Notation "'TRY' x 'CATCH' g" := (trycatch x (fun _ => g)) (at level 20): error_scope.  
+
+
 Inductive EP {A} (P: A -> Prop): E A -> Prop :=
 | ep_ret: forall a, P a -> EP P (ret a)
 | ep_err: forall s, EP P (err s).
