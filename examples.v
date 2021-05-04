@@ -24,7 +24,7 @@ Lemma ex2: 0.405465108108 <= RInt (fun x => 1/(2+x)) 0 1 <= 0.405465108109.
   static11 23%Z. 
   Restart.
   (** with a larger static basis (chebyshev on [-1.5;1.5]), we need to further increase the degree *)
-  static (DF2 (-1.5)%float 1.5%float) 40%Z. 
+  static (DQ2 (-1.5) 1.5) 40%Z. 
 Qed.
 
 Lemma ex5: -0.1 <= RInt (fun x => x) (-2) 2 <= 0.1.

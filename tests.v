@@ -13,9 +13,9 @@ Proof.
   Restart.
   static11 15%Z.
   Restart.
-  static (DF2 0.5%float 2%float).
+  static (DQ2 0.5 2).
   Restart.
-  static (DF2 0.5%float 2%float) 15%Z.
+  static (DQ2 0.5 2) 15%Z.
 Qed.
 
 Goal 1.5 <= sqrt 2 <= 1.6.
@@ -30,9 +30,8 @@ Qed.
 
 Lemma ex2: 0.9999 <= RInt (fun x => x*x*3.0) 0 1 <= 1.00001.
 Proof.
-  (* rational numbers not yet supported *)
-  Fail dynamic.
-Abort.
+  dynamic.
+Qed.
 
 Lemma ex4: 2.08670 <= RInt (fun x => (1+x)/((1-x)*(1-x)+1/4)) 0 (pi/4)  <= 2.08672.
   dynamic 11%Z.

@@ -1,6 +1,6 @@
 (** * Hierarchy of structures: basic operations, operations on functions, neighbourhoods *)
 
-Require Export Psatz Rbase Rfunctions Ranalysis.
+Require Export QArith_base Psatz Rbase Rfunctions Ranalysis.
 Require Export Coquelicot.Coquelicot.
 Require Export Setoid Morphisms.
 Require Export List. Export ListNotations.
@@ -10,6 +10,7 @@ Require Import errors.
 Set Implicit Arguments.
 Unset Strict Implicit.
 Unset Printing Implicit Defensive.
+Close Scope Q_scope.
 Open Scope R_scope.
 
 (** ** preliminary tools *)
@@ -67,23 +68,25 @@ Record Ops1 := {
   pi: ops0;
 }.
 
-(** derived operations *)
-Definition fromN {C: Ops1} (n: nat) := fromZ C (Z.of_nat n). 
-Definition dvn {C: Ops1} n x: C := div x (fromN n).
-
 (** notations *)
 Declare Scope RO_scope.
+Bind Scope RO_scope with car.
 Infix "+" := add: RO_scope. 
 Infix "*" := mul: RO_scope.
 Infix "-" := sub: RO_scope.
 Infix "/" := div: RO_scope.
-Notation "x // n" := (dvn n x) (at level 40, left associativity): RO_scope .
 Notation "0" := (zer _): RO_scope.
 Notation "1" := (one _): RO_scope.
 Arguments fromZ {_}. 
 Arguments pi {_}. 
 Open Scope RO_scope.
-Bind Scope RO_scope with car.
+
+(** derived operations *)
+Definition fromN {C: Ops1} (n: nat): C := fromZ (Z.of_nat n). 
+Definition fromQ {C: Ops1} (q: Q): C := fromZ (Qnum q) / fromZ (Zpos (Qden q)).
+
+Definition dvn {C: Ops1} n x: C := div x (fromN n).
+Notation "x // n" := (dvn n x) (at level 40, left associativity): RO_scope .
 
 (** derived operations *)
 Fixpoint pow (C: Ops0) n (x: C) :=
@@ -158,6 +161,10 @@ Global Hint Resolve rpow: rel.
 Lemma rfromN R S (T: Rel1 R S) n: T (fromN n) (fromN n).
 Proof. unfold fromN; rel. Qed.
 Global Hint Resolve rfromN: rel.
+
+Lemma rfromQ R S (T: Rel1 R S) q: T (fromQ q) (fromQ q).
+Proof. unfold fromQ; rel. Qed.
+Global Hint Resolve rfromQ: rel.
 
 Lemma rdvn R S (T: Rel1 R S) n: forall x y, T x y -> T (x//n) (y//n).
 Proof. rewrite /dvn; rel. Qed.
@@ -311,6 +318,16 @@ Definition DfromZ2 {N: NBH}(a b: Z) (H: Z.compare a b = Lt): Domain := {|
   rdhi := rfromZ _ b;
 |}.
 Notation DZ2 a b := (@DfromZ2 _ a b eq_refl).
+
+(** from rational numbers *)
+Definition DfromQ2 {N: NBH}(a b: Q) (H: Qcompare a b = Lt): Domain := {|
+  DR := make_domain_on (fromQ a) (fromQ b);
+  DI := make_domain_on (fromQ a) (fromQ b);
+  dlohi := Qreals.Qlt_Rlt _ _ (proj1 (Qlt_alt _ _) H);
+  rdlo := rfromQ _ a;
+  rdhi := rfromQ _ b;
+|}.
+Notation DQ2 a b := (@DfromQ2 _ a b eq_refl).
 
 (** from floating points *)
 Program Definition DfromF2 {N: NBH}(a b: FF) (H: is_lt (F2I a) (F2I b)): Domain := {|

@@ -77,7 +77,7 @@ Proof.
   Restart.
   static11 15%Z.
   Restart.
-  static (DF2 0.5%float 2%float).
+  static (DQ2 0.5 2).
   Restart.
   static (DF2 0.5%float 2%float) 15%Z.
 Qed.

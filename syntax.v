@@ -13,6 +13,7 @@ Inductive expr :=
 | e_sub: expr -> expr -> expr
 | e_mul: expr -> expr -> expr
 | e_fromZ: Z -> expr
+| e_fromQ: Q -> expr
 | e_zer: expr
 | e_one: expr
 | e_pi: expr
@@ -90,6 +91,7 @@ Fixpoint esem (e: expr): R :=
   | e_sqrt e => sqrt (esem e)
   | e_cos e => cos (esem e)
   | e_abs e => abs (esem e)
+  | e_fromQ q => Q2R q
   | e_fromZ z => fromZ z
   | e_zer => 0
   | e_one => 1
@@ -128,6 +130,7 @@ Ltac ereify e :=
   | R_sqrt.sqrt ?e => let e:=ereify e in constr:(e_sqrt e)
   | Rtrigo_def.cos ?e => let e:=ereify e in constr:(e_cos e)
   | Rabs ?e => let e:=ereify e in constr:(e_abs e)
+  | Q2R ?q => constr:(e_fromQ q)
   | IZR ?z => constr:(e_fromZ z)
   | Rtrigo1.PI => constr:(e_pi)
   | RInt ?f ?a ?b =>
@@ -159,7 +162,7 @@ Ltac ereify e :=
 Goal True.
   let e := ereify constr:(Rplus R0 R1) in idtac e.
   let e := ereify constr:(42) in idtac e.
-  (* let e := ereify constr:(4.2%R) in idtac e. *)
+  let e := ereify constr:(4.2) in idtac e.
   let e := ereify constr:(0+1: R) in idtac e.
   let e := ereify constr:(RInt (fun z => z) R0 R1) in idtac e.
   let e := ereify constr:(RInt (fun z => R0) R0 R1) in idtac e.
@@ -189,6 +192,7 @@ Fixpoint eSem (e: expr): E II :=
   | e_sqrt e => e_map (@sqrt _) (eSem e)
   | e_cos e => e_map (@cos _) (eSem e)
   | e_abs e => e_map (@abs _) (eSem e)
+  | e_fromQ q => ret (fromQ q)
   | e_fromZ z => ret (fromZ z)
   | e_pi => ret pi
   | e_zer => ret 0
@@ -223,6 +227,7 @@ Proof.
     -- eapply ep_map2; try apply econtains; rel. 
     -- eapply ep_map2; try apply econtains; rel. 
     -- constructor. rel. 
+    -- constructor. apply rfromQ. 
     -- constructor. apply rzer.
     -- constructor. apply rone.
     -- constructor. rel.
@@ -285,6 +290,7 @@ Fixpoint eSem (e: expr): E II :=
   | e_sqrt e => e_map (@sqrt _) (eSem e)
   | e_cos e => e_map (@cos _) (eSem e)
   | e_abs e => e_map (@abs _) (eSem e)
+  | e_fromQ q => ret (fromQ q)
   | e_fromZ z => ret (fromZ z)
   | e_pi => ret pi
   | e_zer => ret 0
@@ -320,6 +326,7 @@ Proof.
     -- eapply ep_map2; try apply econtains; rel. 
     -- eapply ep_map2; try apply econtains; rel. 
     -- constructor. rel. 
+    -- constructor. apply rfromQ. 
     -- constructor. apply rzer.
     -- constructor. apply rone.
     -- constructor. rel. 
