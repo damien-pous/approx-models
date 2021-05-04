@@ -55,13 +55,13 @@ Definition D10: Domain := DZ2 (-1) 0.
 Definition D01: Domain := DZ2 0 1.
 
 (* implicit use of [Iprimitive.nbh] below *)
-Definition F11 := approx.model chebyshev.basis11.
-Definition F10 := approx.model (chebyshev.basis D10).
-Definition F01 := approx.model (chebyshev.basis D01).
+Definition F11 := approx.model_ops chebyshev.basis11_ops.
+Definition F10 := approx.model_ops (chebyshev.basis_ops (fromZ (-1)) 0).
+Definition F01 := approx.model_ops (chebyshev.basis_ops 0            1).
 
-Definition wrem (x: E (Model II)) := x >>= fun x => ret (width (rem x)). 
+Definition wrem (x: E (Tube II)) := x >>= fun x => ret (width (rem x)). 
 
-Definition NearAbs (MM: FunOps) (deg: Z) (eps: II): E MM := msqrt deg (mcst eps + mid * mid). 
+Definition NearAbs (MM: ModelOps) (deg: Z) (eps: II): E MM := msqrt deg (mcst eps + mid * mid). 
 
 
 

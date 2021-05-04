@@ -21,17 +21,9 @@ Section s.
  Let xmax: II := sqrt (x0 + r_sqrt2).
  Let ymin: II := sqrt (y0 - r_sqrt2).
  Let ymax: II := sqrt (y0 + r_sqrt2).
- (* sligthly larger domains *)
- (* Definition xmin' := xmin-1/fromZ 100. *)
- (* Definition xmax' := xmax+1/fromZ 100. *)
- (* Definition ymin' := ymin-1/fromZ 100. *)
- (* Definition ymax' := ymax+1/fromZ 100. *)
 
- Hypothesis Hx: valid_I2 xmin xmax. 
- Hypothesis Hy: valid_I2 ymin ymax. 
-
- Let Fx := approx.model (chebyshev.basis (DfromI2 Hx)).
- Let Fy := approx.model (chebyshev.basis (DfromI2 Hy)).
+ Let Fx := approx.model_ops (chebyshev.basis_ops xmin xmax).
+ Let Fy := approx.model_ops (chebyshev.basis_ops ymin ymax).
  
  Let sqrx (f: Fx): Fx := mtruncate N (f * f).
  Let sqry (f: Fy): Fy := mtruncate N (f * f).
@@ -39,7 +31,7 @@ Section s.
  Infix "^x" := powx (at level 30).
  Let powy f n: Fy := match n with 1 => f | 2 => sqry f | 3 => mtruncate N (f*sqry f) | 4 => sqry (sqry f) | _ => 1 end.
  Infix "^y" := powy (at level 30).
- Definition Integrals :=
+ Definition calcul :=
    LET deltay ::= msqrt N' (mcst r2 - sqrx (sqrx mid - mcst x0)) IN
    LET deltax ::= msqrt N' (mcst r2 - sqry (sqry mid - mcst y0)) IN
    LET ydown ::= msqrt N' (mcst y0 - deltay) IN
@@ -79,7 +71,7 @@ Section s.
     ret (I00, I20, I22, I40, I04))%nat.
    
 End s.
-Notation calcul N rp rq deg := (@Integrals N rp rq deg eq_refl eq_refl).
+Arguments calcul: clear implicits.
 
 (* TOCHECK *)
 

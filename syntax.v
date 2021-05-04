@@ -108,11 +108,13 @@ with fsem (e: fxpr) (x: R): R :=
   end.
 
 
+(** ** static evaluation strategy, where we fix a basis once and for all  *)
+Module Static.
 Section s.
 
-Context {N: NBH} (MM: FunOps). 
+Context {N: NBH} (MO: ModelOps) lo hi (M: Model MO lo hi). 
 
-(** interpolation degree for divisions and square roots *)
+(** interpolation degree for divisions, square roots, and truncations *)
 Variable deg: Z.
 
 (** approximation of an expression using intervals / models *)
@@ -142,11 +144,11 @@ with fSem (e: fxpr): E MM :=
   | f_add e f => e_map2 (@add _) (fSem e) (fSem f)
   | f_sub e f => e_map2 (@sub _) (fSem e) (fSem f)
   | f_mul e f => e_map2 (@mul _) (fSem e) (fSem f)
-  | f_div e f => LET e ::= fSem e IN LET f ::= fSem f IN mdiv deg e f  (** note the degree used here *)
-  | f_sqrt e => LET e ::= fSem e IN msqrt deg e (** note the degree used here *)
+  | f_div e f => LET e ::= fSem e IN LET f ::= fSem f IN mdiv deg e f
+  | f_sqrt e => LET e ::= fSem e IN msqrt deg e
   | f_id => ret mid
   | f_cst e => e_map mcst (eSem e)
-  | f_trunc e => e_map (mtruncate (Z.to_nat deg)) (fSem e) (** note the degree used here *)
+  | f_trunc e => e_map (mtruncate (Z.to_nat deg)) (fSem e)
   end.
 
 Lemma econtains (e: expr): EP' contains (eSem e) (esem e)
@@ -170,9 +172,9 @@ Proof.
        eapply ep_bind=>[B Bb|]. 2: apply econtains.  
        apply rmintegrate; rel. 
   - destruct f; simpl.
-    -- eapply ep_map2; try apply fcontains. intros. by apply (radd (r:=MM)). 
-    -- eapply ep_map2; try apply fcontains. intros. by apply (rsub (r:=MM)). 
-    -- eapply ep_map2; try apply fcontains. intros. by apply (rmul (r:=MM)). 
+    -- eapply ep_map2; try apply fcontains. intros. by apply (radd (r:=mcontains)). 
+    -- eapply ep_map2; try apply fcontains. intros. by apply (rsub (r:=mcontains)). 
+    -- eapply ep_map2; try apply fcontains. intros. by apply (rmul (r:=mcontains)). 
     -- eapply ep_bind=>[F Ff|]. 2: apply fcontains. 
        eapply ep_bind=>[G Gg|]. 2: apply fcontains.  
        by apply rmdiv.
@@ -193,3 +195,103 @@ Proof.
 Qed.
 
 End s.
+Arguments bound {_ _ _ _} _ _ _ _ _.
+
+End Static.
+
+
+(** ** dynamic evaluation strategy, where we choose the basis according to integral bounds *)
+Module Dynamic.
+Section s.
+
+Context {N: NBH} (MO: II -> II -> ModelOps) (M: forall D: Domain, Model (MO dlo dhi) dlo dhi).
+
+(** interpolation degree for divisions and square roots *)
+Variable deg: Z.
+
+(** approximation of an expression using intervals / models *)
+Fixpoint eSem (e: expr): E II :=
+  match e with
+  | e_add e f => e_map2 (@add _) (eSem e) (eSem f)
+  | e_sub e f => e_map2 (@sub _) (eSem e) (eSem f)
+  | e_mul e f => e_map2 (@mul _) (eSem e) (eSem f)
+  | e_div e f => e_map2 (@div _) (eSem e) (eSem f)
+  | e_sqrt e => e_map (@sqrt _) (eSem e)
+  | e_cos e => e_map (@cos _) (eSem e)
+  | e_abs e => e_map (@abs _) (eSem e)
+  | e_fromZ z => ret (fromZ z)
+  | e_pi => ret pi
+  | e_eval f x => err "evaluation not yet supported in dynamic mode"
+      (* LET f ::= fSem f IN *)
+      (* LET x ::= eSem x IN  *)
+      (* meval f x *)
+  | e_integrate f a b => 
+      LET a ::= eSem a IN 
+      LET b ::= eSem b IN 
+      if ~~ is_lt a b then err "dynamic: integral does not yield a valid domain" else
+      LET f ::= @fSem (MO a b) f IN 
+      mintegrate f None None
+  end
+with fSem {MO: ModelOps} (e: fxpr): E MM :=
+  match e with
+  | f_add e f => e_map2 (@add _) (fSem e) (fSem f)
+  | f_sub e f => e_map2 (@sub _) (fSem e) (fSem f)
+  | f_mul e f => e_map2 (@mul _) (fSem e) (fSem f)
+  | f_div e f => LET e ::= fSem e IN LET f ::= fSem f IN mdiv deg e f  (** note the degree used here *)
+  | f_sqrt e => LET e ::= fSem e IN msqrt deg e (** note the degree used here *)
+  | f_id => ret mid
+  | f_cst e => e_map mcst (eSem e)
+  | f_trunc e => e_map (mtruncate (Z.to_nat deg)) (fSem e) (** note the degree used here *)
+  end.
+
+Lemma econtains (e: expr): EP' contains (eSem e) (esem e)
+with fcontains {MO' a b} {M': Model MO' a b}(f: fxpr): EP' mcontains (fSem f) (fsem f).
+Proof.
+  - destruct e; simpl.
+    -- eapply ep_map2; try apply econtains; rel. 
+    -- eapply ep_map2; try apply econtains; rel. 
+    -- eapply ep_map2; try apply econtains; rel. 
+    -- constructor. rel. 
+    -- constructor. rel. 
+    -- eapply ep_map2; try apply econtains; rel. 
+    -- eapply ep_map; try apply econtains; rel. 
+    -- eapply ep_map; try apply econtains; rel. 
+    -- eapply ep_map; try apply econtains; rel. 
+    -- constructor. 
+       (* eapply ep_bind=>[F Ff|]. 2: apply fcontains.  *)
+       (* eapply ep_bind=>[X Xx|]. 2: apply econtains.   *)
+       (* by apply rmeval. *)
+    -- eapply ep_bind=>[A Aa|]. 2: apply econtains.  
+       eapply ep_bind=>[B Bb|]. 2: apply econtains.
+       case_eq (is_lt A B)=>[ab|]. 2: constructor.
+       specialize (fcontains _ _ _ (M (DfromI2 Aa Bb ab))).
+       eapply ep_bind=>[F Ff|]. 2: apply fcontains.
+       eapply rmintegrate; first apply Ff; by constructor. 
+  - destruct f; simpl.
+    -- eapply ep_map2; try apply fcontains. intros. by apply (radd (r:=mcontains)). 
+    -- eapply ep_map2; try apply fcontains. intros. by apply (rsub (r:=mcontains)). 
+    -- eapply ep_map2; try apply fcontains. intros. by apply (rmul (r:=mcontains)). 
+    -- eapply ep_bind=>[F Ff|]. 2: apply fcontains. 
+       eapply ep_bind=>[G Gg|]. 2: apply fcontains.  
+       by apply rmdiv.
+    -- eapply ep_bind=>[F Ff|]. 2: apply fcontains. 
+       by apply rmsqrt.
+    -- constructor. apply rmid.          
+    -- eapply ep_map; try apply econtains. intros. by apply rmcst.          
+    -- eapply ep_map; try apply fcontains. intros. by apply rmtruncate.          
+Qed.
+
+(** small corollary, useful to obtain a tactic *)
+Lemma bound x a b: (let X := eSem x in
+                    match X with ret X => subseteq X a b | err s => False end) ->
+                   a <= esem x <= b.
+Proof.
+  case econtains=>//=X Xx ab.
+  eapply subseteqE; eassumption. 
+Qed.
+
+End s.
+Arguments bound {_ _} _ _ _ _ _.
+Arguments fSem {_} _ _ _ _.
+
+End Dynamic.

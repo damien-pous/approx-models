@@ -8,13 +8,13 @@ Set Implicit Arguments.
 Unset Strict Implicit.
 Unset Printing Implicit Defensive.  
 
-(** models: polynomials with a remainder, and a bit indicating whether the approximated function is continuous *)
-Record Model C := { pol: list C; rem: C; cont: bool }.
+(** tupes: polynomials with a remainder, and a bit indicating whether the approximated function is continuous *)
+Record Tube C := { pol: list C; rem: C; cont: bool }.
 
 (** ** operations on rigorous approximations *)
 Section n.
- Context {N: NBH} {B: Basis}.
- Notation Model := (Model (car (ops0 (@II N)))).
+ Context {N: NBH} {BO: BasisOps}.
+ Notation Tube := (Tube (car (ops0 (@II N)))).
 
  (** range of a polynomial *)
  Definition srange p: II :=
@@ -24,35 +24,35 @@ Section n.
    end.
 
  (** model with empty remainder *)
- Definition msingle p: Model := {| pol := p; rem := 0; cont := true |}.
+ Definition msingle p: Tube := {| pol := p; rem := 0; cont := true |}.
 
  (** uninformative model  *)
- Definition mbot: Model := {| pol := 0; rem := bot; cont := false |}.
+ Definition mbot: Tube := {| pol := 0; rem := bot; cont := false |}.
 
  (** basic operations on models *)
- Definition madd (M N: Model): Model :=
+ Definition madd (M N: Tube): Tube :=
    {| pol := pol M + pol N;
       rem := rem M + rem N;
       cont := cont M && cont N; |}.
- Definition msub (M N: Model): Model :=
+ Definition msub (M N: Tube): Tube :=
    {| pol := pol M - pol N;
       rem := rem M - rem N;
       cont := cont M && cont N; |}.
- Definition mscal (x: II) (M: Model): Model :=
+ Definition mscal (x: II) (M: Tube): Tube :=
    {| pol := sscal x (pol M);
       rem := x * rem M;
       cont := cont M; |}.
- Definition mmul (M N: Model): Model :=
+ Definition mmul (M N: Tube): Tube :=
    {| pol := pol M * pol N;
       rem := srange (pol M) * rem N + srange (pol N) * rem M + rem M * rem N;
       cont := cont M && cont N; |}.
- Definition mzer: Model := msingle 0.
- Definition mone: Model := msingle 1.
+ Definition mzer: Tube := msingle 0.
+ Definition mone: Tube := msingle 1.
 
  (** by defining this structure, we get nice notations for the above operations on models *)
  Local Canonical Structure MOps0: Ops0 :=
    {|
-     car:=Model;
+     car:=Tube;
      add:=madd;
      sub:=msub;
      mul:=mmul;
@@ -61,16 +61,16 @@ Section n.
    |}.
 
  (** identity *)
- Definition mid: Model := msingle bid.
+ Definition mid: Tube := msingle bid.
 
  (** constant *)
- Definition mcst c: Model := mscal c mone.
+ Definition mcst c: Tube := mscal c mone.
 
  (** integration *)
- Definition mintegrate_unsafe (M: Model) (a b: II): II :=
+ Definition mintegrate_unsafe (M: Tube) (a b: II): II :=
    let N := bprim (pol M) in 
    beval N b - beval N a + (b-a)*rem M.
- Definition mintegrate (M: Model) (a b: option II): E II :=
+ Definition mintegrate (M: Tube) (a b: option II): E II :=
    if ~~ cont M then err "mintegrate: need a continuous function" else
    match a,b with
    | Some a, Some b =>
@@ -84,28 +84,28 @@ Section n.
    end.
  
  (** evaluation, without checking that the argument belongs to the domain *)
- Definition meval_unsafe (M: Model) (x: II): II := beval (pol M) x + rem M.
+ Definition meval_unsafe (M: Tube) (x: II): II := beval (pol M) x + rem M.
 
  (** evaluation *)
- Definition meval (M: Model) (x: II): E II :=
+ Definition meval (M: Tube) (x: II): E II :=
    if Dom x then ret (meval_unsafe M x) else err "meval: argument out of bounds".
  
  (** range *)
- Definition mrange (M: Model): II := srange (pol M) + rem M.
+ Definition mrange (M: Tube): II := srange (pol M) + rem M.
 
  (** truncation of a model *)
- Definition mtruncate (n: nat) (M: Model): Model :=
+ Definition mtruncate (n: nat) (M: Tube): Tube :=
    let (p,q) := split_list n (pol M) in 
    {| pol := p; rem := rem M + srange q; cont := cont M |}.
 
  (** asserting continuity 'by hand' (see specification [rmcontinuous] below)*)
- Definition mcontinuous (M: Model): Model :=
+ Definition mcontinuous (M: Tube): Tube :=
    {| pol := pol M; rem := rem M; cont := true |}.
  
  (** division: h' and w' are given by an oracle
     h' ~ f'/g'
     w' ~ 1 /g' *)
- Definition mdiv_aux (f' g' h' w': Model): E Model :=
+ Definition mdiv_aux (f' g' h' w': Tube): E Tube :=
    let k1' := 1 - w'*g' in
    let k2' := w' * (g' * h' - f') in
    match mag (mrange k1'), mag (mrange k2') with
@@ -120,7 +120,7 @@ Section n.
  (** square root: g' and k' are given by an oracle 
     g' ~ sqrt f'
     k' ~ 1 / 2g' *)
- Definition msqrt_aux (f' h' w': Model) (x0' : II): E Model :=
+ Definition msqrt_aux (f' h' w': Tube) (x0' : II): E Tube :=
    (* TODO: move to a plain meval with monadic style *)
    if ~~ Dom x0' then err "msqrt: given point out of the domain" else
    let y0' := meval_unsafe w' x0' in
@@ -142,17 +142,17 @@ Section n.
    end.
 
  (** auxiliary conversion functions to perform interpolation with floating points *)
- Definition mcf (M: Model): list FF := map I2F (pol M).
- Definition mfc (p: list FF): Model := {| pol := map F2I p; rem := 0; cont := true |}.
+ Definition mcf (M: Tube): list FF := map I2F (pol M).
+ Definition mfc (p: list FF): Tube := {| pol := map F2I p; rem := 0; cont := true |}.
 
  (** division and square root, using interpolation as oracle *)
- Definition mdiv n (M N: Model): E Model :=
+ Definition mdiv n (M N: Tube): E Tube :=
    let p := mcf M in
    let q := mcf N in
    mdiv_aux M N
             (mfc (interpolate n (fun x => beval p x / beval q x)))
             (mfc (interpolate n (fun x => 1 / beval q x))).
- Definition msqrt n (M: Model): E Model :=
+ Definition msqrt n (M: Tube): E Tube :=
    let p := mcf M in
    let h := interpolate n (fun x: FF => sqrt (beval p x)) in
    msqrt_aux M
@@ -161,10 +161,13 @@ Section n.
              ((lo+hi)//2).
 
  (** ** correctness of the above operations in valid bases *)
+
+ Context {B: Basis BO}.
+ 
  Notation eval := (vectorspace.eval TT).
  
  (** containment relation for models *)
- Definition mcontains (M: Model) (f: R -> R) :=
+ Definition mcontains (M: Tube) (f: R -> R) :=
    wreflect (forall x, dom x -> continuity_pt f x) (cont M)
    /\
    exists p, scontains (pol M) p /\ forall x, dom x -> contains (rem M) (f x - eval p x).
@@ -182,7 +185,7 @@ Section n.
 
  (** *** basic operations *)
  
- Lemma rmeval_unsafe (M: Model) f:
+ Lemma rmeval_unsafe (M: Tube) f:
    mcontains M f -> forall X x, contains X x -> dom x -> contains (meval_unsafe M X) (f x).
  Proof.
    intros [_ (p&Hp&H)] X x Xx HX. rewrite /meval.
@@ -190,7 +193,7 @@ Section n.
    apply radd; auto. rewrite -evalE. by apply rbeval. 
  Qed.
 
- Lemma rmeval (M: Model) f:
+ Lemma rmeval (M: Tube) f:
    mcontains M f -> forall X x, contains X x -> EP' contains (meval M X) (f x).
  Proof.
    intros Mf X x Xx. rewrite /meval.
@@ -341,6 +344,19 @@ Section n.
  Proof.
    intros F f Cf Ff. split. constructor. exact Cf. apply Ff. 
  Qed.
+
+ Definition model_ops: ModelOps := {|
+   MM := MOps0;
+   interfaces.mid := mid;
+   interfaces.mcst := mcst;
+   interfaces.meval := meval;
+   interfaces.mintegrate := mintegrate;
+   interfaces.mdiv := mdiv;
+   interfaces.msqrt := msqrt;
+   interfaces.mtruncate := mtruncate;
+   interfaces.mrange := mrange;
+ |}.
+
  
  (** *** integration *)
 
@@ -437,15 +453,19 @@ Section n.
    - case DomE=>//= Da. case DomE=>//= Db. 
      constructor. now apply rmintegrate_unsafe; auto.
    - case DomE=>//= Da.
-     constructor. apply rmintegrate_unsafe; try rel. generalize lohi. split; lra.
+     constructor. apply rmintegrate_unsafe; try rel.
+     apply rhi. generalize lohi. split; lra.
    - case DomE=>//= Db.
-     constructor. apply rmintegrate_unsafe; try rel. generalize lohi. split; lra.
-   - constructor. apply rmintegrate_unsafe; try rel; generalize lohi; split; lra.
+     constructor. apply rmintegrate_unsafe; try rel.
+     apply rlo. generalize lohi. split; lra.
+   - constructor. apply rmintegrate_unsafe; try rel.
+     apply rlo. generalize lohi; split; lra.
+     apply rhi. generalize lohi. split; lra.
  Qed.
  
  (** *** division *)
  
- Lemma rmdiv_aux (f' g' h' w': Model) f g h w:
+ Lemma rmdiv_aux (f' g' h' w': Tube) f g h w:
    mcontains f' f -> mcontains g' g -> mcontains h' h -> mcontains w' w ->
    EP' mcontains (mdiv_aux f' g' h' w') (f_bin Rdiv f g).
  Proof.
@@ -490,7 +510,7 @@ Section n.
 
  (** *** square root *)
  
- Lemma rmsqrt_aux (f' h' w': Model) (x0' : II) (f h w : R -> R) x0:
+ Lemma rmsqrt_aux (f' h' w': Tube) (x0' : II) (f h w : R -> R) x0:
    mcontains f' f -> mcontains h' h -> mcontains w' w ->
    contains x0' x0 -> 
    (forall x, dom x -> continuity_pt w x) ->
@@ -548,34 +568,25 @@ Section n.
    mcontains M f -> EP' mcontains (msqrt n M) (f_unr R_sqrt.sqrt f).
  Proof.
    move => Mf. eapply rmsqrt_aux with _ _ ((lo+hi)//2) => //;
-    try apply msingle', list_rel_map, F2IE. rel. 
+    try apply msingle', list_rel_map, F2IE. 
+   apply rdiv. 2: rel. apply radd. apply rlo. apply rhi. 
    move => ??. apply eval_cont.
  Qed.
 
 
  (** packing all operations together *)
- Definition model: FunOps :=
-  {|
-    MM:=MOps0;
-    interfaces.mid := mid;
-    interfaces.mcst := mcst;
-    interfaces.meval := meval;
-    interfaces.mintegrate := mintegrate;
-    interfaces.mdiv := mdiv;
-    interfaces.msqrt := msqrt;
-    interfaces.mtruncate := mtruncate;
-    interfaces.mrange := mrange;
-    interfaces.mdom := bdom;
-    interfaces.mcontains := mcontains_Rel0;
-    interfaces.rmid := rmid;
-    interfaces.rmcst := rmcst;
-    interfaces.rmeval := rmeval;
-    interfaces.rmintegrate := rmintegrate;
-    interfaces.rmdiv := rmdiv;
-    interfaces.rmsqrt := rmsqrt;
-    interfaces.rmtruncate := rmtruncate;
-    interfaces.rmrange := eval_mrange;               
-  |}.
+ Program Definition model: Model model_ops lo hi := {|
+   interfaces.mcontains := mcontains_Rel0;
+   interfaces.rmid := rmid;
+   interfaces.rmcst := rmcst;
+   interfaces.rmeval := rmeval;
+   interfaces.rmintegrate := rmintegrate;
+   interfaces.rmdiv := rmdiv;
+   interfaces.rmsqrt := rmsqrt;
+   interfaces.rmtruncate := rmtruncate;
+   interfaces.rmrange := eval_mrange;               
+ |}.
 
 End n.
-Arguments model {_} _.
+Arguments model_ops {_} _.
+Arguments model {_ _} _.

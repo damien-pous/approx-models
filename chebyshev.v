@@ -1,7 +1,6 @@
 (** * Chebyshev polynomials and arithmetic of Chebyshev basis *)
 
-Require Import vectorspace.
-Require rescale.
+Require Import vectorspace rescale.
 Require Import FSets.FMapPositive Reals.
 
 Set Implicit Arguments.
@@ -543,7 +542,9 @@ End i.
 
 (** packing everything together, we get a basis *)
 
-Definition basis_on (C: Ops1): BasisOps_on C := {|
+Definition basis11_ops_on (C: Ops1): BasisOps_on C := {|
+  vectorspace.lo := fromZ (-1);
+  vectorspace.hi := 1;
   vectorspace.bmul := pmul;
   vectorspace.bone := pone;
   vectorspace.bid := pid;
@@ -553,12 +554,19 @@ Definition basis_on (C: Ops1): BasisOps_on C := {|
   vectorspace.interpolate := interpolate
 |}.
 
-Definition basis11 {N: NBH}: Basis := {|
+Definition basis11_ops {N: NBH}: BasisOps := {|
+  BI := basis11_ops_on II;
+  BF := basis11_ops_on FF;
+|}.
+
+(* TOTHINK: avoid the rescaling when [lo,hi] = [-1;1]? *)
+Definition basis_ops {N: NBH} (lo hi: II): BasisOps :=
+  rescale_ops basis11_ops lo hi.
+
+Program Definition basis11 {N: NBH}: Basis basis11_ops := {|
   TT := T;
-  BR := basis_on ROps1;
-  BI := basis_on II;
-  BF := basis_on FF;
-  vectorspace.bdom := DZ2 (-1) 1;
+  BR := basis11_ops_on _;
+  vectorspace.lohi := lohi;
   vectorspace.evalE := evalR;
   vectorspace.eval_cont := eval_cont;
   vectorspace.eval_mul := eval_mul;
@@ -567,7 +575,9 @@ Definition basis11 {N: NBH}: Basis := {|
   vectorspace.eval_prim' := eval_prim';
   vectorspace.eval_prim := eval_prim;
   vectorspace.eval_range := eval_range;
-  vectorspace.rbmul := @rpmul _ _ _;
+  vectorspace.rlo := rfromZ _ (-1);
+  vectorspace.rhi := @rone _ _ _;
+  vectorspace.rbmul := @rpmul _ _ (contains (NBH:=N));
   vectorspace.rbone := @rpone _ _ _;
   vectorspace.rbid := @rpid _ _ _;
   vectorspace.rbprim := @rprim _ _ _;
@@ -575,4 +585,4 @@ Definition basis11 {N: NBH}: Basis := {|
   vectorspace.rbrange := @rrange _ _ _;
 |}.
 
-Definition basis {N: NBH} (D: Domain) := rescale.to D basis11.
+Definition basis {N: NBH} (D: Domain): Basis (basis_ops dlo dhi) := rescale basis11 D.

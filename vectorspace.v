@@ -194,6 +194,8 @@ Global Hint Resolve rsadd rsscal rsopp rssub rszer rcons0 rcons00: rel.
 (** ** Basis: requirements for generating pseudo-polynomial models (in approx.v) *)
 
 Class BasisOps_on (C: Type) := {
+  lo: C;
+  hi: C;
   beval: list C -> C -> C;
   bmul: list C -> list C -> list C;
   bone: list C;
@@ -213,18 +215,25 @@ Canonical Structure listOps0 (C: Ops1) (B: BasisOps_on C) := {|
   zer := szer;
   one := bone|}.
 
-Class Basis {N: NBH} := {
+Class BasisOps {N: NBH} := {
+  (** concrete operations on intervals & floating points *)
+  BI:> BasisOps_on II;
+  BF:> BasisOps_on FF;
+}.
+
+Definition dom {BO: BasisOps_on R} (x: R) := lo <= x <= hi.
+Definition Dom `{BO: BasisOps} (X: II) := is_le lo X && is_le X hi.
+
+Class Basis {N: NBH} (B: BasisOps) := {
 
   (** the mathematical basis itself *)
   TT: nat -> R -> R;
 
-  (** concrete operations on reals/intervals/floating points *)
+  (** abstract operations on reals *)
   BR:> BasisOps_on R;
-  BI:> BasisOps_on II;
-  BF:> BasisOps_on FF;
 
-  (** domain of the basis *)
-  bdom:> Domain;
+  (** the domain is non-trivial *)
+  lohi: lo<hi;
   
   (** properties of BR *)
   evalE: forall p x, beval p x = eval TT p x;
@@ -239,6 +248,8 @@ Class Basis {N: NBH} := {
                | None => True end;
   
   (** link between BI and BR *)
+  rlo: contains lo lo;
+  rhi: contains hi hi;
   rbmul: forall p q, scontains p q ->
          forall p' q', scontains p' q' ->
                          scontains (bmul p p') (bmul q q');
@@ -257,6 +268,13 @@ Class Basis {N: NBH} := {
            | _,_ => False
            end;
 }.
-
 Global Hint Resolve rbmul rbone rbid rbprim rbeval: rel.
 
+
+Lemma DomE `{Basis} X: wreflect (forall x, contains X x -> dom x) (Dom X).
+Proof.
+  rewrite /Dom.
+  case is_leE=>[Lo|]. 2: constructor. 
+  case is_leE=>[Hi|]; constructor=> x Xx.
+  split; [apply Lo|apply Hi]=>//. apply rlo. apply rhi.
+Qed.

@@ -173,6 +173,8 @@ Inductive minmax_spec A le (contains: A -> R -> Prop) (a: A): option A -> Prop :
 
 Inductive wreflect (P : Prop): bool -> Prop :=
  | wReflectT: P -> wreflect P true | wReflectF: wreflect P false.
+Lemma wreflectE {P b}: wreflect P b -> b -> P.
+Proof. by case. Qed.
 
 (** neighborhoods: an abstract interface for computing with floating points and intervals 
     convention: 
@@ -236,72 +238,10 @@ Inductive ocontains{N: NBH} x: option II -> R -> Prop :=
 | ocontains_none: ocontains x None x.
 Global Hint Constructors ocontains: rel.
 
-(** ** domains *)
 
-Class Domain_on C := make_domain {
-  lo: C;
-  hi: C;
-}.
+(** ** Models: abstraction for functions on real numbers *)
 
-Class Domain {N: NBH} := {
-  DR:> Domain_on R;
-  DI:> Domain_on II;
-  DF:> Domain_on FF;
-  lohi: lo<hi;
-  rlo: contains lo lo;
-  rhi: contains hi hi;
-}.
-Global Hint Resolve rlo rhi: rel.
-
-Definition dom `{Domain} (x: R) := lo <= x <= hi.
-Definition Dom `{Domain} (X: II) := is_le lo X && is_le X hi.
-
-Lemma DomE `{Domain} X: wreflect (forall x, contains X x -> dom x) (Dom X).
-Proof.
-  rewrite /Dom.
-  case is_leE=>[Lo|]. 2: constructor. 
-  case is_leE=>[Hi|]; constructor=> x Xx.
-  split; [apply Lo|apply Hi]=>//. apply rlo. apply rhi.
-Qed.
-
-
-(** constructing simple domains *)
-(** from relative numbers *)
-Definition DfromZ2 {N: NBH}(a b: Z) (H: Z.compare a b = Lt): Domain := {|
-  DR := make_domain (fromZ a) (fromZ b);
-  DI := make_domain (fromZ a) (fromZ b);
-  DF := make_domain (fromZ a) (fromZ b);
-  lohi := IZR_lt _ _ (proj1 (Z.compare_lt_iff _ _) H);
-  rlo := rfromZ _ a;
-  rhi := rfromZ _ b;
-|}.
-Notation DZ2 a b := (@DfromZ2 _ a b eq_refl).
-
-(** from floating points *)
-Program Definition DfromF2 {N: NBH}(a b: FF) (H: is_lt (F2I a) (F2I b)): Domain := {|
-  DR := make_domain (F2R a) (F2R b);
-  DI := make_domain (F2I a) (F2I b);
-  DF := make_domain a b;
-  rlo := F2IE a;
-  rhi := F2IE b;
-|}.
-Next Obligation.
-  revert H. case is_ltE=>//H _. apply H; apply F2IE. 
-Qed.
-Notation DF2 a b := (@DfromF2 _ a b eq_refl).
-
-(** from intervals *)
-Definition valid_I2 {N: NBH}(a b: II) := is_lt (F2I (I2F a)) (F2I (I2F b)).
-Definition DfromI2 {N: NBH}(a b: II): valid_I2 a b -> Domain := @DfromF2 N (I2F a) (I2F b).
-Notation DI2 a b := (@DfromI2 _ a b eq_refl).
-
-
-(** ** FunOps: abstraction for functions on real numbers *)
-
-Class FunOps {N: NBH} := {
-  (* domain of the considered functions *)
-  mdom:> Domain;
-  
+Class ModelOps {N: NBH} := {
   (* pointwise operations *)
   MM: Ops0;
   (* operations specific to functions *)
@@ -315,7 +255,10 @@ Class FunOps {N: NBH} := {
   (* [truncate] acts as the identity *)
   mtruncate: nat -> MM -> MM;
   mrange: MM -> II;
+}.
+Coercion MM: ModelOps >-> Ops0.
 
+Class Model {N: NBH} (MO: ModelOps) (lo hi: R) := {
   (* specification *)
   mcontains: Rel0 MM (f_Ops0 R ROps0);
   rmid: mcontains mid id;
@@ -329,15 +272,68 @@ Class FunOps {N: NBH} := {
                            EP' contains (mintegrate F A C) (RInt f a c);
   rmdiv: forall n F f, mcontains F f ->
          forall   G g, mcontains G g -> 
-                       EP' mcontains (mdiv n F G) (f_bin Rdiv f g);
+                       EP' mcontains (mdiv n F G) (fun x => f x / g x);
   rmsqrt: forall n F f, mcontains F f ->
-                        EP' mcontains (msqrt n F) (f_unr R_sqrt.sqrt f);
+                        EP' mcontains (msqrt n F) (fun x => sqrt (f x));
   rmtruncate: forall n F f, mcontains F f ->
                             mcontains (mtruncate n F) f;
   rmrange: forall F f, mcontains F f ->
-           forall x, dom x -> contains (mrange F) (f x);
+           forall x, lo<=x<=hi -> contains (mrange F) (f x);
 }.
-Coercion MM: FunOps >-> Ops0.
-Coercion mcontains: FunOps >-> Rel0.
-Global Hint Resolve rmid rmcst rmeval rmintegrate rmdiv rmsqrt: rel.
+Coercion mcontains: Model >-> Rel0.
+Global Hint Resolve rmid rmcst (* rmeval rmintegrate *) rmdiv rmsqrt: rel.
+
+
+(** ** domains *)
+
+Class Domain_on C := make_domain_on {
+  dlo: C;
+  dhi: C;
+}.
+
+Class Domain {N: NBH} := make_domain {
+  DR:> Domain_on R;
+  DI:> Domain_on II;
+  rdlo: contains dlo dlo;
+  rdhi: contains dhi dhi;
+  dlohi: dlo<dhi;
+}.
+Global Hint Resolve rdlo rdhi: rel.
+
+
+(** constructing simple domains *)
+(** from relative numbers *)
+Definition DfromZ2 {N: NBH}(a b: Z) (H: Z.compare a b = Lt): Domain := {|
+  DR := make_domain_on (fromZ a) (fromZ b);
+  DI := make_domain_on (fromZ a) (fromZ b);
+  dlohi := IZR_lt _ _ (proj1 (Z.compare_lt_iff _ _) H);
+  rdlo := rfromZ _ a;
+  rdhi := rfromZ _ b;
+|}.
+Notation DZ2 a b := (@DfromZ2 _ a b eq_refl).
+
+(** from floating points *)
+Program Definition DfromF2 {N: NBH}(a b: FF) (H: is_lt (F2I a) (F2I b)): Domain := {|
+  DR := make_domain_on (F2R a) (F2R b);
+  DI := make_domain_on (F2I a) (F2I b);
+  rdlo := F2IE a;
+  rdhi := F2IE b;
+|}.
+Next Obligation.
+  revert H. case is_ltE=>//H _. apply H; apply F2IE. 
+Qed.
+Notation DF2 a b := (@DfromF2 _ a b eq_refl).
+
+(** from pointed intervals *)
+Definition DfromI2 {N: NBH}(A B: II)(a b: R)
+        (Aa: contains A a)
+        (Bb: contains B b)
+        (ab: is_lt A B): Domain := {|
+  DR := make_domain_on a b;
+  DI := make_domain_on A B;
+  rdlo := Aa;
+  rdhi := Bb;
+  dlohi := wreflectE (is_ltE _ _) ab _ _ Aa Bb;
+|}.
+Notation DI2 Aa Bb := (DfromI2 Aa Bb eq_refl).
 
