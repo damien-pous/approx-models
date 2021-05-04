@@ -292,10 +292,11 @@ Section n.
  Lemma rmcst C (c : R): contains C c -> mcontains (mcst C) (f_cst c).
  Proof.
    split. constructor=>x Dx. now apply continuity_pt_const.
-   exists (sscal c 1). split. cbn. admit. (* TMP, OK but need better list_rel_map lemma *)
+   exists (sscal c 1). split. cbn.
+   eapply list_rel_map'. rel. apply rbone. 
    move=>x Dx. rewrite eval_scal eval_one /f_cst. 
    replace (_-_) with (c*R0) by (simpl;ring). apply rmul=>//. apply rzer. 
- Admitted.
+ Qed.
  
  Lemma rmid: mcontains mid ssrfun.id.
  Proof.

@@ -38,6 +38,12 @@ End r.
 Global Hint Constructors list_rel: rel.
 Global Hint Resolve list_rel_app list_rel_rev rpair: rel.
 
+Lemma list_rel_map' {A B R S} (rel: A -> B -> Prop) (rel': R -> S -> Prop) (f: A -> R) (g: B -> S):
+  (forall a b, rel a b -> rel' (f a) (g b)) ->
+  forall h k, list_rel rel h k -> list_rel rel' (map f h) (map g k).
+Proof. intros H h k. induction 1; simpl; rel. Qed.
+
+
 (** derived containment relations in neighborhoods *)
 Definition scontains {N: NBH} := (list_rel contains).
 Definition pcontains {N: NBH} := (pair_rel contains).
