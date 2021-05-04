@@ -13,6 +13,8 @@ Inductive expr :=
 | e_sub: expr -> expr -> expr
 | e_mul: expr -> expr -> expr
 | e_fromZ: Z -> expr
+| e_zer: expr
+| e_one: expr
 | e_pi: expr
 | e_div: expr -> expr -> expr
 | e_sqrt: expr -> expr
@@ -34,8 +36,6 @@ with fxpr :=
 Coercion f_cst: expr >-> fxpr.
 
 (** declaring structures to get nice notations on expressions *)
-Definition e_zer := e_fromZ 0.
-Definition e_one := e_fromZ 1.
 Canonical Structure eOps0: Ops0 := {|
   car := expr;
   add := e_add;
@@ -91,6 +91,8 @@ Fixpoint esem (e: expr): R :=
   | e_cos e => cos (esem e)
   | e_abs e => abs (esem e)
   | e_fromZ z => fromZ z
+  | e_zer => 0
+  | e_one => 1
   | e_pi => pi
   | e_eval f x => fsem f (esem x)
   | e_integrate f a b => RInt (fsem f) (esem a) (esem b)
@@ -107,6 +109,66 @@ with fsem (e: fxpr) (x: R): R :=
   | f_trunc f => fsem f x
   end.
 
+Lemma VAR: R. exact R0. Qed.
+
+Arguments f_bin [_ _] _ _ _ _ /.
+Arguments f_unr [_ _] _ _ _ /.
+
+Ltac ereify e :=
+  lazymatch
+    eval cbn beta iota delta
+         [ROps0 ROps1 f_Ops0 car ops0 zer one add sub mul div sqrt cos abs pi f_bin f_unr fromZ] in e
+  with
+  | R0 => constr:(e_zer)
+  | R1 => constr:(e_one)
+  | Rplus ?e ?f => let e:=ereify e in let f:=ereify f in constr:(e_add e f)
+  | Rminus ?e ?f => let e:=ereify e in let f:=ereify f in constr:(e_sub e f)
+  | Rmult ?e ?f => let e:=ereify e in let f:=ereify f in constr:(e_mul e f)
+  | Rdiv ?e ?f => let e:=ereify e in let f:=ereify f in constr:(e_div e f)
+  | R_sqrt.sqrt ?e => let e:=ereify e in constr:(e_sqrt e)
+  | Rtrigo_def.cos ?e => let e:=ereify e in constr:(e_cos e)
+  | Rabs ?e => let e:=ereify e in constr:(e_abs e)
+  | IZR ?z => constr:(e_fromZ z)
+  | Rtrigo1.PI => constr:(e_pi)
+  | RInt ?f ?a ?b =>
+    let a:=ereify a in
+    let b:=ereify b in
+    let x:=fresh "x" in
+    let fVAR:=constr:(f VAR) in
+    let f:=freify fVAR in
+    constr:(e_integrate f a b)
+  | VAR => fail "variable occurs under an unsupported context"
+  | ?e => fail "unrecognised expression:" e
+  end
+ with freify f :=
+    lazymatch
+      eval cbn beta iota delta
+       [ROps0 ROps1 f_Ops0 car ops0 zer one add sub mul div sqrt cos abs pi f_bin f_unr fromZ]
+      in f
+    with
+  | Rplus ?e ?f => let e:=freify e in let f:=freify f in constr:(f_add e f)
+  | Rminus ?e ?f => let e:=freify e in let f:=freify f in constr:(f_sub e f)
+  | Rmult ?e ?f => let e:=freify e in let f:=freify f in constr:(f_mul e f)
+  | Rdiv ?e ?f => let e:=freify e in let f:=freify f in constr:(f_div e f)
+  | R_sqrt.sqrt ?e => let e:=freify e in constr:(f_sqrt e)
+  | VAR => constr:(f_id)
+  | ?e => let e:=ereify e in constr:(f_cst e)
+  end.
+
+(*
+Goal True.
+  let e := ereify constr:(Rplus R0 R1) in idtac e.
+  let e := ereify constr:(42) in idtac e.
+  (* let e := ereify constr:(4.2%R) in idtac e. *)
+  let e := ereify constr:(0+1: R) in idtac e.
+  let e := ereify constr:(RInt (fun z => z) R0 R1) in idtac e.
+  let e := ereify constr:(RInt (fun z => R0) R0 R1) in idtac e.
+  let e := ereify constr:(RInt (fun z => R0+z) R0 R1) in idtac e.
+  let e := ereify constr:(RInt (fun z => R0+z) R0 R1) in idtac e.
+  let e := ereify constr:(RInt (@sqrt _) R0 R1) in idtac e.
+  let e := ereify constr:(RInt (@sqrt _ + @sqrt _) R0 R1) in idtac e.
+  let e := ereify constr:(RInt (fun z => R0+z+cos (1/fromZ 2)) R0 R1) in idtac e.
+*)
 
 (** ** static evaluation strategy, where we fix a basis once and for all  *)
 Module Static.
@@ -129,6 +191,8 @@ Fixpoint eSem (e: expr): E II :=
   | e_abs e => e_map (@abs _) (eSem e)
   | e_fromZ z => ret (fromZ z)
   | e_pi => ret pi
+  | e_zer => ret 0
+  | e_one => ret 1
   | e_eval f x => 
       LET f ::= fSem f IN
       LET x ::= eSem x IN 
@@ -159,7 +223,9 @@ Proof.
     -- eapply ep_map2; try apply econtains; rel. 
     -- eapply ep_map2; try apply econtains; rel. 
     -- constructor. rel. 
-    -- constructor. rel. 
+    -- constructor. apply rzer.
+    -- constructor. apply rone.
+    -- constructor. rel.
     -- eapply ep_map2; try apply econtains; rel. 
     -- eapply ep_map; try apply econtains; rel. 
     -- eapply ep_map; try apply econtains; rel. 
@@ -221,6 +287,8 @@ Fixpoint eSem (e: expr): E II :=
   | e_abs e => e_map (@abs _) (eSem e)
   | e_fromZ z => ret (fromZ z)
   | e_pi => ret pi
+  | e_zer => ret 0
+  | e_one => ret 1
   | e_eval f x => err "evaluation not yet supported in dynamic mode"
       (* LET f ::= fSem f IN *)
       (* LET x ::= eSem x IN  *)
@@ -252,6 +320,8 @@ Proof.
     -- eapply ep_map2; try apply econtains; rel. 
     -- eapply ep_map2; try apply econtains; rel. 
     -- constructor. rel. 
+    -- constructor. apply rzer.
+    -- constructor. apply rone.
     -- constructor. rel. 
     -- eapply ep_map2; try apply econtains; rel. 
     -- eapply ep_map; try apply econtains; rel. 

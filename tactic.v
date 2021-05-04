@@ -31,50 +31,54 @@ Section s.
 End s.
 
 (** a user-defined tactic to prove bounds on concrete expressions *)
-Tactic Notation "gen_bound" uconstr(bound) uconstr(e) constr(d) :=
+Tactic Notation "gen_bound" uconstr(bound) constr(d) :=
+  lazymatch goal with |- ?a <= ?x <= ?b =>
+  let e := ereify x in
   let f := constr:(bound d e) in
-  (apply f || fail "the given expression does not match the goal");
+  (apply f || fail "bug in reification? (please report)");
   let X := fresh "X" in
   intro X; vm_compute in X;
   lazymatch eval hnf in X with
   | err ?s => fail 1 s
   | ret ?x => cbv; (lra || fail "could only obtain interval" x)
+  end
   end.
 
 (** by default: chebyshev, with primitive floats by default *)
-Tactic Notation "static" uconstr(D) uconstr(e) constr(d) :=
-  gen_bound (Static.bound (chebyshev_model D)) e d.
+Tactic Notation "static" uconstr(D) constr(d) :=
+  gen_bound (Static.bound (chebyshev_model D)) d.
 
 (** interpolation degree: 10 by default *)
-Tactic Notation "static" uconstr(D) uconstr(e) :=
-  static D e (10%Z).
+Tactic Notation "static" uconstr(D) :=
+  static D (10%Z).
 
 (** specific case: on [-1;1] *)
-Tactic Notation "static11" uconstr(e) constr(d) :=
-  gen_bound (Static.bound chebyshev11_model) e d .
-Tactic Notation "static11" uconstr(e) := static11 e (10%Z).
+Tactic Notation "static11" constr(d) :=
+  gen_bound (Static.bound chebyshev11_model) d .
+Tactic Notation "static11" := static11 (10%Z).
 
 
 (** by default: chebyshev, with primitive floats by default *)
-Tactic Notation "dynamic" uconstr(e) constr(d) :=
-  gen_bound (Dynamic.bound chebyshev_model) e d.
-Tactic Notation "dynamic" uconstr(e) :=
-  dynamic e (10%Z).
+Tactic Notation "dynamic" constr(d) :=
+  gen_bound (Dynamic.bound chebyshev_model) d.
+Tactic Notation "dynamic" :=
+  dynamic (10%Z).
 
 
-(* simple test for the above tactics
+(* simple test for the above tactics *)
+(*
 Goal 1.4 <= sqrt 2 <= 1.5.
 Proof.
-  dynamic (sqrt (fromZ 2)).
+  dynamic.
   Restart.
-  dynamic (sqrt (fromZ 2)) 15%Z.
+  dynamic 15%Z.
   Restart.
-  static11 (sqrt (fromZ 2)).
+  static11.
   Restart.
-  static11 (sqrt (fromZ 2)) 15%Z.
+  static11 15%Z.
   Restart.
-  static (DF2 0.5%float 2%float) (sqrt (fromZ 2)).
+  static (DF2 0.5%float 2%float).
   Restart.
-  static (DF2 0.5%float 2%float) (sqrt (fromZ 2)) 15%Z.
+  static (DF2 0.5%float 2%float) 15%Z.
 Qed.
 *)

@@ -5,56 +5,62 @@ Require taylor chebyshev approx.
 
 Goal 1.4 <= sqrt 2 <= 1.5.
 Proof.
-  dynamic (sqrt (fromZ 2)).
+  dynamic.
   Restart.
-  dynamic (sqrt (fromZ 2)) 15%Z.
+  dynamic 15%Z.
   Restart.
-  static11 (sqrt (fromZ 2)).
+  static11.
   Restart.
-  static11 (sqrt (fromZ 2)) 15%Z.
+  static11 15%Z.
   Restart.
-  static (DF2 0.5%float 2%float) (sqrt (fromZ 2)).
+  static (DF2 0.5%float 2%float).
   Restart.
-  static (DF2 0.5%float 2%float) (sqrt (fromZ 2)) 15%Z.
+  static (DF2 0.5%float 2%float) 15%Z.
 Qed.
 
 Goal 1.5 <= sqrt 2 <= 1.6.
 Proof.
-  Fail dynamic (sqrt (fromZ 2)).
+  Fail dynamic.
 Abort.
 
 Lemma ex1: 0.3333 <= RInt (fun x => x*x) 0 1 <= 0.3334.
 Proof.
-  dynamic (e_integrate (f_id * f_id) 0 1).
+  dynamic.
 Qed.
 
+Lemma ex2: 0.9999 <= RInt (fun x => x*x*3.0) 0 1 <= 1.00001.
+Proof.
+  (* rational numbers not yet supported *)
+  Fail dynamic.
+Abort.
+
 Lemma ex4: 2.08670 <= RInt (fun x => (1+x)/((1-x)*(1-x)+1/4)) 0 (pi/4)  <= 2.08672.
-  dynamic (e_integrate ((1+f_id) / ((1-f_id)*(1-f_id)+1/fromZ 4)) 0 (pi/fromZ 4)) 11%Z.
+  dynamic 11%Z.
 Abort.
 
 Lemma ex5: -0.1 <= RInt (fun x => x) (-2) 2 <= 0.1.
 Proof.
   (* here we go beyond the default domain [-1;1] *)
-  Fail static11 (e_integrate f_id (fromZ (-2)) (fromZ 2)).
+  Fail static11.
   (* with a rescaled chebyshev basis *)
-  dynamic (e_integrate f_id (fromZ (-2)) (fromZ 2)) 5%Z.
+  dynamic 5%Z.
 Qed.
 
 Lemma ex5': 0 <= RInt (fun x => x) (-2) 2 <= 0.
 Proof.
   (* we cannot be that precise! *)
-  Fail dynamic (e_integrate f_id (fromZ (-2)) (fromZ 2)) 5%Z.
+  Fail dynamic 5%Z.
 Abort.
 
 Lemma ex6: -0.1 <= RInt (fun x => 0%R) (-1/3) (1/3) <= 0.1.
 Proof.
-  dynamic (e_integrate f_zer (fromZ (-1)/fromZ 3) (fromZ 1/fromZ 3)).
+  dynamic.
 Qed.
 
 Lemma ex6': -0.1 <= RInt (fun x => 0%R) (-3) (3) <= 0.1.
 Proof.
-  Fail static11 (e_integrate f_zer (fromZ (-3)) (fromZ 3)).
-  dynamic (e_integrate f_zer (fromZ (-3)) (fromZ 3)). 
+  Fail static11.
+  dynamic. 
 Qed.
 
 (** direct computations  *)
