@@ -8,7 +8,7 @@ Set Implicit Arguments.
 Unset Strict Implicit.
 Unset Printing Implicit Defensive.  
 
-(** tupes: polynomials with a remainder, and a bit indicating whether the approximated function is continuous *)
+(** tubes: polynomials with a remainder, and a bit indicating whether the approximated function is continuous *)
 Record Tube C := { pol: list C; rem: C; cont: bool }.
 
 (** ** operations on rigorous approximations *)
