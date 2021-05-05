@@ -31,22 +31,23 @@ Section s.
 End s.
 
 (** a user-defined tactic to prove bounds on concrete expressions *)
-Tactic Notation "gen_bound" uconstr(bound) constr(d) :=
-  lazymatch goal with |- ?a <= ?x <= ?b =>
-  let e := ereify x in
-  let f := constr:(bound d e) in
-  (apply f || fail "bug in reification? (please report)");
+Tactic Notation "gen_check" uconstr(check) constr(d) :=
+  lazymatch goal with |- ?b =>
+  let b := breify b in
+  let t := constr:(check d b) in
+  (apply t || fail "bug in reification? (please report)");
   let X := fresh "X" in
   intro X; vm_compute in X;
   lazymatch eval hnf in X with
   | err ?s => fail 1 s
-  | ret ?x => cbv; (lra || fail "could only obtain interval" x)
+  | ret true => reflexivity
+  | ret false => fail "could not validate this, try increase degree"
   end
   end.
 
 (** by default: chebyshev, with primitive floats by default *)
 Tactic Notation "static" uconstr(D) constr(d) :=
-  gen_bound (Static.bound (chebyshev_model D)) d.
+  gen_check (Static.check (chebyshev_model D)) d.
 
 (** interpolation degree: 10 by default *)
 Tactic Notation "static" uconstr(D) :=
@@ -54,13 +55,13 @@ Tactic Notation "static" uconstr(D) :=
 
 (** specific case: on [-1;1] *)
 Tactic Notation "static11" constr(d) :=
-  gen_bound (Static.bound chebyshev11_model) d .
+  gen_check (Static.check chebyshev11_model) d .
 Tactic Notation "static11" := static11 (10%Z).
 
 
 (** by default: chebyshev, with primitive floats by default *)
 Tactic Notation "dynamic" constr(d) :=
-  gen_bound (Dynamic.bound chebyshev_model) d.
+  gen_check (Dynamic.check chebyshev_model) d.
 Tactic Notation "dynamic" :=
   dynamic (10%Z).
 

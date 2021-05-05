@@ -9,6 +9,11 @@ Proof.
   dynamic.
 Qed.
 
+Goal sqrt 2 < 1.5 /\ -1 <= cos pi.
+Proof.
+  dynamic.
+Qed.
+
 Lemma ex1: 0.3333 <= RInt (fun x => x*x) 0 1 <= 0.3334.
 Proof.
   dynamic.
@@ -35,7 +40,7 @@ Proof.
   static (DZ2 (-3) 3).
   Restart.
   (* with the monomial basis *)
-  gen_bound (Static.bound (taylor_model (DZ2 (-2) 2))) 5%Z.
+  gen_check (Static.check (taylor_model (DZ2 (-2) 2))) 5%Z.
 Qed.
 
 Lemma ex7: 1.578 <= RInt (fun x => sqrt (2+x)) 0 1 <= 1.579.

@@ -23,6 +23,15 @@ Proof.
   Fail dynamic.
 Abort.
 
+Goal 1 <= 2.
+Proof. dynamic. Qed.
+Goal 1 < 2.
+Proof. dynamic. Qed.
+Goal 2 > 1.
+Proof. dynamic. Qed.
+Goal 2 >= 1.
+Proof. Fail dynamic. Abort.
+
 Lemma ex1: 0.3333 <= RInt (fun x => x*x) 0 1 <= 0.3334.
 Proof.
   dynamic.

@@ -32,6 +32,10 @@ with fxpr :=
 | f_id: fxpr
 | f_cst: expr -> fxpr
 | f_trunc: fxpr -> fxpr.         (* the identity, simply truncates the model *)
+Inductive bxpr :=
+| b_le: expr -> expr -> bxpr
+| b_lt: expr -> expr -> bxpr
+| b_conj: bxpr -> bxpr -> bxpr.
 
 (** see expressions as constant functions *)
 Coercion f_cst: expr >-> fxpr.
@@ -110,12 +114,19 @@ with fsem (e: fxpr) (x: R): R :=
   | f_cst e => esem e
   | f_trunc f => fsem f x
   end.
+Fixpoint bsem (b: bxpr): Prop :=
+  match b with
+  | b_le e f => esem e <= esem f
+  | b_lt e f => esem e < esem f
+  | b_conj b c => bsem b /\ bsem c
+  end.
 
 Lemma VAR: R. exact R0. Qed.
 
 Arguments f_bin [_ _] _ _ _ _ /.
 Arguments f_unr [_ _] _ _ _ /.
 
+(* TODO: avoid redundant reductions? *)
 Ltac ereify e :=
   lazymatch
     eval cbn beta iota delta
@@ -156,6 +167,15 @@ Ltac ereify e :=
   | R_sqrt.sqrt ?e => let e:=freify e in constr:(f_sqrt e)
   | VAR => constr:(f_id)
   | ?e => let e:=ereify e in constr:(f_cst e)
+    end.
+Ltac breify b :=
+  lazymatch b with
+  | Rle ?e ?f => let e:=ereify e in let f:=ereify f in constr:(b_le e f)
+  | Rlt ?e ?f => let e:=ereify e in let f:=ereify f in constr:(b_lt e f)
+  | Rge ?f ?e => fail "Rge (>=) not supported, please rewrite into Rle first"
+    (* let e:=ereify e in let f:=ereify f in constr:(b_le e f) *)
+  | Rgt ?f ?e => let e:=ereify e in let f:=ereify f in constr:(b_lt e f)
+  | ?b /\ ?c => let b:=breify b in let c:=breify c in constr:(b_conj b c)
   end.
 
 (*
@@ -171,6 +191,9 @@ Goal True.
   let e := ereify constr:(RInt (@sqrt _) R0 R1) in idtac e.
   let e := ereify constr:(RInt (@sqrt _ + @sqrt _) R0 R1) in idtac e.
   let e := ereify constr:(RInt (fun z => R0+z+cos (1/fromZ 2)) R0 R1) in idtac e.
+  let b := breify constr:(4 < 5 /\ RInt id 3.3 4.4 <= 18.9) in idtac b. 
+  let b := breify constr:(4 < 5 <= 6) in idtac b. (* TODO: improve with a let to share the middle term *)
+  let b := breify constr:(4 >= 5) in idtac b. 
 *)
 
 (** ** static evaluation strategy, where we fix a basis once and for all  *)
@@ -218,6 +241,12 @@ with fSem (e: fxpr): E MM :=
   | f_cst e => e_map mcst (eSem e)
   | f_trunc e => e_map (mtruncate (Z.to_nat deg)) (fSem e)
   end.
+Fixpoint bSem (b: bxpr): E bool :=
+  match b with
+  | b_le e f => e_map2 is_le (eSem e) (eSem f)
+  | b_lt e f => e_map2 is_lt (eSem e) (eSem f)
+  | b_conj b c => e_map2 andb (bSem b) (bSem c)
+  end.
 
 Lemma econtains (e: expr): EP' contains (eSem e) (esem e)
 with fcontains (f: fxpr): EP' mcontains (fSem f) (fsem f).
@@ -255,18 +284,22 @@ Proof.
     -- eapply ep_map; try apply econtains. intros. by apply rmcst.          
     -- eapply ep_map; try apply fcontains. intros. by apply rmtruncate.          
 Qed.
-
-(** small corollary, useful to obtain a tactic *)
-Lemma bound x a b: (let X := eSem x in
-                    match X with ret X => subseteq X a b | err s => False end) ->
-                   a <= esem x <= b.
+Fixpoint bcontains (b: bxpr): EP' (fun b (P: Prop) => (is_true b -> P)) (bSem b) (bsem b).
 Proof.
-  case econtains=>//=X Xx ab.
-  eapply subseteqE; eassumption. 
+  induction b; cbn.
+  -- eapply ep_map2; try apply econtains. intros ??. case is_leE=>//. auto.  
+  -- eapply ep_map2; try apply econtains. intros ??. case is_ltE=>//. auto.
+  -- eapply ep_map2; try apply bcontains. move=>??/=??/andP[??]. auto. 
 Qed.
 
+(** small corollary, useful to obtain a tactic in tactic.v *)
+Lemma check b: (let b := bSem b in
+                match b with ret b => is_true b | err s => False end) ->
+               bsem b.
+Proof. by case bcontains. Qed.
+
 End s.
-Arguments bound {_ _ _ _} _ _ _ _ _.
+Arguments check {_ _ _ _} _ _ _ _.
 
 End Static.
 
@@ -317,6 +350,12 @@ with fSem {MO: ModelOps} (e: fxpr): E MM :=
   | f_cst e => e_map mcst (eSem e)
   | f_trunc e => e_map (mtruncate (Z.to_nat deg)) (fSem e) (** note the degree used here *)
   end.
+Fixpoint bSem (b: bxpr): E bool :=
+  match b with
+  | b_le e f => e_map2 is_le (eSem e) (eSem f)
+  | b_lt e f => e_map2 is_lt (eSem e) (eSem f)
+  | b_conj b c => e_map2 andb (bSem b) (bSem c)
+  end.
 
 Lemma econtains (e: expr): EP' contains (eSem e) (esem e)
 with fcontains {MO' a b} {M': Model MO' a b}(f: fxpr): EP' mcontains (fSem f) (fsem f).
@@ -358,17 +397,22 @@ Proof.
     -- eapply ep_map; try apply fcontains. intros. by apply rmtruncate.          
 Qed.
 
-(** small corollary, useful to obtain a tactic *)
-Lemma bound x a b: (let X := eSem x in
-                    match X with ret X => subseteq X a b | err s => False end) ->
-                   a <= esem x <= b.
+Fixpoint bcontains (b: bxpr): EP' (fun b (P: Prop) => (is_true b -> P)) (bSem b) (bsem b).
 Proof.
-  case econtains=>//=X Xx ab.
-  eapply subseteqE; eassumption. 
+  induction b; cbn.
+  -- eapply ep_map2; try apply econtains. intros ??. case is_leE=>//. auto.  
+  -- eapply ep_map2; try apply econtains. intros ??. case is_ltE=>//. auto.
+  -- eapply ep_map2; try apply bcontains. move=>??/=??/andP[??]. auto. 
 Qed.
 
+(** small corollary, useful to obtain a tactic in tactic.v *)
+Lemma check b: (let b := bSem b in
+                match b with ret b => is_true b | err s => False end) ->
+               bsem b.
+Proof. by case bcontains. Qed.
+
 End s.
-Arguments bound {_ _} _ _ _ _ _.
+Arguments check {_ _} _ _ _.
 Arguments fSem {_} _ _ _ _.
 
 End Dynamic.
