@@ -30,7 +30,7 @@ Section s.
 
 End s.
 
-(** a user-defined tactic to prove bounds on concrete expressions *)
+(** ** tactic to prove bounds on concrete expressions *)
 Tactic Notation "gen_check" uconstr(check) constr(d) :=
   lazymatch goal with |- ?b =>
   let b := breify b in
@@ -66,7 +66,29 @@ Tactic Notation "dynamic" :=
   dynamic (10%Z).
 
 
-(* simple test for the above tactics *)
+(** tactics to estimate certain real valued expressions 
+    (do not change the goal -> turn these into commands?) *)
+Tactic Notation "gen_estimate" uconstr(eSem) constr(d) constr(e) :=
+  let e := ereify e in
+  let t := constr:(eSem d e) in
+  let t := eval vm_compute in t in
+  idtac t.
+Tactic Notation "static_est" uconstr(lo) uconstr(hi) constr(d) constr(e) :=
+  gen_estimate (Static.eSem (chebyshev_model_ops lo hi)) d e.
+Tactic Notation "static_est" uconstr(lo) uconstr(hi) constr(e) :=
+  static_est lo hi 10%Z e.
+
+Tactic Notation "static11_est" constr(d) constr(e) :=
+  gen_estimate (Static.eSem chebyshev11_model_ops) d e.
+Tactic Notation "static11_est" constr(e) :=
+  static11_est 10%Z e.
+
+Tactic Notation "dynamic_est" constr(d) constr(e) :=
+  gen_estimate (Dynamic.eSem chebyshev_model_ops) d e.
+Tactic Notation "dynamic_est" constr(e) :=
+  dynamic_est 10%Z e.
+
+(* simple tests for the above tactics *)
 (*
 Goal 1.4 <= sqrt 2 <= 1.5.
 Proof.
@@ -81,5 +103,12 @@ Proof.
   static (DQ2 0.5 2).
   Restart.
   static (DF2 0.5%float 2%float) 15%Z.
-Qed.
+
+  Restart.
+  dynamic_est (sqrt (-2)).
+  dynamic_est (RInt (@sqrt _) 1 2).
+  static11_est (RInt id 0 1).
+  static_est (fromZ 0) (fromZ 3) (RInt id 0 2).
+  dynamic_est (RInt (@sqrt _) (-1) 1).
+Abort.
 *)

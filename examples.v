@@ -22,6 +22,8 @@ Qed.
 Lemma ex2: 0.405465108108 <= RInt (fun x => 1/(2+x)) 0 1 <= 0.405465108109.
   (** ln3 - ln2 = 0.405465108108 *)
   Fail dynamic.
+  dynamic_est (RInt (fun x => 1/(2+x)) 0 1). 
+  dynamic_est 13%Z (RInt (fun x => 1/(2+x)) 0 1). 
   (** need to increase the interpolation degree *)
   dynamic 13%Z.
   Restart.
