@@ -72,15 +72,6 @@ Definition Ilt (x y: I): bool :=
   | _,_ => false
   end.
 
-Definition subseteq (X: I) (a b: R) :=
-  match X with
-  | Ibnd x y => match F.toX x, F.toX y with
-                | Xreal x, Xreal y => a <= x /\ y <= b
-                | _,_ => False
-                end                 
-  | _ => False
-  end.
-
 Definition Ibnd' (x y: I): I :=
   match x,y with
   | Ibnd a _, Ibnd _ b => Ibnd a b 
@@ -421,14 +412,8 @@ Proof.
   by case F.classify.
 Qed.
 
-Lemma subseteqE X a b: subseteq X a b -> forall x, Imem x X -> a <= x <= b.
-Proof.
-  intros H x. revert H. destruct X as [|l u]=>//=.
-  rewrite ImemE. case F.toX=> l'//. case F.toX=> u'//. lra. 
-Qed.
-
 Instance nbh: NBH.
-exists IOps1 IRel1 Ibnd' Imax Imin Inan Ilt Ile FOps1 F2I F2R subseteq.
+exists IOps1 IRel1 Ibnd' Imax Imin Inan Ilt Ile FOps1 F2I F2R.
 Proof.
   - apply Iconvex.
   - abstract (by intros; eapply IbndE; eauto).
@@ -440,7 +425,6 @@ Proof.
   - exact I.midpoint.
   - exact width.
   - apply Fsingle.
-  - apply subseteqE.
 Defined.
 
 End Make.

@@ -216,9 +216,6 @@ Class NBH := {
   width: II -> FF;  (** width of an interval (unspecified, just for inspection) *)
   F2R: FF -> R;   (** needed to guarantee that F2I produces non-empty intervals *)
   F2IE: forall f, contains (F2I f) (F2R f);
-  (** is an interval contained within the given bounds? (needed only in the very end, for concrete examples) *)
-  subseteq: II -> R -> R -> Prop; (** note that this one is in Prop  *)
-  subseteqE: forall X (a b: R), subseteq X a b -> forall x, contains X x -> a <= x <= b;
 }.
 Coercion II: NBH >-> Ops1.
 
