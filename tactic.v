@@ -6,9 +6,8 @@ Require Import intervals syntax rescale errors.
 Require taylor chebyshev approx.
 
 (* TODO: 
-   - reification 
    - choice of interval implementation
-*)
+ *)
 
 Section s.
  Context {N: NBH}.
@@ -32,17 +31,18 @@ End s.
 
 (** ** tactic to prove bounds on concrete expressions *)
 Tactic Notation "gen_check" uconstr(check) constr(d) :=
-  lazymatch goal with |- ?b =>
-  let b := breify b in
-  let t := constr:(check d b) in
+  lazymatch goal with |- ?p =>
+  let p := reify_prop p in
+  let t := constr:(check d p) in
   (apply t || fail "bug in reification? (please report)");
+  [ repeat (constructor; auto) |
   let X := fresh "X" in
   intro X; vm_compute in X;
   lazymatch eval hnf in X with
   | err ?s => fail 1 s
   | ret true => reflexivity
   | ret false => fail "could not validate this, try increase degree"
-  end
+  end ]
   end.
 
 (** by default: chebyshev, with primitive floats by default *)
@@ -68,23 +68,22 @@ Tactic Notation "dynamic" :=
 
 (** tactics to estimate certain real valued expressions 
     (do not change the goal -> turn these into commands?) *)
-Tactic Notation "gen_estimate" uconstr(eSem) constr(d) constr(e) :=
-  let e := ereify e in
-  let t := constr:(eSem d e) in
-  let t := eval vm_compute in t in
-  idtac t.
+Tactic Notation "gen_estimate" uconstr(Sem) constr(d) constr(e) :=
+  let e := reify_real e in
+  let e := eval vm_compute in e in
+  idtac e.
 Tactic Notation "static_est" uconstr(lo) uconstr(hi) constr(d) constr(e) :=
-  gen_estimate (Static.eSem (chebyshev_model_ops lo hi)) d e.
+  gen_estimate (Static.Sem' (chebyshev_model_ops lo hi)) d e.
 Tactic Notation "static_est" uconstr(lo) uconstr(hi) constr(e) :=
   static_est lo hi 10%Z e.
 
 Tactic Notation "static11_est" constr(d) constr(e) :=
-  gen_estimate (Static.eSem chebyshev11_model_ops) d e.
+  gen_estimate (Static.Sem' chebyshev11_model_ops) d e.
 Tactic Notation "static11_est" constr(e) :=
   static11_est 10%Z e.
 
 Tactic Notation "dynamic_est" constr(d) constr(e) :=
-  gen_estimate (Dynamic.eSem chebyshev_model_ops) d e.
+  gen_estimate (Dynamic.Sem' chebyshev_model_ops) d e.
 Tactic Notation "dynamic_est" constr(e) :=
   dynamic_est 10%Z e.
 
@@ -105,6 +104,7 @@ Proof.
   static (DF2 0.5%float 2%float) 15%Z.
 
   Restart.
+  dynamic_est (sqrt 2).
   dynamic_est (sqrt (-2)).
   dynamic_est (RInt (@sqrt _) 1 2).
   static11_est (RInt id 0 1).

@@ -30,7 +30,7 @@ Proof. dynamic. Qed.
 Goal 2 > 1.
 Proof. dynamic. Qed.
 Goal 2 >= 1.
-Proof. Fail dynamic. Abort.
+Proof. dynamic. Qed.
 
 Lemma ex1: 0.3333 <= RInt (fun x => x*x) 0 1 <= 0.3334.
 Proof.
@@ -72,17 +72,21 @@ Proof.
 Qed.
 
 (** direct computations  *)
+(* Need to reenable notations for syntactic expressions first *)
+Eval vm_compute in
+    let e := EXPR ((integrate' (1 / (1 + id'))) 0 (pi'/fromZ' 4)) in 
+    LET E ::= Dynamic.Sem' chebyshev_model_ops 20 e IN ret (width E).
 
 Eval vm_compute in
-    let e := (e_integrate ((1+f_id) / ((1-f_id)*(1-f_id)+1/fromZ 4)) 0 (pi/fromZ 4)) in
-    LET E ::= Static.eSem chebyshev11_model_ops 20 e IN ret (width E).
+    let e := EXPR (integrate' ((1+id') / ((1-id')*(1-id')+1/fromZ' 4)) 0 (pi'/fromZ' 4)) in
+    LET E ::= Static.Sem' chebyshev11_model_ops 20 e IN ret (width E).
     (** increase 20 to get more digits *)
 
 
 (** testing interpolation on rescaled bases *)
 Eval vm_compute in
-    let f: fxpr := f_id / sqrt ((1+f_id) / (fromZ 3+f_id)) in
-    Static.fSem (chebyshev_model_ops (fromZ 18) (fromZ 200)) 10 f.
+    let f := FXPR (id' / fsqrt ((1+id') / (fromZ' 3+id'))) in
+    Static.Sem' (chebyshev_model_ops (fromZ 18) (fromZ 200)) 10 f.
 
 
 (** Note that the neighborhood is set by default to [Iprimitive.nbh], i.e., intervals with primitive floating point endpoints 
@@ -92,8 +96,27 @@ Eval vm_compute in
   *)
 
 Eval vm_compute in
-    let e := (e_integrate ((1+f_id) / ((1-f_id)*(1-f_id)+1/fromZ 4)) 0 (pi/fromZ 4)) in
-    e_map width (Static.eSem (N:=IZ.nbh) chebyshev11_model_ops 20 e).
+    let e := EXPR (integrate' ((1+id') / ((1-id')*(1-id')+1/fromZ' 4)) 0 (pi'/fromZ' 4)) in
+    e_map width (Static.Sem' (N:=IZ.nbh) chebyshev11_model_ops 10 e).
+(* above: need 1sec *)
+(* below: also need 1sec thanks to sharing *)
+Eval vm_compute in
+    let e := EXPR (let_ee x := integrate' ((1+id') / ((1-id')*(1-id')+1/fromZ' 4)) 0 (pi'/fromZ' 4)
+                       in x + x)
+    in
+    e_map width (Static.Sem' (N:=IZ.nbh) chebyshev11_model_ops 10 e).
+
+Time Eval vm_compute in
+    let e := FXPR ((1+id') / ((1-id')*(1-id')+1/fromZ' 4)) in
+    Static.Sem' (N:=IZ.nbh) chebyshev11_model_ops 12 e.
+(* above: need 1sec *)
+(* below: also need 1sec thanks to sharing *)
+Time Eval vm_compute in
+    let e := FXPR (let_ff x := (1+id') / ((1-id')*(1-id')+1/fromZ' 4)
+                       in x + x)
+    in
+    Static.Sem' (N:=IZ.nbh) chebyshev11_model_ops 12 e.
+
 
 
 (* TOCHECK: why is 1+1 not a singleton with primitive floats? *)
