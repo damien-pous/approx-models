@@ -13,7 +13,7 @@ Open Scope error_scope.
 Definition e_bind {A B} (x: E A) (f: A -> E B): E B :=
   match x with ret a => f a | err e => err e end.
 Infix ">>=" := e_bind (at level 30): error_scope.
-Notation "'LET' x ::= f 'IN' g" := (e_bind f (fun x => g)) (at level 20): error_scope.  
+Notation "'LET' x ::= f 'IN' g" := (e_bind f (fun x => g)) (at level 200, x binder, right associativity): error_scope.  
 
 Definition e_map {A B} (f: A -> B) (x: E A): E B :=
   x >>= fun a => ret (f a).
@@ -22,11 +22,11 @@ Definition e_map2 {A B C} (f: A -> B -> C) (x: E A) (y: E B): E C :=
 
 Definition assert (b: bool) (e: string): E (is_true b) :=
   if b return E (is_true b) then ret eq_refl else err e.
-Notation "'ASSERT' b 'AS' x 'MSG' e 'IN' g" := (e_bind (assert b e) (fun x => g)) (at level 20): error_scope.
+Notation "'ASSERT' b 'AS' x 'MSG' e 'IN' g" := (e_bind (assert b e) (fun x => g)) (at level 200, x binder, right associativity): error_scope.
 
 Definition trycatch {A} (x: E A) (y: unit -> E A) :=
   match x with err _ => y tt | _ => x end.
-Notation "'TRY' x 'CATCH' g" := (trycatch x (fun _ => g)) (at level 20): error_scope.  
+Notation "'TRY' x 'CATCH' g" := (trycatch x (fun _ => g)) (at level 200, right associativity): error_scope.  
 
 
 Inductive EP {A} (P: A -> Prop): E A -> Prop :=
