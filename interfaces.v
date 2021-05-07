@@ -236,6 +236,19 @@ Proof.
   simpl; split_Rabs; lra.
 Qed.
 
+Definition is_ne {N: NBH} X Y := if is_lt X Y then true else is_lt Y X.
+Lemma is_neE {N: NBH} X Y: wreflect (forall x y, contains X x -> contains Y y -> x<>y) (is_ne X Y).
+Proof.
+  rewrite /is_ne. case is_ltE=>[H|].
+  constructor=>x y Xx Yy. specialize (H _ _ Xx Yy). lra.
+  case is_ltE=>[H|]; constructor=> x y Xx Yy. specialize (H _ _ Yy Xx). lra.
+Qed.
+
+Definition is_ge {N: NBH} X Y := is_le Y X.
+Lemma is_geE {N: NBH} X Y: wreflect (forall x y, contains X x -> contains Y y -> x>=y) (is_ge X Y).
+Proof. rewrite /is_ge. case is_leE=>[H|]; constructor; auto using Rle_ge. Qed.
+
+
 (** predicate for specifying bounds of integrals (see [rmintegrate] below) *)
 Inductive ocontains{N: NBH} x: option II -> R -> Prop :=
 | ocontains_some: forall A a, contains A a -> ocontains x (Some A) a

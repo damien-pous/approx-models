@@ -46,6 +46,7 @@ Inductive term {X: sort -> Type}: sort -> Type :=
 | b_le: term REAL -> term REAL -> term BOOL
 | b_ge: term REAL -> term REAL -> term BOOL
 | b_lt: term REAL -> term REAL -> term BOOL
+| b_ne: term REAL -> term REAL -> term BOOL
     (* need b_ge and not b_gt because Rgt unfolds to Rlt while Rge does not unfold to Rle *)
 | b_disj: term BOOL -> term BOOL -> term BOOL
 | b_conj: term BOOL -> term BOOL -> term BOOL
@@ -88,6 +89,7 @@ Fixpoint sem S (t: @term rval S): rval S :=
   | b_le e f => sem e <= sem f
   | b_ge e f => sem e >= sem f
   | b_lt e f => sem e < sem f
+  | b_ne e f => sem e <> sem f
   | b_disj b c => sem b \/ sem c
   | b_conj b c => sem b /\ sem c
   | t_var _ x => x
@@ -100,7 +102,6 @@ Definition sem' S (u: Term S): rval S := sem (u rval).
 (** reification for the above syntax *)
 
 (* TODO: 
-   - avoid redundant reductions? 
    - maximal sharing using let-ins? [need OCaml?]
    - reify user's let-ins?          [need OCaml?]
 *)
@@ -161,6 +162,7 @@ Ltac breify b :=
   | Rge ?e ?f => let e:=ereify e in let f:=ereify f in uconstr:(b_ge e f)
   | Rlt ?e ?f => let e:=ereify e in let f:=ereify f in uconstr:(b_lt e f)
   | Rgt ?f ?e => let e:=ereify e in let f:=ereify f in uconstr:(b_lt e f)
+  | ?e <> ?f => let e:=ereify e in let f:=ereify f in uconstr:(b_ne e f)
   | ?b /\ ?c => let b:=breify b in let c:=breify c in uconstr:(b_conj b c)
   | ?b \/ ?c => let b:=breify b in let c:=breify c in uconstr:(b_disj b c)
   end.
@@ -231,6 +233,7 @@ Inductive trel X Y (R: forall S, X S -> Y S -> Prop): forall S, @term X S -> @te
 | rb_le: forall x y, trel R x y -> forall x' y', trel R x' y' -> trel R (b_le x x') (b_le y y')
 | rb_ge: forall x y, trel R x y -> forall x' y', trel R x' y' -> trel R (b_ge x x') (b_ge y y')
 | rb_lt: forall x y, trel R x y -> forall x' y', trel R x' y' -> trel R (b_lt x x') (b_lt y y')
+| rb_ne: forall x y, trel R x y -> forall x' y', trel R x' y' -> trel R (b_ne x x') (b_ne y y')
 | rb_disj: forall x y, trel R x y -> forall x' y', trel R x' y' -> trel R (b_disj x x') (b_disj y y')
 | rb_conj: forall x y, trel R x y -> forall x' y', trel R x' y' -> trel R (b_conj x x') (b_conj y y')
 | rt_var: forall S x y, R S x y -> trel R (t_var x) (t_var y)
@@ -294,8 +297,9 @@ Fixpoint Sem S (t: @term sval S): sval S :=
   | f_cst e => e_map mcst (Sem e)
   | f_trunc e => e_map (mtruncate (Z.to_nat deg)) (Sem e)
   | b_le e f => e_map2 is_le (Sem e) (Sem f)
-  | b_ge f e => e_map2 is_le (Sem e) (Sem f)
+  | b_ge e f => e_map2 is_ge (Sem e) (Sem f)
   | b_lt e f => e_map2 is_lt (Sem e) (Sem f)
+  | b_ne e f => e_map2 is_ne (Sem e) (Sem f)
   | b_disj b c => LET b ::= Sem b IN if b then ret true else Sem c
   | b_conj b c => LET b ::= Sem b IN if b then Sem c else ret false
   | t_var _ x => x
@@ -345,8 +349,9 @@ Proof.
   - eapply ep_map; eauto. intros. by apply rmcst.          
   - eapply ep_map; eauto. intros. by apply rmtruncate.
   - eapply ep_map2; eauto. intros ??. case is_leE=>//. auto.  
-  - eapply ep_map2; eauto. intros ??. case is_leE=>//. auto using Rle_ge. 
+  - eapply ep_map2; eauto. intros ??. case is_geE=>//. auto. 
   - eapply ep_map2; eauto. intros ??. case is_ltE=>//. auto.
+  - eapply ep_map2; eauto. intros ??. case is_neE=>//. auto.
   - eapply ep_bind=>[b|]; eauto. 
     case b. constructor. left; auto. intros _.
     case: IHtrel2=>//. constructor. right; auto.
@@ -425,8 +430,9 @@ Fixpoint Sem S (t: @term sval S): sval S :=
   | f_cst e => fun MO => e_map mcst (Sem e)
   | f_trunc e => fun MO => e_map (mtruncate (Z.to_nat deg)) (Sem e MO)
   | b_le e f => e_map2 is_le (Sem e) (Sem f)
-  | b_ge f e => e_map2 is_le (Sem e) (Sem f)
+  | b_ge e f => e_map2 is_ge (Sem e) (Sem f)
   | b_lt e f => e_map2 is_lt (Sem e) (Sem f)
+  | b_ne e f => e_map2 is_ne (Sem e) (Sem f)
   | b_disj b c => LET b ::= Sem b IN if b then ret true else Sem c
   | b_conj b c => LET b ::= Sem b IN if b then Sem c else ret false
   | t_var _ x => x
@@ -482,8 +488,9 @@ Proof.
   - eapply ep_map; eauto. intros. by apply rmcst.          
   - eapply ep_map; eauto. intros. by apply rmtruncate.          
   - eapply ep_map2; eauto. intros ??. case is_leE=>//. auto.  
-  - eapply ep_map2; eauto. intros ??. case is_leE=>//. auto using Rle_ge. 
+  - eapply ep_map2; eauto. intros ??. case is_geE=>//. auto. 
   - eapply ep_map2; eauto. intros ??. case is_ltE=>//. auto.
+  - eapply ep_map2; eauto. intros ??. case is_neE=>//. auto.
   - eapply ep_bind=>[b|]; eauto. 
     case b. constructor. left; auto. intros _.
     case: IHtrel2=>//. constructor. right; auto.
