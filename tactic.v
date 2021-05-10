@@ -70,8 +70,9 @@ Tactic Notation "dynamic" :=
     (do not change the goal -> turn these into commands?) *)
 Tactic Notation "gen_estimate" uconstr(Sem) constr(d) constr(e) :=
   let e := reify_real e in
-  let e := eval vm_compute in e in
-  idtac e.
+  let t := constr:(Sem d REAL e) in
+  let i := eval vm_compute in t in
+  idtac i.
 Tactic Notation "static_est" uconstr(lo) uconstr(hi) constr(d) constr(e) :=
   gen_estimate (Static.Sem' (chebyshev_model_ops lo hi)) d e.
 Tactic Notation "static_est" uconstr(lo) uconstr(hi) constr(e) :=
