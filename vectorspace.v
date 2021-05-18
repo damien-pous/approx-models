@@ -271,6 +271,12 @@ Class Basis {N: NBH} (B: BasisOps) := {
 Global Hint Resolve rbmul rbone rbid rbprim rbeval: rel.
 
 
+Lemma domlo `{Basis}: dom lo.
+Proof. generalize lohi. split; lra. Qed.
+
+Lemma domhi `{Basis}: dom hi.
+Proof. generalize lohi. split; lra. Qed.
+
 Lemma DomE `{Basis} X: wreflect (forall x, contains X x -> dom x) (Dom X).
 Proof.
   rewrite /Dom.

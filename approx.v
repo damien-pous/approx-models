@@ -158,8 +158,20 @@ Section n.
    msqrt_aux M
              (mfc h)
              (mfc (interpolate n (fun x: FF => 1 / (fromZ 2 * beval h x))))
-             ((lo+hi)//2).
+             lo.
 
+ (** testing nullability *)
+ Definition mne0 n (M: Tube): bool :=
+   let p := mcf M in
+   let q := interpolate n (fun x: FF => 1 / beval p x) in
+   is_ne 0 (mrange (M * mfc q)).
+ 
+ (** testing positivity *) 
+ Definition mgt0 n (M: Tube): E bool :=
+   if ~~ cont M then err "mgt0: need a continuous model" else
+   if ~~ is_lt 0 (meval_unsafe M lo) then ret false
+   else ret (mne0 n M).
+ 
  (** ** correctness of the above operations in valid bases *)
 
  Context {B: Basis BO}.
@@ -172,17 +184,22 @@ Section n.
    /\
    exists p, scontains (pol M) p /\ forall x, dom x -> contains (rem M) (f x - eval p x).
 
+ Lemma mcont M f: cont M -> mcontains M f -> forall x, dom x -> continuity_pt f x.
+ Proof. move=>? [C _]. by apply (wreflectE C). Qed. 
+
  (* TOTHINK: is there a way to get this lemma? *)
+ (*
  Lemma mcontains_ext M f g : (forall x, dom x -> f x = g x) -> mcontains M f -> mcontains M g.
  Proof.
    move => Hfg [Cf [f0 [Hf0 Hf]]]. split.
    - elim: Cf=>[Cf|]; constructor=>x Dx. 
      eapply continuity_pt_ext_loc. 2: apply Cf. 2: apply Dx.
-     admit.                     (* x could be one of the two bounds... *)
+     ...                     (* x could be one of the two bounds... *)
    - exists f0; split => // x Hx.
      rewrite -Hfg; auto.
  Abort.
-
+ *)
+ 
  (** *** basic operations *)
  
  Lemma rmeval_unsafe (M: Tube) f:
@@ -355,6 +372,8 @@ Section n.
    interfaces.msqrt := msqrt;
    interfaces.mtruncate := mtruncate;
    interfaces.mrange := mrange;
+   interfaces.mne0 := mne0;               
+   interfaces.mgt0 := mgt0;               
  |}.
 
  
@@ -441,6 +460,7 @@ Section n.
  (** here we deduce the requirements of [rmintegrate_unsafe] from purely computational assumptions 
      it might be useful to use directly [mintegrate_unsafe] and [rmintegrate_unsafe] depending on the target application
   *)
+
  Lemma rmintegrate: forall M f, 
      mcontains M f -> 
      forall A a, ocontains lo A a -> 
@@ -454,14 +474,18 @@ Section n.
      constructor. now apply rmintegrate_unsafe; auto.
    - case DomE=>//= Da.
      constructor. apply rmintegrate_unsafe; try rel.
-     apply rhi. generalize lohi. split; lra.
+     apply rhi. apply domhi.
    - case DomE=>//= Db.
      constructor. apply rmintegrate_unsafe; try rel.
-     apply rlo. generalize lohi. split; lra.
+     apply rlo. apply domlo.
    - constructor. apply rmintegrate_unsafe; try rel.
-     apply rlo. generalize lohi; split; lra.
-     apply rhi. generalize lohi. split; lra.
+     apply rlo. apply domlo.
+     apply rhi. apply domhi.
  Qed.
+
+ (** auxiliary lemma for operations involving interpolation *)
+ Lemma rmfc p: mcontains (mfc p) (eval (map F2R p)).
+ Proof. apply msingle', list_rel_map, F2IE. Qed.
  
  (** *** division *)
  
@@ -503,10 +527,7 @@ Section n.
  Lemma rmdiv n:
    forall M f, mcontains M f ->
    forall N g, mcontains N g -> EP' mcontains (mdiv n M N) (f_bin Rdiv f g).
- Proof.
-   move => M f Mf P g Pg. eapply rmdiv_aux=>//; 
-   apply msingle', list_rel_map, F2IE.
- Qed.
+ Proof. move => M f Mf P g Pg. eapply rmdiv_aux=>//; apply rmfc. Qed.
 
  (** *** square root *)
  
@@ -567,12 +588,55 @@ Section n.
  Lemma rmsqrt n M f: 
    mcontains M f -> EP' mcontains (msqrt n M) (f_unr R_sqrt.sqrt f).
  Proof.
-   move => Mf. eapply rmsqrt_aux with _ _ ((lo+hi)//2) => //;
-    try apply msingle', list_rel_map, F2IE. 
-   apply rdiv. 2: rel. apply radd. apply rlo. apply rhi. 
+   move => Mf. eapply rmsqrt_aux with _ _ lo => //; try apply rmfc. 
+   apply rlo. 
    move => ??. apply eval_cont.
  Qed.
 
+ (** non-nullability test *)
+ Lemma rmne0 n M f: mcontains M f -> mne0 n M -> forall x, dom x -> f x <> 0.
+ Proof.
+   rewrite /mne0=>Mf H x Hx E. 
+   set M' := interpolate _ _ in H. 
+   set f' := eval (map F2R M').
+   have E': (f x * f' x = 0) by rewrite E/=; ring. revert E'.
+   move: H. case is_neE=>// H _.
+   apply nesym. apply H. rel. 
+   apply (eval_mrange (f:=fun x => f x * f' x))=>//. apply rmmul=>//.
+   apply rmfc.
+ Qed.
+
+ (** positivity test *)
+ Lemma continuous_gt0 f:
+   (forall x, dom x -> continuity_pt f x) ->
+   (forall x, dom x -> f x <> 0) ->
+   forall x0, dom x0 -> 0 < f x0 ->
+   forall x, dom x -> 0 < f x.
+ Proof.
+   move=>Cf H y Dy Hy x Dx.
+   apply Rnot_ge_lt=>Hx'.
+   have Hx: f x < 0. move: (H _ Dx); cbn; lra. clear Hx'.
+   wlog xy: f Cf H x y Dx Dy Hx Hy / (x < y).
+    case (Rtotal_order x y)=>[xy|[xy|xy]].
+    eauto. subst; lra. move=>E. apply (E (fun x => - f x)) with y x=>//; try lra.
+    - move=>*. by apply continuity_pt_opp, Cf. 
+    - move=>z Dz. move: (H z Dz). cbn; lra. 
+   unfold dom in *.
+   case (Ranalysis5.IVT_interv f x y)=>//.
+    intros; apply Cf; lra.
+   move=> z [Dz Hz]. apply H in Hz; lra. 
+ Qed.
+ 
+ Lemma rmgt0 n M f: mcontains M f -> EPimpl (mgt0 n M) (forall x, dom x -> 0 < f x).
+ Proof.
+   rewrite /mgt0. case_eq (cont M)=>Cf Mf. 2: constructor.
+   case is_ltE; constructor=>// H'. apply continuous_gt0 with lo.
+   - by eapply mcont; eauto.
+   - eapply rmne0; eassumption.
+   - exact domlo.
+   - apply H. apply rzer. apply rmeval_unsafe=>//. apply rlo.
+     exact domlo.
+ Qed.
 
  (** packing all operations together *)
  Program Definition model: Model model_ops lo hi := {|
@@ -585,6 +649,8 @@ Section n.
    interfaces.rmsqrt := rmsqrt;
    interfaces.rmtruncate := rmtruncate;
    interfaces.rmrange := eval_mrange;               
+   interfaces.rmne0 := rmne0;               
+   interfaces.rmgt0 := rmgt0;               
  |}.
 
 End n.

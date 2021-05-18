@@ -37,6 +37,8 @@ Global Hint Resolve ep_err: core.
 Definition EP' {A B} (P: A -> B -> Prop): E A -> B -> Prop :=
   fun x b => EP (fun a => P a b) x.
 
+Definition EPimpl (b: E bool) (P: Prop) := EP (fun b => is_true b -> P) b.
+  
 Lemma ep_bind {A B} (f: A -> E B) (P: A -> Prop) (Q: B -> Prop)
       (F: forall a, P a -> EP Q (f a)): forall a, EP P a -> EP Q (a >>= f).
 Proof. intros ? [??|]; cbn; auto. Qed.

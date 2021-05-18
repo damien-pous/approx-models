@@ -259,19 +259,22 @@ Global Hint Constructors ocontains: rel.
 (** ** Models: abstraction for functions on real numbers *)
 
 Class ModelOps {N: NBH} := {
-  (* pointwise operations *)
+  (** pointwise operations *)
   MM: Ops0;
-  (* operations specific to functions *)
+  (** operations specific to functions *)
   mid: MM;                 
   mcst: II -> MM;
   meval: MM -> II -> E II;
-  (* integration; missing bounds are assumed to be those of the domain *)
+  (** integration; missing bounds are assumed to be those of the domain *)
   mintegrate: MM -> option II -> option II -> E II;
   mdiv: Z -> MM -> MM -> E MM;
   msqrt: Z -> MM -> E MM;
-  (* [truncate] acts as the identity *)
+  (** [truncate] acts as the identity *)
   mtruncate: nat -> MM -> MM;
   mrange: MM -> II;
+  (** nullability/positivity test *)
+  mne0: Z -> MM -> bool;
+  mgt0: Z -> MM -> E bool;
 }.
 Coercion MM: ModelOps >-> Ops0.
 
@@ -296,6 +299,8 @@ Class Model {N: NBH} (MO: ModelOps) (lo hi: R) := {
                             mcontains (mtruncate n F) f;
   rmrange: forall F f, mcontains F f ->
            forall x, lo<=x<=hi -> contains (mrange F) (f x);
+  rmne0: forall n F f, mcontains F f -> mne0 n F -> forall x, lo<=x<=hi -> f x <> 0;
+  rmgt0: forall n F f, mcontains F f -> EPimpl (mgt0 n F) (forall x, lo<=x<=hi -> 0 < f x);
 }.
 Coercion mcontains: Model >-> Rel0.
 Global Hint Resolve rmid rmcst (* rmeval rmintegrate *) rmdiv rmsqrt: rel.

@@ -202,6 +202,13 @@ Goal True.
   let b := reify_prop constr:(4 <= 5 <= 6) in pose b.
   let b := reify_prop constr:(4 < 5 /\ RInt id 3.3 4.4 <= 18.9) in pose b.
   let b := reify_prop constr:(4 >= 5) in idtac b. 
+Abort.
+ *)
+(* reifying under lambdas?
+Ltac r e := match eval hnf in e with forall x: R, @?P x => r (P (VAR)) | ?x = ?y => idtac x y | _ => idtac e end.
+Goal True.
+r (forall x: R, x=x).
+Abort.
 *)
 
 (** parametricity relation for terms.
@@ -313,7 +320,7 @@ Definition cval S: sval S -> rval S -> Prop :=
   match S with
   | REAL => EP' contains
   | FUN  => EP' mcontains
-  | BOOL => EP' (fun b (P: Prop) => (is_true b -> P))
+  | BOOL => EPimpl
   end.
 Lemma correct S (u: term S) (v: term S): trel cval u v -> cval (Sem u) (sem v).
 Proof.
@@ -446,7 +453,7 @@ Definition cval S: sval S -> rval S -> Prop :=
   match S with
   | REAL => EP' contains
   | FUN  => fun F f => forall MO a b (M: Model MO a b), EP' M (F MO) f
-  | BOOL => EP' (fun b (P: Prop) => (is_true b -> P))
+  | BOOL => EPimpl
   end.
 Lemma correct S (u: term S) (v: term S): trel cval u v -> cval (Sem u) (sem v).
 Proof.
