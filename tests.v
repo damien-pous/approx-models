@@ -71,6 +71,10 @@ Proof.
   dynamic. 
 Qed.
 
+Goal RInt (fun x => RInt id 1 x) 0 1 <= 5.
+  Fail dynamic.
+Abort.
+
 (** direct computations  *)
 (* Need to reenable notations for syntactic expressions first *)
 Eval vm_compute in
@@ -121,6 +125,7 @@ Time Eval vm_compute in
 
 (* TOCHECK: why is 1+1 not a singleton with primitive floats? *)
 Eval vm_compute in (fromZ 2: Iprimitive.nbh).
+Eval vm_compute in (1-1: Iprimitive.nbh). (* arg *)
 Eval vm_compute in (1+1: Iprimitive.nbh). (* arg *)
 Eval vm_compute in (1+1: IZ.nbh).         (* ok *)
 Eval vm_compute in (1+1: IBigInt.nbh).    (* ok *)

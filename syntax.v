@@ -108,6 +108,10 @@ Definition sem' S (u: Term S): rval S := sem (u rval).
 Arguments f_bin [_ _] _ _ _ _ /.
 Arguments f_unr [_ _] _ _ _ /.
 Lemma VAR: R. exact R0. Qed.
+Ltac reduce e :=
+  eval cbn beta iota delta
+       [ROps0 ROps1 f_Ops0 car ops0 zer one add sub mul div sqrt cos abs pi f_bin f_unr fromZ]
+  in e.
 Ltac ereify e :=
   lazymatch e
   with
@@ -126,9 +130,7 @@ Ltac ereify e :=
   | RInt ?f ?a ?b =>
     let a:=ereify a in
     let b:=ereify b in
-    let x:=fresh "x" in
-    let fVAR:=eval cbn beta iota delta
-         [ROps0 ROps1 f_Ops0 car ops0 zer one add sub mul div sqrt cos abs pi f_bin f_unr fromZ] in (f VAR) in
+    let fVAR:=reduce (f VAR) in
     let f:=freify fVAR in
     uconstr:(e_integrate f a b)
   | VAR => fail "variable occurs under an unsupported context"
@@ -167,21 +169,15 @@ Ltac breify b :=
   | ?b \/ ?c => let b:=breify b in let c:=breify c in uconstr:(b_disj b c)
   end.
 Ltac reify_real e :=
-  let e := eval cbn beta iota delta
-                [ROps0 ROps1 f_Ops0 car ops0 zer one add sub mul div sqrt cos abs pi f_bin f_unr fromZ]
-           in e in
+  let e := reduce e in
   let e := ereify e in
   constr:((fun X => e): Term REAL).
 Ltac reify_fun e :=
-  let e := eval cbn beta iota delta
-                [ROps0 ROps1 f_Ops0 car ops0 zer one add sub mul div sqrt cos abs pi f_bin f_unr fromZ]
-           in e in
+  let e := reduce e in
   let e := freify e in
   constr:((fun X => e): Term FUN).
 Ltac reify_prop e :=
-  let e := eval cbn beta iota delta
-                [ROps0 ROps1 f_Ops0 car ops0 zer one add sub mul div sqrt cos abs pi f_bin f_unr fromZ]
-           in e in
+  let e := reduce e in
   let e := breify e in
   constr:((fun X => e): Term BOOL).
 
@@ -201,7 +197,7 @@ Goal True.
   let e := reify_real constr:(RInt (fun z => R0+z+cos (1/fromZ 2)) R0 R1) in pose e.
   let b := reify_prop constr:(4 <= 5 <= 6) in pose b.
   let b := reify_prop constr:(4 < 5 /\ RInt id 3.3 4.4 <= 18.9) in pose b.
-  let b := reify_prop constr:(4 >= 5) in idtac b. 
+  let b := reify_prop constr:(4 >= 5) in pose b. 
 Abort.
  *)
 (* reifying under lambdas?

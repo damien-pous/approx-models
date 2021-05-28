@@ -4,8 +4,11 @@ before the first release:
 
 - document examples.v
 - pointed uniform spaces for coquelicot 3.2.0
+
 - choice of interval implementation by types and canonical structures
 - further improve syntax/reification (degrees, eval)
+- clean hints for rel / check cases not working
+- support model comparisons in the synatx/tactic 
 
 
 after the first release
@@ -15,6 +18,13 @@ after the first release
 - more functions on reals from coq-interval
 - interpolation oracle for Taylor basis
 
+
+tactic parameters:
+- basis (chebyshev/taylor)
+- domain (dynamic/static D)
+- degree
+- floats (primitive, bigint, bigZ)
+- native vs vm
 
 
 
