@@ -60,3 +60,15 @@ bnd:
 - srange
 - rdom (for generic range operation)
 
+## reification
+
+forall x, a<x<b -> P x
+- if x occurs in complicated places, just approximate x by [a;b], and possibly subdivide
+  -> reified via an HO binder
+- otherwise, use mne/mlt on [a;b]
+  -> reified via a Prop term with one variable
+
+
+forall x, a<x<b -> f x < g x /\ forall y, c<y<d -> h x y < 1
+-> either fix x=[a;b] and subdivide if necessary
+-> or use mne/mlt on x, late-fixing y=[c;d] ? plausible...

@@ -57,6 +57,8 @@ Inductive term {X: sort -> Type}: sort -> Type :=
     (* testing < or <> on a given domain (to be generalised) *)
 | b_mlt: term REAL -> term REAL -> term FUN -> term FUN -> term BOOL
 | b_mne: term REAL -> term REAL -> term FUN -> term FUN -> term BOOL
+| b_impl: term BOOL -> term BOOL -> term BOOL
+| b_forall: (X REAL -> term BOOL) -> term BOOL
 (* setting the degree in a subexpression *)
 | t_deg {S}: Z -> term S -> term S
 (* let..in and variable *)
@@ -108,6 +110,8 @@ Fixpoint sem S (t: @term rval S): rval S :=
   | b_conj b c => sem b /\ sem c
   | b_mlt a b f g => forall x, sem a <= x <= sem b -> sem f x < sem g x
   | b_mne a b f g => forall x, sem a <= x <= sem b -> sem f x <> sem g x
+  | b_impl b c => sem b -> sem c
+  | b_forall k => forall x: R, sem (k x)
   | t_deg _ _ x => sem x
   | t_var _ x => x
   | t_let _ _ x k => sem (k (sem x))
@@ -209,6 +213,7 @@ Ltac breify b :=
     let gVAR:=reduce (g VAR) in
     let g:=freify gVAR in
     uconstr:(b_mne a b f g)
+  | ?b -> ?c => let b:=breify b in let c:=breify c in uconstr:(b_impl b c)
   end.
 Ltac reify_real e :=
   let e := reduce e in
@@ -247,6 +252,8 @@ Goal True.
   let b := reify_prop constr:(4 >= 5) in pose b. 
   let b := reify_prop constr:(forall x, 4 <= x <= 5 -> x*x < sqrt x) in pose b.
   let b := reify_prop constr:(at_degree 3 (1/2 <= 3) /\ at_degree 4 (0 <= 1/2)) in pose b. (* DAGGER: double check *)
+  let b := reify_prop constr:(forall x, 2<=x<=cos 2 -> 1/x <> sqrt x) in pose b. 
+  Fail let b := reify_prop constr:(forall x, 2<=x<=cos x -> 1/x <> sqrt x) in pose b. 
   exact I. 
 Qed.
  *)
@@ -303,6 +310,8 @@ Inductive trel X Y (R: forall S, X S -> Y S -> Prop): forall S, @term X S -> @te
           forall f g, trel R f g -> forall h k, trel R h k -> trel R (b_mlt x x' f h) (b_mlt y y' g k)
 | rb_mne: forall x y, trel R x y -> forall x' y', trel R x' y' ->
           forall f g, trel R f g -> forall h k, trel R h k -> trel R (b_mne x x' f h) (b_mne y y' g k)
+| rb_impl: forall x y, trel R x y -> forall x' y', trel R x' y' -> trel R (b_impl x x') (b_impl y y')
+| rb_forall: forall h k, (forall a b, R REAL a b -> trel R (h a) (k b)) -> trel R (b_forall h) (b_forall k)
 | rt_deg: forall d S x y, trel R x y -> trel R (@t_deg _ S d x) (@t_deg _ S d y)
 | rt_var: forall S x y, R S x y -> trel R (t_var x) (t_var y)
 | rt_let: forall S T x y h k, trel R x y -> (forall a b, R S a b -> trel R (h a) (k b)) -> trel R (t_let x h) (@t_let _ _ T y k).
@@ -373,6 +382,8 @@ Fixpoint Sem d S (t: @term sval S): sval S :=
   | b_conj b c => LET b ::= Sem d b IN if b then Sem d c else ret false
   | b_mlt _ _ _ _
   | b_mne _ _ _ _ => err "comparison of univariate functions not supported in static mode"
+  | b_impl _ _ => err "cannot handle arbitrary implications"
+  | b_forall _ => err "cannot handle arbitrary universal quantifications"
   | t_deg _ d x => Sem d x
   | t_var _ x => x
   | t_let _ _ x k => Sem d (k (Sem d x))
@@ -434,6 +445,8 @@ Proof.
     case b. case: IHtrel2=>//. constructor. auto. by constructor.
   - constructor. 
   - constructor.
+  - by []. 
+  - constructor. 
   - by []. 
   - assumption.
   - auto. 
@@ -510,7 +523,7 @@ Fixpoint Sem d S (t: @term sval S): sval S :=
   | f_trunc d e => fun MO => e_map (mtruncate d) (Sem d e MO)
   | b_le e f => e_map2 is_le (Sem d e) (Sem d f)
   | b_ge e f => e_map2 is_ge (Sem d e) (Sem d f) 
- | b_lt e f => e_map2 is_lt (Sem d e) (Sem d f)
+  | b_lt e f => e_map2 is_lt (Sem d e) (Sem d f)
   | b_ne e f => e_map2 is_ne (Sem d e) (Sem d f)
   | b_disj b c => LET b ::= Sem d b IN if b then ret true else Sem d c
   | b_conj b c => LET b ::= Sem d b IN if b then Sem d c else ret false
@@ -530,6 +543,8 @@ Fixpoint Sem d S (t: @term sval S): sval S :=
       LET f ::= Sem d f M IN 
       LET g ::= Sem d g M IN
       ret (mne d f g)
+  | b_impl _ _ => err "cannot handle arbitrary implications"
+  | b_forall _ => err "cannot handle arbitrary universal quantifications"
   | t_deg _ d x => Sem d x
   | t_var _ x => x
   | t_let _ _ x k => Sem d (k (Sem d x))
@@ -612,6 +627,8 @@ Proof.
     eapply ep_bind=>[G Gg|]; eauto.
     constructor. eapply rmne. apply Ff. apply Gg. 
   - by [].
+  - constructor. 
+  - by []. 
   - assumption.
   - auto. 
 Qed.
