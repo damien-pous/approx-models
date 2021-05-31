@@ -34,14 +34,14 @@ Tactic Notation "gen_check" uconstr(check) constr(d) :=
   lazymatch goal with |- ?p =>
   let p := reify_prop p in
   let t := constr:(check d p) in
-  (apply t || fail "bug in reification? (please report)");
+  (apply t || fail 100 "bug in reification? (please report)");
   [ repeat (constructor; auto) |
   let X := fresh "X" in
   intro X; vm_compute in X;
   lazymatch eval hnf in X with
-  | err ?s => fail 1 s
+  | err ?s => fail 100 s
   | ret true => reflexivity
-  | ret false => fail "could not validate this, try increase degree"
+  | ret false => fail 100 "could not validate this, try increase degree"
   end ]
   end.
 
