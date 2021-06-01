@@ -16,6 +16,8 @@ Variable (T : Type) (U : UniformSpace) (I : T -> Prop).
 Notation IT := {t : T | I t}.
 Notation "[ f ]" := (fun (t' : IT) => let (t,_) := t' in f t).
 
+Definition domfct_point_of (x : T) : U := point_of.
+
 Definition domfct_ball (x : T -> U) (eps : R) (y : T -> U) :=
   forall t : T, I t -> ball (x t) eps (y t).
 
@@ -30,7 +32,7 @@ Lemma domfct_ball_triangle x y z e1 e2 : domfct_ball x e1 y -> domfct_ball y e2 
 Proof. move => H1 H2 t Ht; eapply ball_triangle; auto. Qed.
 
 Definition domfct_UniformSpace_mixin :=
-  UniformSpace.Mixin _ _ domfct_ball_center domfct_ball_sym domfct_ball_triangle.
+  UniformSpace.Mixin _ domfct_point_of _ domfct_ball_center domfct_ball_sym domfct_ball_triangle.
 
 Definition domfct_UniformSpace :=
   UniformSpace.Pack (T -> U) domfct_UniformSpace_mixin (T -> U).
