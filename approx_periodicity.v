@@ -107,8 +107,13 @@ Section n.
 
  (** asserting continuity 'by hand' (see specification [rmcontinuous] below)*)
  Definition mcontinuous (M: Tube): Tube :=
-   {| pol := pol M; rem := rem M; cont := true ; periodic := false |}.
- 
+   {| pol := pol M; rem := rem M; cont := true ; periodic := periodic M |}.
+
+ (** asserting periodicity 'by hand' (see specification [rmperiodic] below)*)
+ Definition mperiodic (M: Tube): Tube :=
+   {| pol := pol M; rem := rem M; cont := cont M ; periodic := true |}.
+
+   
  (** division: h' and w' are given by an oracle
     h' ~ f'/g'
     w' ~ 1 /g' *)
@@ -186,16 +191,10 @@ Section n.
  
  Notation eval := (vectorspace.eval TT).
  
-
- Definition hperiodic (h: R) (f: R -> R) := h <> 0 /\ forall x, f (x+h) = f x. 
  
- Definition is_periodic (f: R -> R) := exists h, hperiodic h f.
+ Definition is_periodic (f: R -> R) := forall x , f (x + lo - hi) = f x.
  (** containment relation for models *)
-
- Lemma add_periodic (f: R -> R) (g: R -> R) : is_periodic f -> is_periodic g -> is_periodic (f_bin Rplus f g).
- Proof. unfold is_periodic. intros.  destruct H.  destruct H0. .   
-
-
+ 
  Definition mcontains (M: Tube) (f: R -> R) :=
    wreflect (forall x, dom x -> continuity_pt f x) (cont M)
    /\
@@ -273,43 +272,62 @@ Section n.
    replace (_-_) with R0 by (simpl; ring).
    apply rzer.
  Qed.
+
+ Lemma add_periodic (f: R -> R) (g: R -> R) : is_periodic f -> is_periodic g -> is_periodic (f_bin Rplus f g).
+ Proof. unfold is_periodic; intros; unfold f_bin; simpl; rewrite H; rewrite H0; reflexivity. Qed.
  
  Lemma rmadd: forall M f, mcontains M f -> forall P g, mcontains P g -> mcontains (madd M P) (f+g).
  Proof.
    move=> M f [Cf [Pf [p [Hp Hf]]]] P g [Cg [Pg [q [Hq Hg]]]]. split.
    cbn. elim:Cf=>[Cf|]; elim:Cg=>[Cg|]; constructor=>x Dx.
    now apply continuity_pt_plus; auto. 
-   split. cbn. elim:Pf=>[Pf|]. elim:Pg=>[Pg|]. constructor.  .
+   split. cbn. elim:Pf=>[Pf|];elim:Pg=>[Pg|];constructor;apply add_periodic;trivial.
    exists (p+q); split. by apply rsadd.
    move=> x Hx. replace (_-_) with ((f x - eval p x) + (g x - eval q x)).
    apply radd; auto. rewrite eval_add/=/f_bin; ring. 
  Qed.
  
+ Lemma sub_periodic (f: R -> R) (g: R -> R) : is_periodic f -> is_periodic g -> is_periodic (f_bin Rminus f g).
+ Proof. unfold is_periodic; intros; unfold f_bin; simpl; rewrite H; rewrite H0; reflexivity. Qed.
+ 
  Lemma rmsub: forall M f, mcontains M f -> forall P g, mcontains P g -> mcontains (msub M P) (f-g).
  Proof.
-   move=> M f [Cf [p [Hp Hf]]] P g [Cg [q [Hq Hg]]]. split.
+   move=> M f [Cf [Pf [p [Hp Hf]]]] P g [Cg [Pg [q [Hq Hg]]]]. split.
    cbn. elim:Cf=>[Cf|]; elim:Cg=>[Cg|]; constructor=>x Dx.
-   now apply continuity_pt_minus; auto. 
+   now apply continuity_pt_minus; auto.
+   split. cbn. elim:Pf=>[Pf|];elim:Pg=>[Pg|];constructor;apply sub_periodic;trivial.
    exists (p-q); split. by apply rssub.
    move=> x Hx. replace (_-_) with ((f x - eval p x) - (g x - eval q x)).
    apply rsub; auto. rewrite eval_sub/=/f_bin; ring. 
  Qed.
 
+ 
+ Lemma scal_periodic (f: R -> R) (a: R) : is_periodic f -> is_periodic (fun x : R => (a * f x)%R).
+ Proof. unfold is_periodic; intros; simpl; rewrite H; reflexivity. Qed.
+ 
+ 
  Lemma rmscal: forall C c, contains C c -> forall M f, mcontains M f -> mcontains (mscal C M) (fun x => c * f x). 
  Proof.
-   move=> C c Hc M f [Cf [p [Hp Hf]]]. split.
+   move=> C c Hc M f [Cf [Pf[p [Hp Hf]]]]. split.
    cbn. elim:Cf=>[Cf|]; constructor=>x Dx.
    apply continuity_pt_mult; auto. now apply continuity_pt_const.
+   split. cbn. elim:Pf=>[Pf|];constructor;apply scal_periodic;trivial .
    exists (sscal c p); split. by apply rsscal.
    move=> x Hx. replace (_-_) with (c*(f x - eval p x)).
    apply rmul; auto. rewrite eval_scal/=; ring. 
  Qed.
+
+ 
+ Lemma mul_periodic (f: R -> R) (g: R -> R) : is_periodic f -> is_periodic g -> is_periodic (f_bin Rmult f g).
+ Proof. unfold is_periodic; intros; unfold f_bin; simpl; rewrite H; rewrite H0; reflexivity. Qed.
+ 
  
  Lemma rmmul: forall M f, mcontains M f -> forall P g, mcontains P g -> mcontains (mmul M P) (f*g).
  Proof.
-   move=> M f [Cf [p [Hp Hf]]] P g [Cg [q [Hq Hg]]]. split.
+   move=> M f [Cf [Pf [p [Hp Hf]]]] P g [Cg [Pg [q [Hq Hg]]]]. split.
    cbn. elim:Cf=>[Cf|]; elim:Cg=>[Cg|]; constructor=>x Dx.
    now apply continuity_pt_mult; auto. 
+   split. cbn. elim:Pf=>[Pf|];elim:Pg=>[Pg|];constructor;apply mul_periodic;trivial.
    exists (p*q); split. by apply rbmul.
    move=> x Hx.
    replace (_-_) with
@@ -323,6 +341,7 @@ Section n.
  Lemma rmzer: mcontains mzer 0.
  Proof.
    split. constructor=>x Dx. now apply continuity_pt_const.
+   split. constructor; unfold is_periodic; intros; reflexivity. 
    exists 0; split. apply rszer.
    move=> x Hx. rewrite eval_zer/=/f_cst. replace (_-_) with R0 by (simpl;ring). apply rzer.
  Qed.
@@ -330,6 +349,7 @@ Section n.
  Lemma rmone: mcontains mone 1.
  Proof.
    split. constructor=>x Dx. now apply continuity_pt_const.
+   split. constructor; unfold is_periodic; intros; reflexivity. 
    exists 1; split. apply rbone.
    move=> x Hx. rewrite eval_one/=/f_cst. replace (_-_) with R0 by (simpl;ring). apply rzer.
  Qed.
@@ -337,6 +357,7 @@ Section n.
  Lemma rmcst C (c : R): contains C c -> mcontains (mcst C) (f_cst c).
  Proof.
    split. constructor=>x Dx. now apply continuity_pt_const.
+   split. constructor; unfold is_periodic; intros; reflexivity. 
    exists (sscal c 1). split. cbn.
    eapply list_rel_map'. rel. apply rbone. 
    move=>x Dx. rewrite eval_scal eval_one /f_cst. 
@@ -346,12 +367,14 @@ Section n.
  Lemma rmid: mcontains mid ssrfun.id.
  Proof.
    split. constructor=>x Dx. apply continuity_pt_id.
+   split. constructor.
    exists bid; split. apply rbid.
    move=> x Hx. rewrite eval_id/=. replace (_-_) with R0 by (simpl;ring). apply rzer.
  Qed.
  
  Lemma rmbot f: mcontains mbot f.
  Proof.
+   split. constructor.
    split. constructor. 
    exists 0; split. apply rszer.
    intros. apply botE.
@@ -369,12 +392,13 @@ Section n.
 
  Lemma rmtruncate n: forall F f, mcontains F f -> mcontains (mtruncate n F) f.
  Proof.
-   intros F f [Cf (p&Hp&H)]. unfold mtruncate.
+   intros F f [Cf [ Pf (p&Hp&H)]]. unfold mtruncate.
    generalize (rsplit_list n Hp).
    generalize (eval_split_list TT n p).  
    simpl. case split_list=> p1 p2.
    case split_list=> P1 P2. simpl. 
-   intros E [R1 R2]. split. exact Cf. 
+   intros E [R1 R2]. split. exact Cf.
+   split. simpl. trivial.  
    exists p1. split=>//. 
    intros x Hx.  
    replace (_-_) with ((f x - eval p x) + eval p2 x) by (rewrite E; simpl; ring).
@@ -387,6 +411,13 @@ Section n.
    intros F f Cf Ff. split. constructor. exact Cf. apply Ff. 
  Qed.
 
+
+  Lemma rmperiodic: forall F f,
+     is_periodic f -> mcontains F f -> mcontains (mperiodic F) f.
+ Proof.
+   intros F f Pf Ff. split. apply Ff. split. constructor. exact Pf. apply Ff. 
+ Qed.
+ 
  Definition model_ops: ModelOps := {|
    MM := MOps0;
    interfaces.mid := mid;
@@ -438,7 +469,7 @@ Section n.
      forall A a, contains A a -> dom a ->
      forall D d, contains D d -> dom d -> contains (mintegrate_unsafe M A D) (RInt f a d).
  Proof.
-   move => M f [_ [p [Hp Hf]]] Hfcont A a Ha HA D d Hd HD; rewrite /mintegrate.
+   move => M f [_ [ _ [p [Hp Hf]]]] Hfcont A a Ha HA D d Hd HD; rewrite /mintegrate.
    have Hfint : ex_RInt f a d by apply cont_ex_RInt. 
    have Hpint : ex_RInt (eval p) a d by apply cont_ex_RInt; last (intros; apply eval_cont).
    have Hfpint : ex_RInt (f - eval p) a d by apply @ex_RInt_minus with (V:=R_NormedModule).
@@ -486,6 +517,7 @@ Section n.
      it might be useful to use directly [mintegrate_unsafe] and [rmintegrate_unsafe] depending on the target application
   *)
 
+ 
  Lemma rmintegrate: forall M f, 
      mcontains M f -> 
      forall A a, ocontains lo A a -> 
@@ -513,6 +545,10 @@ Section n.
  Proof. apply msingle', list_rel_map, F2IE. Qed.
  
  (** *** division *)
+
+ Lemma div_periodic (f: R -> R) (g: R -> R) : is_periodic f -> is_periodic g -> is_periodic (f_bin Rdiv f g).
+ Proof. unfold is_periodic; intros; unfold f_bin; simpl; rewrite H; rewrite H0; reflexivity. Qed.
+ 
  
  Lemma rmdiv_aux (f' g' h' w': Tube) f g h w:
    mcontains f' f -> mcontains g' g -> mcontains h' h -> mcontains w' w ->
@@ -523,7 +559,7 @@ Section n.
    case magE => [b c bc Hc|]=>//.
    case is_ltE => [Hmu|]=>//.
    specialize (Hmu _ 1 MU (rone _)). 
-   destruct (ssrfun.id Hh) as [_ [p [Hp Hh']]].
+   destruct (ssrfun.id Hh) as [_ [ _ [p [Hp Hh']]]].
    have L: forall x, dom x -> g x <> 0 /\ Rabs (h x - f x / g x) <= c / (R1 - mu).
      move=> x Dx; refine (div.newton _ _ _ _ Dx) => //.
      + move => t Ht; apply Hm.
@@ -540,7 +576,9 @@ Section n.
        apply rmmul=>//. apply rmsub=>//. by apply rmmul.
    constructor. split.
    - elim:(proj1 Hf)=>[Cf|]; elim:(proj1 Hg)=>[Cg|]; constructor=>x Dx.
-     apply continuity_pt_div; auto. by apply L. 
+     apply continuity_pt_div; auto. by apply L.
+   split.
+   - simpl. elim:(proj1 (proj2 Hf))=>[Pf|]; elim:(proj1 (proj2 Hg))=>[Pg|]; constructor. apply div_periodic. apply Pf. apply Pg.
    - exists p; split=>//=.
      move => x Hx. rewrite /f_bin.
      replace (_-_) with ((h x - eval p x) + -(h x - f x / g x)); last by rewrite /=; ring.
@@ -555,6 +593,9 @@ Section n.
  Proof. move => M f Mf P g Pg. eapply rmdiv_aux=>//; apply rmfc. Qed.
 
  (** *** square root *)
+
+ Lemma sqrt_periodic (f : R -> R) : is_periodic f -> is_periodic (fun x : R => R_sqrt.sqrt (f x)).
+ Proof. unfold is_periodic; intros; unfold f_bin; simpl; rewrite H; reflexivity. Qed.
  
  Lemma rmsqrt_aux (f' h' w': Tube) (x0' : II) (f h w : R -> R) x0:
    mcontains f' f -> mcontains h' h -> mcontains w' w ->
@@ -572,7 +613,7 @@ Section n.
    case magE => [BB b Bb Hb|]=>[|//=].
    case is_ltE =>// Hmu01. specialize (Hmu01 _ _ MU0 (rone _)).
    case is_ltE =>// Hmu0b. 
-   destruct (ssrfun.id Hh) as [_ [p [Hp Hh']]].
+   destruct (ssrfun.id Hh) as [_ [ _ [p [Hp Hh']]]].
    case is_ltE => [Hmu|] =>//.
    lapply (fun H x Hx => Hmu0 _ (eval_mrange (x:=x) (f:=fun x => 1 - 2 * (w x*h x)) H Hx)); last first.
     apply rmsub. apply rmone. apply rmscal. apply rfromZ. by apply rmmul.
@@ -599,7 +640,9 @@ Section n.
    constructor. split.
    - elim:(proj1 Hf)=>[Cf|]; constructor=>x Dx.
      apply (continuity_pt_comp f). apply Cf, Dx. 
-     apply continuity_pt_sqrt. by apply L. 
+     apply continuity_pt_sqrt. by apply L.
+   split.
+   - simpl. elim:(proj1 (proj2 Hf))=>[Pf|]; constructor. apply sqrt_periodic. apply Pf.
    - exists p; split =>// x Hx.
      replace (_-_) with ((h x - eval p x) + -(h x - R_sqrt.sqrt (f x))); last by rewrite /=; ring.
      apply radd; first by apply Hh'.
