@@ -2,7 +2,7 @@
 
 Require Import vectorspace rescale.
 Require Import FSets.FMapPositive Reals.
-Require Import ZArith.Zdiv.
+Require Import Nat ZArith.Zdiv.
 Set Implicit Arguments.
 Unset Strict Implicit.
 Unset Printing Implicit Defensive.
@@ -10,58 +10,101 @@ Unset Printing Implicit Defensive.
 
 (** ** Definition of the Fourier Basis and properties *)
 
-
+Check even.
+Check add.
+Definition order (n:nat) := 
+  if even n then div2 n else add (div2 n) 1.
 
 Definition F (n:nat) x :=
-  match n mod 2 with
-  | 0 => cos ( INR (n/2) * x )
-  | _ => sin ( INR ((n+1)/2) * x )
-  end.
+  (if even n then cos else sin) ( INR (order n) * x ).
+
 
 Lemma F0 x : F 0 x = 1.
-Proof. unfold F. simpl. rewrite Rmult_0_l. apply cos_0. Qed.
+Proof. by rewrite /F /= Rmult_0_l cos_0. Qed.        
 
 Lemma F1 x : F 1 x = sin x.
-Proof. unfold F; simpl. rewrite Rmult_1_l. reflexivity. Qed.
+Proof. by rewrite /F /= Rmult_1_l. Qed.
 
 Lemma F2 x : F 2 x = cos x.
-Proof. unfold F; simpl. rewrite Rmult_1_l. reflexivity. Qed.
+Proof. by rewrite /F /= Rmult_1_l. Qed.
 
 Lemma F_range n x : -1 <= F n x <= 1.
-Proof. unfold F. destruct (n mod 2).
+Proof. rewrite /F; elim: even.
        apply COS_bound. apply SIN_bound.
 Qed.
 
 (** Fourier vectors are continuous at every point *)
 Lemma F_cont n x : continuity_pt (F n) x.
-Proof. unfold F; destruct (n mod 2).
-       - apply (continuity_pt_comp (fun t => INR (n/2) *t) (fun t => cos t)). apply continuity_pt_mult. apply continuity_pt_const. unfold constant. reflexivity.
+Proof. rewrite /F; elim: even.
+       - apply (continuity_pt_comp (fun t => INR (order n) *t) (fun t => cos t)). apply continuity_pt_mult. apply continuity_pt_const. rewrite /constant. reflexivity.
          apply continuity_pt_id. apply continuity_cos.
-       - apply (continuity_pt_comp (fun t => INR ((n+1)/2) *t) (fun t => sin t)). apply continuity_pt_mult. apply continuity_pt_const. unfold constant. reflexivity.
+       - apply (continuity_pt_comp (fun t => INR (order n) *t) (fun t => sin t)). apply continuity_pt_mult. apply continuity_pt_const. unfold constant. reflexivity.
          apply continuity_pt_id. apply continuity_sin.
 Qed.
 
 (** Fourier vectors are derivable at every point *)
+Print is_derive. Print is_derive_cos.
+
+Definition pow_minus_one (n:nat) :=
+  if even n then 1 else -1.
+
+Definition dephase (n:nat) :nat :=
+  match n with
+  | 0 => 0
+  | S _  => (if even n then pred n else S n) end.
+
+(*
+Search is_derive. Search R eq.
+Lemma equal_is_derive f (g: R->R) : forall y, g y = f y -> forall x l, is_derive f x l -> is_derive g x l.
+Proof.
+ intros. rewrite H. apply H0.
+Qed.
+ *)
+(*
+Lemma F_is_derive n (x:R) : is_derive (F n) x (pow_minus_one (n+1) * INR (order n) * (F (dephase n) x)).
+Proof.
+  destruct n.
+  apply is_derive_ext with (fun t => 1). intros; by rewrite F0. Search is_derive. Check Hierarchy.zero.
+  simpl. rewrite F0 Rmult_0_r Rmult_0_l /=. apply is_derive_const.
+  rewrite /= /F /pow_minus_one /order /dephase /=. rewrite Rmult_0_l. rewrite cos_0 /=.
+  rewrite Rmult_0_l.
+  + 
+*)    
 Lemma F_ex_derive n x : ex_derive (F n) x.
 Proof.
-  unfold F; destruct (n mod 2).
-  - apply (ex_derive_comp  (fun t => cos t) (fun t => INR (n / 2) * t )).
-    exists (- (sin( INR (n/2)* x))).  
+  rewrite /F; elim: even.
+  - apply (ex_derive_comp  (fun t => cos t) (fun t => INR (order n) * t )).
+    exists (- (sin( INR (order n)* x))).  
     apply is_derive_cos.
     apply ex_derive_mult. apply ex_derive_const. apply ex_derive_id.
-  - apply (ex_derive_comp  (fun t => sin t) (fun t => INR ((n+1) / 2) * t )).
-    exists ( cos ( INR ((n+1) / 2) * x )).
+  - apply (ex_derive_comp  (fun t => sin t) (fun t => INR (order n) * t )).
+    exists ( cos ( INR (order n) * x )).
     apply is_derive_sin.
     apply ex_derive_mult. apply ex_derive_const. apply ex_derive_id.
 Qed.
 
+
 (** relations between Fourier vectors and their derivatives *)
 
-(*
-  Lemma F_Derive_cos x n : n mod 2 = 0%nat -> n <> 0%nat -> Derive (F n) x = - ( INR (n/2) * F (n-1) x ).
-Proof.
-  intros. unfold F. rewrite H.*)
 
+Lemma F_Derive x n :  Derive (F n) x = (pow_minus_one (n+1) * INR (order n) * (F (dephase n) x)).
+Proof.
+  destruct n. Search Derive. rewrite <-(Derive_ext (fun=>1)).
+  simpl. rewrite F0 Rmult_0_r Rmult_0_l /=. apply Derive_const. intros. by rewrite F0.
+  
+  unfold F.
+  have H : Nat.Even n \/ Nat.Odd n.
+  apply Nat.Even_or_Odd.
+  destruct H. have He : even n =true. 
+  apply Nat.even_spec; apply H.
+  have Ho : even (n .+1) = false.
+  rewrite Nat.even_succ. rewrite <- Nat.negb_even. rewrite He. reflexivity.
+  rewrite Ho. unfold dephase. rewrite Ho. rewrite Nat.even_succ_succ. rewrite He. simpl.
+  unfold pow_minus_one. rewrite Nat.even_succ. rewrite <- Nat.negb_even. rewrite Nat.add_1_r. rewrite Ho. simpl.
+Search is_derive.
+  
+  have o : Nat.odd (S n). rewrite Nat.odd_succ. trivial.
+  apply Derive_cos.
 
 (** naive evaluation (defined in vectorspace) 
     eval [a b c] x = a * T 0 x + b * T 1 x + c * T 2 x + 0
