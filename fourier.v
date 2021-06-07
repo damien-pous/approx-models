@@ -10,10 +10,111 @@ Unset Printing Implicit Defensive.
 
 (** ** Definition of the Fourier Basis and properties *)
 
-Check even.
-Check add.
+
+
 Definition order (n:nat) := 
-  if even n then div2 n else add (div2 n) 1.
+  if even n then div2 n else  (div2 n).+1.
+
+Lemma even_plus n m : even n ->  even (n+m) = even m.
+Proof. 
+       rewrite Nat.even_add. intros. rewrite H.
+       induction (even m). by []. by []. 
+Qed.
+
+Lemma even_minus n m : (n<=m)%nat -> even m -> even (m-n) = even n.
+Proof. intros.
+       rewrite Nat.even_sub. rewrite H0.
+       induction (even n). by []. by []. by []. 
+Qed.
+
+Lemma div2_double n : div2 (double n) = n.
+Proof.
+  induction n. reflexivity.
+  by rewrite Div2.double_S /= IHn.
+Qed.
+
+Lemma div2_double_add (x a :nat) : div2 ( double x + a ) = (x + div2 a)%nat.
+Proof. induction x. by []. by rewrite Div2.double_S /= IHx. Qed.
+
+
+(*
+Lemma div2_double_minus (x a :nat) : (a<= double x)%nat -> div2 ( double x - a ) = (x - div2 a)%nat.
+Proof. intros. induction x. by []. rewrite Div2.double_S. Search S. rewrite Nat.succ_1_l. simpl. rewrite /=. IHx. Qed.
+
+
+Lemma div2_plus2_aux (y a : nat) : (a<=y .+2)%nat -> div2 (y .+2 - a) = div2
+ *)
+
+Lemma div2_even_plus n m : even n -> div2 (n+m) = (div2 n + div2 m)%nat.
+Proof.
+  intros. rewrite (Div2.even_double n). by rewrite div2_double_add div2_double.   
+  apply Even.even_equiv. apply Nat.even_spec. apply H. 
+Qed.
+
+Lemma minus_n_n (n:nat) : (n - n)%nat = 0%nat.
+Proof. induction n. trivial. simpl. apply IHn.
+Qed.
+
+
+Lemma double_minus n m : (n<=m)%nat -> (double m - double n)%nat = double (m-n).
+Proof.
+  intros. induction m.
+  reflexivity. inversion H.        ouble. rewrite Div2.double_S.
+*)
+
+  Lemma div2_even_minus n m : (n<=m)%nat -> even n -> even m -> div2 (m-n) = (div2 m - div2 n)%nat.
+Proof. 
+ intros. rewrite (Div2.even_double m). rewrite (Div2.even_double n).  rewrite div2_double div2_double. Search div2 double.   
+ apply Even.even_equiv. apply Nat.even_spec. apply H. 
+Qed.
+  *)     
+
+Lemma order_succ n : (even n = true -> (order n) .+1 = order n .+1 )/\ (even n = false -> order n = order n .+1) .
+Proof.
+  induction n.
+  split. reflexivity. intros; inversion H. 
+  split. intros.
+  have Ho : even n = false.
+  rewrite Nat.even_succ in H. rewrite <- Nat.negb_odd. rewrite H. reflexivity.
+  destruct IHn. rewrite <- H1. unfold order.
+  simpl. rewrite Ho; simpl. reflexivity. apply Ho.
+  intros.
+  have He : even n = true.
+  rewrite Nat.even_succ in H. rewrite <- Nat.negb_odd. rewrite H. reflexivity.
+  destruct IHn. rewrite <- H0. unfold order. simpl. rewrite He. reflexivity.
+  apply He.
+Qed. 
+
+Lemma order_plus n m : even n -> order (n+m) = (order n + order m)%nat.
+Proof. intros. rewrite /order. rewrite even_plus.
+       case_eq (even m) => Hm.
+         by rewrite H div2_even_plus.
+         by rewrite H Nat.add_succ_r div2_even_plus. apply H.
+Qed.
+
+
+Lemma order_minus n m : (n<=m)%nat -> even n -> even m -> order (m-n) = (order m - order n)%nat.
+Proof.
+  intros. rewrite /order. rewrite even_minus. rewrite H0 H1. apply div2_even_minus.
+  apply H. apply H0. apply H1. apply H. apply H1.
+Qed.
+
+
+
+Lemma order_le_succ n : (order n <= order n .+1)%nat.
+Proof.
+  case_eq (even n) => Hn.
+  apply order_succ in Hn; rewrite <- Hn; by constructor.
+  apply order_succ in Hn. rewrite <- Hn. by constructor.
+Qed.  
+
+Lemma increasing_order n m : (n<=m)%nat -> (order n <= order m)%nat.
+Proof.
+  intros. induction m. inversion H. trivial.
+  inversion H. trivial. apply IHm in H1. Check le_trans.
+  apply le_trans with (order m). apply H1. apply order_le_succ.
+Qed.
+
 
 Definition F (n:nat) x :=
   (if even n then cos else sin) ( INR (order n) * x ).
@@ -28,10 +129,46 @@ Proof. by rewrite /F /= Rmult_1_l. Qed.
 Lemma F2 x : F 2 x = cos x.
 Proof. by rewrite /F /= Rmult_1_l. Qed.
 
+Lemma Radd_plus_minus1 : forall ( a b: R) ,   a + b - (a - b) = b*2.
+Proof. intros. simpl. ring. Qed.
+
+Lemma Radd_plus_minus2 : forall ( a b: R) , a + b + ( a - b ) = a * 2.
+Proof. intros. simpl. ring. Qed.
+
+
+Lemma Rmult_div : forall (a x : R) , x <> 0 ->  a * x / x = a. 
+Proof. intros. simpl. by field. Qed.
+
+Lemma opp_diff : forall (a b:R) , - ( a - b) = b-a.
+Proof.
+  intros. simpl. ring. Qed.
+  
+  
+Lemma form_prod_cos : forall a b , cos a * cos b = (cos (a+b) + cos (a-b))/2.
+Proof.
+  intros.
+  rewrite /= form1 Radd_plus_minus1 Radd_plus_minus2 /= Rmult_div. rewrite Rmult_div. field.
+  by []. by [].
+Qed.  
+
+Lemma Fprod_cos_cos : forall n m (x : R),
+    (n<=m)%nat -> even n -> even m ->
+    F n x * F m x = (F (m+n) x + F (m-n) x)/2.
+Proof.
+  intros.
+  rewrite /F even_plus. rewrite even_minus. rewrite order_plus. rewrite order_minus.  rewrite H0 H1.
+  Search Rmult Rplus. Search INR. rewrite plus_INR minus_INR /=.
+  rewrite Rmult_plus_distr_r Rmult_minus_distr_r form_prod_cos. by rewrite (cos_sym (INR (order n) * x - INR (order m) * x)) opp_diff Rplus_comm /=.
+  apply increasing_order. apply H. apply H. apply H0. apply H1. apply H1. apply H. apply H1. apply H1.
+Qed.
+
+
 Lemma F_range n x : -1 <= F n x <= 1.
 Proof. rewrite /F; elim: even.
        apply COS_bound. apply SIN_bound.
 Qed.
+
+
 
 (** Fourier vectors are continuous at every point *)
 Lemma F_cont n x : continuity_pt (F n) x.
@@ -43,7 +180,7 @@ Proof. rewrite /F; elim: even.
 Qed.
 
 (** Fourier vectors are derivable at every point *)
-Print is_derive. Print is_derive_cos.
+
 
 Definition pow_minus_one (n:nat) :=
   if even n then 1 else -1.
@@ -54,22 +191,16 @@ Definition dephase (n:nat) :nat :=
   | S _  => (if even n then pred n else S n) end.
 
 (*
-Search is_derive. Search R eq.
-Lemma equal_is_derive f (g: R->R) : forall y, g y = f y -> forall x l, is_derive f x l -> is_derive g x l.
-Proof.
- intros. rewrite H. apply H0.
-Qed.
- *)
-(*
 Lemma F_is_derive n (x:R) : is_derive (F n) x (pow_minus_one (n+1) * INR (order n) * (F (dephase n) x)).
 Proof.
   destruct n.
-  apply is_derive_ext with (fun t => 1). intros; by rewrite F0. Search is_derive. Check Hierarchy.zero.
+  apply is_derive_ext with (fun t => 1). intros; by rewrite F0. Search is_derive. Check Hierarchy.zero. ________________Solution apply (is_derive_const R1 x).___________________________
   simpl. rewrite F0 Rmult_0_r Rmult_0_l /=. apply is_derive_const.
   rewrite /= /F /pow_minus_one /order /dephase /=. rewrite Rmult_0_l. rewrite cos_0 /=.
   rewrite Rmult_0_l.
   + 
-*)    
+ *)
+
 Lemma F_ex_derive n x : ex_derive (F n) x.
 Proof.
   rewrite /F; elim: even.
@@ -86,25 +217,57 @@ Qed.
 
 (** relations between Fourier vectors and their derivatives *)
 
+Lemma is_derive_scal' : forall (k x : R) , is_derive (fun t => scal t k) x  k.
+Proof.
+    intros. rewrite <- Rmult_1_l. apply @is_derive_scal_l. apply @is_derive_id.
+Qed.
+
+Lemma Rmult_comm_assoc : forall (x y z:R) , x*y*z = y*(x*z).
+Proof. 
+  intros. rewrite <- Rmult_comm. rewrite <- Rmult_assoc. rewrite <- Rmult_assoc.  rewrite <- Rmult_comm.  rewrite <- (Rmult_comm x z). by rewrite Rmult_assoc. 
+Qed.
+  
+Lemma Rmult_opp : forall (x:R) , -1 * x =  -x. 
+Proof. intros. rewrite /=. ring. Qed.
+
 
 Lemma F_Derive x n :  Derive (F n) x = (pow_minus_one (n+1) * INR (order n) * (F (dephase n) x)).
 Proof.
-  destruct n. Search Derive. rewrite <-(Derive_ext (fun=>1)).
+  destruct n. rewrite <-(Derive_ext (fun=>1)).
   simpl. rewrite F0 Rmult_0_r Rmult_0_l /=. apply Derive_const. intros. by rewrite F0.
   
   unfold F.
+
+  (** case_eq (even n.+1) => H **)
   have H : Nat.Even n \/ Nat.Odd n.
   apply Nat.Even_or_Odd.
-  destruct H. have He : even n =true. 
-  apply Nat.even_spec; apply H.
-  have Ho : even (n .+1) = false.
-  rewrite Nat.even_succ. rewrite <- Nat.negb_even. rewrite He. reflexivity.
-  rewrite Ho. unfold dephase. rewrite Ho. rewrite Nat.even_succ_succ. rewrite He. simpl.
-  unfold pow_minus_one. rewrite Nat.even_succ. rewrite <- Nat.negb_even. rewrite Nat.add_1_r. rewrite Ho. simpl.
-Search is_derive.
-  
-  have o : Nat.odd (S n). rewrite Nat.odd_succ. trivial.
-  apply Derive_cos.
+  destruct H.
+  + have He : even n = true. apply Nat.even_spec; apply H.
+    have Ho : even (n .+1) = false. rewrite Nat.even_succ. rewrite <- Nat.negb_even. rewrite He. reflexivity.
+
+    rewrite Ho. unfold dephase. rewrite Ho. rewrite Nat.even_succ_succ. rewrite He. simpl.
+    unfold pow_minus_one. rewrite Nat.even_succ. rewrite <- Nat.negb_even. rewrite Nat.add_1_r. rewrite Ho. simpl. apply order_succ in Ho. rewrite <- Ho.
+
+    apply is_derive_unique.
+    apply (is_derive_comp (fun t => sin t) (fun t => INR (order n.+1) * t )).
+    apply is_derive_sin. rewrite Rmult_1_l /=.
+    apply (is_derive_ext (fun t:R => scal t%R (INR (order n .+1)))). 
+    intros. apply Rmult_comm. apply is_derive_scal'. 
+
+  + have Ho : even n = false. rewrite <- Nat.negb_odd. Search Nat.odd. apply Nat.odd_spec in H; rewrite H. reflexivity.
+    have He : even n .+1 = true. Search Nat.even. rewrite Nat.even_succ. rewrite <- Nat.negb_even. rewrite Ho. reflexivity.
+
+    rewrite He. unfold dephase. rewrite He /=. rewrite Ho.
+    unfold pow_minus_one. rewrite Nat.even_succ. rewrite <- Nat.negb_even. rewrite Nat.add_1_r. rewrite He. simpl. apply order_succ in Ho. rewrite Ho.
+
+    apply is_derive_unique. rewrite Rmult_comm_assoc. rewrite Rmult_opp.
+    apply (is_derive_comp (fun t => cos t) (fun t => INR (order n.+1) * t )). 
+    apply is_derive_cos. 
+    apply (is_derive_ext (fun t:R => scal t%R (INR (order n .+1)))). 
+    intros. apply Rmult_comm. apply is_derive_scal'. 
+Qed.
+
+
 
 (** naive evaluation (defined in vectorspace) 
     eval [a b c] x = a * T 0 x + b * T 1 x + c * T 2 x + 0
@@ -168,11 +331,12 @@ Section ops.
     match p with [] => p | _=>0::0::p end.
 
 
-
-  (** primitive *)
-  Fixpoint prim_ (n : nat) (p : list C) : list C :=
+  (** primitive 
+   /!\ No periodic primitive for a trigonometric polynom with a non-zero mean value /*\ *)
+(*  Fixpoint prim_ (n : nat) (p : list C) : list C :=
     match p with
     | [] => []
     | a::q =>
       match n mod 2 with
         | 
+*)
