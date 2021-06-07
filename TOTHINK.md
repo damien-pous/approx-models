@@ -1,22 +1,20 @@
 ## TODO list
 
-before the first release:
-
-- document examples.v
-- pointed uniform spaces for coquelicot 3.2.0
-
-- choice of interval implementation by types and canonical structures
-- further improve syntax/reification (degrees, eval)
+before release:
 - clean hints for rel / check cases not working
+
+for the next release:
+
+- more examples / more doc in examples.v
+- choice of interval implementation when calling the tactic (by types and canonical structures ?)
+- further improve syntax/reification (degrees, eval)
 - support model comparisons in the synatx/tactic 
-
-
-after the first release
-
 - parameterised bounds (tests de positivité par oracle)
 - side-conditions left to the user (mcontinuous)
 - more functions on reals from coq-interval
 - interpolation oracle for Taylor basis
+
+
 
 
 tactic parameters:
