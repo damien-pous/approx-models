@@ -246,7 +246,7 @@ Section n.
  Proof.
    intros. split. constructor=>x Dx. apply eval_cont.
    exists p. split=>// x Hx.
-   replace (_-_) with R0 by (simpl; ring).
+   replace (_-_) with R0 by (simpl; ring). 
    apply rzer.
  Qed.
  
@@ -292,21 +292,21 @@ Section n.
    apply radd. apply radd.
    - apply rmul. by apply eval_srange. by apply Hg. 
    - apply rmul. by apply eval_srange. by apply Hf. 
-   - apply rmul; auto. 
+   - rel. 
  Qed.
  
  Lemma rmzer: mcontains mzer 0.
  Proof.
    split. constructor=>x Dx. now apply continuity_pt_const.
    exists 0; split. apply rszer.
-   move=> x Hx. rewrite eval_zer/=/f_cst. replace (_-_) with R0 by (simpl;ring). apply rzer.
+   move=> x Hx. rewrite eval_zer/=/f_cst. replace (_-_) with R0 by (simpl;ring). rel. 
  Qed.
  
  Lemma rmone: mcontains mone 1.
  Proof.
    split. constructor=>x Dx. now apply continuity_pt_const.
    exists 1; split. apply rbone.
-   move=> x Hx. rewrite eval_one/=/f_cst. replace (_-_) with R0 by (simpl;ring). apply rzer.
+   move=> x Hx. rewrite eval_one/=/f_cst. replace (_-_) with R0 by (simpl;ring). rel. 
  Qed.
  
  Lemma rmcst C (c : R): contains C c -> mcontains (mcst C) (f_cst c).
@@ -315,14 +315,14 @@ Section n.
    exists (sscal c 1). split. cbn.
    eapply list_rel_map'. rel. apply rbone. 
    move=>x Dx. rewrite eval_scal eval_one /f_cst. 
-   replace (_-_) with (c*R0) by (simpl;ring). apply rmul=>//. apply rzer. 
+   replace (_-_) with (c*R0) by (simpl;ring). apply rmul=>//=. rel. 
  Qed.
  
  Lemma rmid: mcontains mid ssrfun.id.
  Proof.
    split. constructor=>x Dx. apply continuity_pt_id.
    exists bid; split. apply rbid.
-   move=> x Hx. rewrite eval_id/=. replace (_-_) with R0 by (simpl;ring). apply rzer.
+   move=> x Hx. rewrite eval_id/=. replace (_-_) with R0 by (simpl;ring). rel.
  Qed.
  
  Lemma rmbot f: mcontains mbot f.
@@ -419,7 +419,7 @@ Section n.
    have Hfpint : ex_RInt (f - eval p) a d by apply @ex_RInt_minus with (V:=R_NormedModule).
    rewrite (RInt_ext _ (eval p+(f-eval p))); last by (move => x _; rewrite /=/f_bin; lra).
    rewrite RInt_plus => //; first apply radd.
-   rewrite -eval_prim -2!evalE. apply rsub; (apply rbeval; [apply rbprim|]); rel. 
+   rewrite -eval_prim -2!evalE. rel. 
    case (Req_dec a d) => ad.
    destruct ad. replace (RInt _ _ _) with (RInt (fun _ => f a - eval p a) a a).
      by rewrite RInt_const; apply rmul; rel.
@@ -473,14 +473,10 @@ Section n.
    - case DomE=>//= Da. case DomE=>//= Db. 
      constructor. now apply rmintegrate_unsafe; auto.
    - case DomE=>//= Da.
-     constructor. apply rmintegrate_unsafe; try rel.
-     apply rhi. apply domhi.
+     constructor. apply rmintegrate_unsafe; try rel. apply domhi.
    - case DomE=>//= Db.
-     constructor. apply rmintegrate_unsafe; try rel.
-     apply rlo. apply domlo.
-   - constructor. apply rmintegrate_unsafe; try rel.
-     apply rlo. apply domlo.
-     apply rhi. apply domhi.
+     constructor. apply rmintegrate_unsafe; try rel. apply domlo.
+   - constructor. apply rmintegrate_unsafe; try rel. apply domlo. apply domhi.
  Qed.
 
  (** auxiliary lemma for operations involving interpolation *)
@@ -563,12 +559,8 @@ Section n.
      + split=>//. rewrite <-(Hmu0' _ Vx0). apply Rabs_pos. 
      + apply Rlt_le_trans with (Rabs (w x0)); eauto. clear -Hwx0. split_Rabs; simpl in *; lra.
      + rewrite <- (Hb' _ Vx0). apply Rabs_pos.
-     + apply Rlt_le, Hmu0b. apply rzer. apply rsub. rewrite Rpow. apply rpow, rsub =>//. apply rone. rel.
-     + apply Hmu; last apply rone.
-       apply radd => //. apply rmul. rel. apply rdiv; last rel. apply rsub. 
-       apply rsub. apply rone. rel. apply rsqrt. apply rsub.
-       rewrite /=. apply rmul. apply rsub. apply rone. rel. apply rmul. apply rsub. apply rone. rel. apply rone.
-       apply rmul; first apply rmul; rel. 
+     + apply Rlt_le, Hmu0b; rel.
+     + apply Hmu; rel.
      + unfold dom. clear. intros; simpl in *; lra. 
      + exists x0; auto.      
    constructor. split.
@@ -579,9 +571,7 @@ Section n.
      replace (_-_) with ((h x - eval p x) + -(h x - R_sqrt.sqrt (f x))); last by rewrite /=; ring.
      apply radd; first by apply Hh'.
      set rmin := sqrt.rmin b mu0 mu1.
-     eapply symE with rmin; first last.
-      apply rdiv. apply rsub. apply rsub=>//. apply rone. apply rsqrt.
-      apply rsub. rewrite Rpow. apply rpow. apply rsub=>//. apply rone. rel. rel. 
+     eapply symE with rmin; first last. rel. 
      rewrite Rabs_Ropp. by apply L.       
  Qed.
 
@@ -634,7 +624,7 @@ Section n.
    - by eapply mcont; eauto.
    - eapply rmne0; eassumption.
    - exact domlo.
-   - apply H. apply rzer. apply rmeval_unsafe=>//. apply rlo.
+   - apply H. rel. apply rmeval_unsafe=>//. rel.
      exact domlo.
  Qed.
 

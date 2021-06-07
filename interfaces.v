@@ -149,7 +149,8 @@ Record Rel1 (R S: Ops1) := {
   rabs: forall x y, rel0 x y -> rel0 (abs x) (abs y);
   rcos: forall x y, rel0 x y -> rel0 (cos x) (cos y);
   rpi: rel0 pi pi;
-}.
+                          }.
+Create HintDb rel discriminated.
 Global Hint Resolve radd rsub rmul rfromZ rzer rone rdiv rsqrt rabs rcos rpi: rel.
 Ltac rel := by eauto 100 with rel.
 
@@ -254,7 +255,7 @@ Inductive ocontains{N: NBH} x: option II -> R -> Prop :=
 | ocontains_some: forall A a, contains A a -> ocontains x (Some A) a
 | ocontains_none: ocontains x None x.
 Global Hint Constructors ocontains: rel.
-
+  
 
 (** ** Models: abstraction for functions on real numbers *)
 
@@ -303,7 +304,7 @@ Class Model {N: NBH} (MO: ModelOps) (lo hi: R) := {
   rmgt0: forall n F f, mcontains F f -> EPimpl (mgt0 n F) (forall x, lo<=x<=hi -> 0 < f x);
 }.
 Coercion mcontains: Model >-> Rel0.
-Global Hint Resolve rmid rmcst (* rmeval rmintegrate *) rmdiv rmsqrt: rel.
+Global Hint Resolve rmid rmcst (* rmeval rmintegrate rmdiv rmsqrt *): rel.
 
 
 (** ** domains *)

@@ -268,7 +268,7 @@ Class Basis {N: NBH} (B: BasisOps) := {
            | _,_ => False
            end;
 }.
-Global Hint Resolve rbmul rbone rbid rbprim rbeval: rel.
+Global Hint Resolve rbmul rbone rbid rbprim rbeval rlo rhi: rel.
 
 
 Lemma domlo `{Basis}: dom lo.

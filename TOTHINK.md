@@ -1,8 +1,5 @@
 ## TODO list
 
-before release:
-- clean hints for rel / check cases not working
-
 for the next release:
 
 - more examples / more doc in examples.v

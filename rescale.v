@@ -144,26 +144,13 @@ Section s.
  Next Obligation. intros=>/=. by apply rbone. Qed.
  Next Obligation. 
    apply rsadd; apply rsscal; try rel.
-   apply rdiv; try rel. apply rsub. apply rhi. apply rlo. 
    apply rbid.
-   apply rsub; try rel. 
-   apply rmul; try rel. apply rlo. 
-   apply rdiv; try rel. apply rsub. apply rhi. apply rlo. 
    apply rbone.
  Qed.
  Next Obligation.
-   intros. 
-   apply rsscal.
-   apply rdiv; try rel. apply rsub. apply rhi. apply rlo. 
+   intros. apply rsscal. rel. 
    by apply rbprim.
  Qed.
- Next Obligation.
-   intros=>/=. 
-   apply rbeval=>//.
-   apply radd. apply rlo.
-   apply rmul; try rel. 
-   apply rdiv; try rel.
-   apply rsub. apply rhi. apply rlo. 
- Qed.
+ Next Obligation. cbn. rel. Qed.
  Next Obligation. cbn. apply rbrange. Qed.
 End s.
