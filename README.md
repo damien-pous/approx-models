@@ -51,3 +51,14 @@ For more details, see the corresponding [article](https://hal.laas.fr/hal-020885
   + `tests.v` : tests for the library
   + `example_abs.v` : tests for approximating the function [abs] on [-1;1], as discussed in the the ITP19 paper
   + `example_h16.v` : computation of Abelian integrals related to Hilbert 16th problem
+
+**Axioms**
+
+We do not introduce any axiom, but we need the ones used for Reals in Coquelicot:
+
+ClassicalDedekindReals.sig_not_dec
+ClassicalDedekindReals.sig_forall_dec
+FunctionalExtensionality.functional_extensionality_dep
+Classical_Prop.classic
+
+Additionally, depending on the choice of interval implementation, axioms about machine 63 bits integers or primitive floating point numbers are used.

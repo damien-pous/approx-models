@@ -131,11 +131,12 @@ Eval vm_compute in (1+1: IZ.nbh).         (* ok *)
 Eval vm_compute in (1+1: IBigInt.nbh).    (* ok *)
 
 
-(** About neighborhood instances:
-Print Assumptions syntax.bound.   (** only four axioms for the (classical) construction of reals *)
-Print Assumptions approx.model.   (** idem *)
-Print Assumptions chebyshev.basis.(** idem *)
-Print Assumptions IZ.nbh.         (** idem, only 4, everything is emulated *)
-Print Assumptions IBigInt.nbh.    (** plus axioms for primitive 63bits integers (Int63) *)
-Print Assumptions Iprimitive.nbh. (** plus axioms for primitive floats (PrimFloat) *)
- *)
+(** About neighborhood instances: *)
+(*
+Print Assumptions syntax.Dynamic.check.   (** only three axioms for the (classical) construction of reals *)
+Print Assumptions approx.model.           (** plus excluded middle for classical logic *)
+Print Assumptions chebyshev.basis.        (** idem *)
+Print Assumptions IZ.nbh.                 (** idem, everything is emulated *)
+Print Assumptions IBigInt.nbh.            (** plus axioms for primitive 63bits integers (Int63) *)
+Print Assumptions Iprimitive.nbh.         (** plus axioms for primitive floats (PrimFloat) *)
+*)

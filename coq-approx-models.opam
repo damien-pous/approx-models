@@ -3,7 +3,7 @@ maintainer: "damien.pous@ens-lyon.fr"
 version: "dev"
 
 homepage: "https://gitlab.inria.fr/amahboub/approx-models"
-dev-repo: "https://gitlab.inria.fr/amahboub/approx-models.git"
+dev-repo: "git+https://gitlab.inria.fr/amahboub/approx-models.git"
 bug-reports: "https://gitlab.inria.fr/amahboub/approx-models/issues"
 license: "CECILL-B"
 
