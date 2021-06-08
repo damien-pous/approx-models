@@ -1,5 +1,8 @@
 ## TODO list
 
+for the first release:
+- proofread/document example_abs/h16.v 
+
 for the next release:
 
 - more examples / more doc in examples.v
