@@ -15,6 +15,7 @@ Unset Printing Implicit Defensive.
 Definition order (n:nat) := 
   if even n then div2 n else  (div2 n).+1.
 
+
 Lemma even_plus n m : even n ->  even (n+m) = even m.
 Proof. 
   rewrite Nat.even_add. intros. rewrite H.
@@ -65,76 +66,75 @@ Qed.
 
 
 Lemma even_double n : even n -> exists k, n = double k.
-Proof. intros. exists (div2 n). Search div2 double. apply Div2.even_double.
-   apply Even.even_equiv. apply Nat.even_spec. apply H.
+Proof. intros. exists (div2 n). apply Div2.even_double.
+   apply Even.even_equiv. apply Nat.even_spec => //.
 Qed.
 
 Lemma odd_double n : even n = false -> exists k, n = (double k) .+1.
 Proof.
-  intros. exists (div2 n). Search div2 double. apply Div2.odd_double.
-  apply Even.odd_equiv. apply Nat.odd_spec. rewrite <- Nat.negb_even. by rewrite H.
+  intros. exists (div2 n). apply Div2.odd_double.
+  apply Even.odd_equiv. apply Nat.odd_spec. by rewrite -Nat.negb_even H. 
 Qed. 
 
 
 Lemma div2_even_plus n m : even n -> div2 (n+m) = (div2 n + div2 m)%nat.
 Proof.
-  intros. apply even_double in H.  destruct H. rewrite H. by rewrite div2_double_add div2_double.    
+  intros. apply even_double in H; destruct H; rewrite H. by rewrite div2_double_add div2_double.    
 Qed.
 
 Lemma div2_odd_plus n m : even n = false -> even m = false ->  ((div2 n) + div2 m) .+1%nat = (div2 (n + m)).
 Proof.
   intros. apply odd_double in H; destruct H. apply odd_double in H0; destruct H0.
   rewrite H H0.
-  replace ((double x) .+1 + (double x0) .+1)%nat with ((double x) + ((double x0) + 2))%nat. rewrite  div2_double_add. rewrite div2_double_add.
-  rewrite div2_double_S div2_double_S /=. lia. lia.
+  replace ((double x) .+1 + (double x0) .+1)%nat with ((double x) + ((double x0) + 2))%nat. rewrite !div2_double_add. 
+  rewrite !div2_double_S /=. lia. lia.
 Qed.
 
 Lemma double_minus n m : (n<=m)%nat -> (double m - double n)%nat = double (m-n).
-Proof. rewrite Nat.double_twice Nat.double_twice Nat.double_twice.  lia.
+Proof. rewrite !Nat.double_twice.  lia.
 Qed.
 
 
 Lemma div2_even_minus n m : (n<=m)%nat -> even n -> even m -> div2 (m-n) = (div2 m - div2 n)%nat.
 Proof. 
-  intros. apply even_double in H0; destruct H0. apply even_double in H1; destruct H1. rewrite H0 H1.  rewrite div2_double div2_double double_minus => //=. by rewrite div2_double.
-  rewrite <- div2_double. rewrite <- (div2_double x). rewrite <- H0. rewrite <- H1.
-  rewrite Nat.div2_div Nat.div2_div. apply Nat.div_le_mono => //.
+  intros. apply even_double in H0; destruct H0. apply even_double in H1; destruct H1. rewrite H0 H1.  rewrite !div2_double double_minus => //=. by rewrite div2_double.
+  rewrite <- div2_double. rewrite <- (div2_double x). rewrite -H0 -H1. 
+  rewrite !Nat.div2_div. apply Nat.div_le_mono => //.
 Qed.
 
 Lemma div2_odd_minus n m : (n<=m)%nat -> even m = false ->  div2 (m-n) = (div2 m - div2 n)%nat.
 Proof.
   intros.
-  apply odd_double in H0; destruct H0. rewrite H0.
+  apply odd_double in H0; destruct H0; rewrite H0.
   case_eq (even n) => Hn.
   + apply even_double in Hn; destruct Hn. rewrite H1.
     have Hle : (x0 <= x)%nat.
-    rewrite <- div2_double_S. rewrite <- (div2_double x0). rewrite <- H0. rewrite <- H1.
-    rewrite Nat.div2_div Nat.div2_div. apply Nat.div_le_mono => //.
+    move: H0 H1; rewrite !Nat.double_twice. lia.
     rewrite div2_double div2_double_S.
     replace ((double x) .+1 - double x0)%nat with (double x - double x0) .+1 => //.
     rewrite double_minus => //. by rewrite div2_double_S. 
-    rewrite Nat.double_twice Nat.double_twice. lia.
+    rewrite !Nat.double_twice. lia.
   + apply odd_double in Hn; destruct Hn. rewrite H1.
-    rewrite div2_double_S div2_double_S. Search le.
+    rewrite !div2_double_S.
     have Hle : (double x0 <= double x)%nat .
-    apply le_S_n. rewrite <- H1. by rewrite <- H0.
+    apply le_S_n. by rewrite -H1 -H0. 
     replace ((double x) .+1 - (double x0) .+1)%nat with ((double x) - (double x0))%nat.
     rewrite double_minus => //. by rewrite div2_double. 
-    rewrite Nat.double_twice in Hle. rewrite Nat.double_twice in Hle. lia.
+    move: Hle; rewrite !Nat.double_twice. lia.
     lia.
 Qed.    
 
 Lemma div2_odd_even_minus n m : (n<=m)%nat -> even m -> even n = false -> (div2 (m-n)) .+1 = (div2 m - div2 n)%nat.
 Proof.
   intros.
-  apply even_double in H0; destruct H0. rewrite H0.
-  apply odd_double in H1; destruct H1. rewrite H1.
-  rewrite div2_double div2_double_S.
+  apply even_double in H0; destruct H0; rewrite H0.
+  apply odd_double in H1; destruct H1; rewrite H1.
+  rewrite !div2_double.
   have Hle2 : ( x0 .+1 <=  x)%nat.
-  rewrite Nat.double_twice in H0. rewrite Nat.double_twice in H1. lia.
+  move: H0 H1; rewrite !Nat.double_twice. lia.
   replace  (double x - (double x0) .+1)%nat with ((double x - (double x0.+1)) +1)%nat.
-  rewrite double_minus => //. rewrite Nat.add_1_r div2_double_S. lia.
-  rewrite Nat.double_twice Nat.double_twice Nat.double_twice. lia.
+  rewrite double_minus => //. rewrite Nat.add_1_r !div2_double_S. lia.
+  rewrite !Nat.double_twice. lia.
 Qed.  
 
 Lemma order_double n : order (double n) = n.
@@ -151,18 +151,17 @@ Proof.
   split. reflexivity. intros; inversion H. 
   split. intros.
   have Ho : even n = false.
-  rewrite Nat.even_succ in H. rewrite <- Nat.negb_odd. rewrite H. reflexivity.
-  destruct IHn. rewrite <- H1. unfold order.
-  simpl. rewrite Ho; simpl. reflexivity. apply Ho.
+  rewrite Nat.even_succ in H. by rewrite -Nat.negb_odd H.
+  destruct IHn. by rewrite -H1 /order /= Ho /=.
+
   intros.
   have He : even n = true.
-  rewrite Nat.even_succ in H. rewrite <- Nat.negb_odd. rewrite H. reflexivity.
-  destruct IHn. rewrite <- H0. unfold order. simpl. rewrite He. reflexivity.
-  apply He.
+  rewrite Nat.even_succ in H. by rewrite -Nat.negb_odd H.
+  destruct IHn. by rewrite -H0 /order /= He. 
 Qed. 
 
 Lemma order_plus1 n m : even n -> order (n+m) = (order n + order m)%nat.
-Proof. intros. rewrite /order. rewrite even_plus => //.
+Proof. intros. rewrite /order even_plus => //.
        case_eq (even m) => Hm.
          by rewrite H div2_even_plus.
          by rewrite H Nat.add_succ_r div2_even_plus.           
@@ -172,34 +171,30 @@ Lemma order_plus2 n m : even n = false -> even m = false -> order (n+m).+1 = (or
 Proof.
   intros. rewrite /order. 
   have Hnm : even (n+m) .+1 = false.
-  rewrite Nat.even_succ. rewrite <- Nat.negb_even. rewrite odd_plus  => //. by rewrite H0.
+  rewrite Nat.even_succ -Nat.negb_even odd_plus => //. by rewrite H0.
   rewrite Hnm H0 H.
   apply odd_double in Hnm; destruct Hnm.
   apply odd_double in H0; destruct H0.
   apply odd_double in H; destruct H. 
-  rewrite H1 H H0. rewrite div2_double_S div2_double_S div2_double_S.
-  rewrite Nat.double_twice in H.  rewrite Nat.double_twice in H1. rewrite Nat.double_twice in H0.
-  lia.
-Qed.
+  rewrite H1 H H0 !div2_double_S.
+  move: H H1 H0; rewrite !Nat.double_twice. lia.
+  Qed.
 
 
 Lemma order_le_succ n : (order n <= order n .+1)%nat.
 Proof.
   case_eq (even n) => Hn.
   apply order_succ in Hn; rewrite <- Hn; by constructor.
-  apply order_succ in Hn. rewrite <- Hn. by constructor.
+  apply order_succ in Hn; rewrite <- Hn; by constructor.
 Qed.  
 
 Lemma increasing_order n m : (n<=m)%nat -> (order n <= order m)%nat.
 Proof.
-  intros. induction m. inversion H. trivial.
-  inversion H. trivial. apply IHm in H1. Check le_trans.
-  apply le_trans with (order m). apply H1. apply order_le_succ.
-Qed.
-
-
-Lemma succ_eq n m : S n = S m -> n = m.
-Proof. lia.
+  intros. induction m.
+    by inversion H.
+    inversion H => //.
+    apply IHm in H1.
+    apply le_trans with (order m). apply H1. apply order_le_succ.
 Qed.
 
 
@@ -211,12 +206,12 @@ Proof.
     + rewrite even_minus => //. rewrite H0. apply div2_even_minus => //.
     + rewrite odd_minus => //. rewrite H0. rewrite div2_odd_minus => //.
       have Hle : ( (div2 n <= div2 m)%nat).
-      rewrite Nat.div2_div Nat.div2_div. apply Nat.div_le_mono => //. 
+      rewrite !Nat.div2_div. apply Nat.div_le_mono => //. 
       replace (~~ true) with false. lia. by [].
       
   - rewrite div2_odd_minus => //.
     have Hle : ( (div2 n <= div2 m)%nat).
-    rewrite Nat.div2_div Nat.div2_div. apply Nat.div_le_mono => //. 
+    rewrite !Nat.div2_div. apply Nat.div_le_mono => //. 
     case_eq (even n) => Hn.
     + rewrite odd_minus => //. rewrite H0 Hn.     
       replace (~~ true) with false. lia. by [].
@@ -229,10 +224,11 @@ Qed.
 Lemma order_minus2 n m : (n<=m)%nat -> (even n =false /\ even m = true -> order (m-n) = (order m - order n) .+1%nat).
 Proof.
   intros. rewrite /order. destruct H0. 
-  rewrite even_minus => //. rewrite H0 H1. rewrite div2_odd_even_minus => //.
+  rewrite even_minus => //. rewrite H0 H1 div2_odd_even_minus => //.
   have Hle : ( ((div2 n) .+1 <= div2 m)%nat).
-  apply odd_double in H0; destruct H0. apply even_double in H1; destruct H1. rewrite H0 H1.
-  rewrite div2_double div2_double_S. rewrite Nat.double_twice in H1. rewrite Nat.double_twice in H0. lia.
+  apply odd_double in H0; destruct H0. apply even_double in H1; destruct H1.
+  rewrite H0 H1 div2_double div2_double_S.
+  move : H0 H1; rewrite !Nat.double_twice; lia.
   lia.
 Qed.
 
@@ -256,28 +252,27 @@ Lemma F2 x : F 2 x = cos x.
 Proof. by rewrite /F /CC /= Rmult_1_l. Qed.
 
 Lemma Radd_plus_minus1 : forall ( a b: R) ,   a + b - (a - b) = b*2.
-Proof. intros. simpl. ring. Qed.
+Proof. intros => /=; ring. Qed.
 
 Lemma Radd_plus_minus2 : forall ( a b: R) , a + b + ( a - b ) = a * 2.
-Proof. intros. simpl. ring. Qed.
+Proof. intros => /=; ring. Qed.
 
 
 Lemma Rmult_div : forall (a x : R) , x <> 0 ->  a * x / x = a. 
-Proof. intros. simpl. by field. Qed.
+Proof. intros => /=; by field. Qed.
 
 Lemma opp_diff : forall (a b:R) , - ( a - b) = b-a.
 Proof.
-  intros. simpl. ring. Qed.
+  intros => /= ;ring. Qed.
 
 Lemma opp_opp : forall y x:R ,  y - - x = y + x.
-Proof. intros. simpl. ring.
-Qed.  
+Proof.  intros => /= ;ring. Qed.
+  
 
 Lemma form_prod_cos : forall a b , cos a * cos b = (cos (a+b) + cos (a-b))/2.
 Proof.
   intros.
-  rewrite /= form1 Radd_plus_minus1 Radd_plus_minus2 /= Rmult_div. rewrite Rmult_div. field.
-  by []. by [].
+  rewrite /= form1 Radd_plus_minus1 Radd_plus_minus2 /= !Rmult_div => //. field.
 Qed.  
 
 
@@ -285,18 +280,16 @@ Lemma form_prod_sin : forall a b, sin a * sin b = (cos (a-b) - cos(a+b))/2.
 Proof.
   intros.
   rewrite /= form2.
-  replace (a - b - (a + b))%R with (-2*b)%R.
-  replace (a - b + (a + b))%R with (2*a)%R.
-  replace (-2 * b / 2)%R with (- b)%R.
-  replace (2 * a / 2)%R with a%R.
-  rewrite sin_antisym /= Rmult_opp_opp Rmult_assoc Rmult_comm (Rmult_comm (IPR 2) _) Rmult_div. reflexivity. rewrite <- INR_IPR. simpl. replace (1 + 1)%R with 2%R. by []. by [].
-  field. field. ring. ring.
+  replace ((a - b - (a + b))/2)%R with (-b)%R.
+  replace ((a - b + (a + b))/2)%R with (a)%R.
+ 
+  rewrite sin_antisym /= Rmult_opp_opp Rmult_assoc Rmult_comm (Rmult_comm (IPR 2) _) Rmult_div => //. rewrite -INR_IPR /=. replace (1 + 1)%R with 2%R. by []. by [].
+  field. field. 
 Qed.
 
 Lemma form_prod_sin_cos : forall a b, sin a * cos b = (sin (a+b) + sin (a-b))/2.
 Proof.
   intros.
-  Check form3.
   rewrite /= form3.
   replace ((a + b - (a - b)) / 2)%R with b%R.
   replace ((a + b + (a - b)) / 2)%R with a%R.
@@ -329,7 +322,7 @@ Lemma SCprod : forall n m (x: R),
 Proof.
   intros.
   rewrite /SS /CC plus_INR minus_INR => //.
-  rewrite Rmult_plus_distr_r Rmult_minus_distr_r form_prod_sin_cos. Check sin_antisym.
+  rewrite Rmult_plus_distr_r Rmult_minus_distr_r form_prod_sin_cos. 
   replace (INR m * x - INR n * x)%R with (- (INR n * x - INR m * x)%R).
   by rewrite sin_antisym opp_opp (Rplus_comm (INR n * x)%R (INR m * x)%R). 
   ring.
@@ -352,16 +345,16 @@ Proof.
   apply even_double in H0; destruct H0.
   apply even_double in H1; destruct H1. rewrite H0 H1.
   have Hle : (x0 <= x1)%nat.
-    rewrite <- div2_double. rewrite <- (div2_double x0). rewrite <- H0. rewrite <- H1.
-    rewrite Nat.div2_div Nat.div2_div. apply Nat.div_le_mono => //.
+    rewrite <- div2_double. rewrite <- (div2_double x0). rewrite -H0 -H1.
+    rewrite !Nat.div2_div; apply Nat.div_le_mono => //.
 
-  rewrite <- Div2.double_plus. rewrite double_minus => //.
+  rewrite -Div2.double_plus double_minus => //.
   rewrite FtoCC FtoCC FtoCC FtoCC => //.
   apply CCprod => //. 
 Qed.
 
 
-(*
+
 Lemma Fprod_sin_sin : forall n m (x : R),
     (n<=m)%nat ->  even n = false -> even m = false ->
     F n x * F m x = (F (m-n) x - F ((m+n) .+2) x)/2.
@@ -369,7 +362,8 @@ Proof.
   intros.
   apply odd_double in H0; destruct H0.
   apply odd_double in H1; destruct H1. rewrite H0 H1.
-  have Hle : (x0 <= x1)%nat. rewrite Nat.double_twice in H1. rewrite Nat.double_twice in H0. lia.
+  have Hle : (x0 <= x1)%nat.
+  move : H0 H1; rewrite !Nat.double_twice; lia.
    
   replace ((double x1) .+1 + (double x0) .+1) .+2%nat with (double (x1 .+1 + x0 .+1))%nat.
   replace ((double x1) .+1 - (double x0) .+1)%nat with (double (x1 .+1 - x0 .+1))%nat.
@@ -379,7 +373,8 @@ Proof.
   replace (x1 .+1 - x0 .+1)%nat with (x1 - x0)%nat.
   rewrite <- double_minus => //. lia.
   rewrite Div2.double_plus Div2.double_S Div2.double_S. lia.
-Qed.  
+Qed.
+
 
 Lemma Fprod_sin_cos : forall n m (x : R),
     (n+2<=m)%nat -> even n = false -> even m ->
@@ -388,8 +383,8 @@ Proof.
   intros.
   apply odd_double in H0; destruct H0.
   apply even_double in H1; destruct H1. rewrite H0 H1.
-  have Hle : (x0 .+1 <= x1)%nat.
-    rewrite Nat.double_twice in H1. rewrite Nat.double_twice in H0. lia.
+  have Hle : (x0 .+2 <= x1)%nat.
+    move: H0 H1; rewrite !Nat.double_twice; lia.
    
   replace (double x1 + (double x0) .+1)%nat with ((double (x1 + x0)) .+1).
   replace (double x1 - ((double x0) .+1) - 2 )%nat with ((double (x1 - x0 .+2)) .+1)%nat.
@@ -399,18 +394,22 @@ Proof.
   replace ((x1 + x0) .+1)%nat with (x1 + x0 .+1)%nat.
   replace ((x1 - x0 .+2) .+1)%nat with ( x1 - x0 .+1)%nat.
 
-  apply SCprod => // lia. *)
+  apply SCprod => //. lia. lia. lia.
+  rewrite !Nat.double_twice.  lia.
+  rewrite !Nat.double_twice. lia.
+Qed.
+  
   
 (** Fourier vectors are continuous at every point *)
 
 Lemma CC_cont n x : continuity_pt (CC n) x.
-Proof. rewrite /CC. apply (continuity_pt_comp (fun t => INR n *t) (fun t => cos t)). apply continuity_pt_mult. apply continuity_pt_const. rewrite /constant. reflexivity.
-         apply continuity_pt_id. apply continuity_cos.
+Proof. rewrite /CC. apply (continuity_pt_comp (fun t => INR n *t) (fun t => cos t)). apply continuity_pt_mult. apply continuity_pt_const. by rewrite /constant. 
+       apply continuity_pt_id. apply continuity_cos.
 Qed.
 
 Lemma SS_cont n x : continuity_pt (SS n) x.
-Proof. rewrite /SS. apply (continuity_pt_comp (fun t => INR n *t) (fun t => sin t)). apply continuity_pt_mult. apply continuity_pt_const. rewrite /constant. reflexivity.
-         apply continuity_pt_id. apply continuity_sin.
+Proof. rewrite /SS. apply (continuity_pt_comp (fun t => INR n *t) (fun t => sin t)). apply continuity_pt_mult. apply continuity_pt_const. by rewrite /constant. 
+       apply continuity_pt_id. apply continuity_sin.
 Qed.
 
   Lemma F_cont n x : continuity_pt (F n) x.
@@ -466,16 +465,17 @@ Qed.
 
 Lemma Rmult_comm_assoc : forall (x y z:R) , x*y*z = y*(x*z).
 Proof. 
-  intros. rewrite <- Rmult_comm. rewrite <- Rmult_assoc. rewrite <- Rmult_assoc.  rewrite <- Rmult_comm.  rewrite <- (Rmult_comm x z). by rewrite Rmult_assoc. 
-Qed.
+  intros => //=; ring.
+Qed.  
+
   
 Lemma Rmult_opp : forall (x:R) , -1 * x =  -x. 
-Proof. intros. rewrite /=. ring. Qed.
+Proof. intros => /=. ring. Qed.
 
 
 Lemma CC_is_derive n x :  is_derive (CC n) x (- INR n * (SS n x)).
 Proof.
-  rewrite /CC /SS. rewrite <- Rmult_opp. rewrite Rmult_comm_assoc Rmult_opp.
+  rewrite /CC /SS -Rmult_opp Rmult_comm_assoc Rmult_opp.
   apply (is_derive_comp (fun t => cos t) (fun t => INR n * t )). 
   apply is_derive_cos. apply (is_derive_ext (fun t:R => scal t%R (INR  n))). 
   intros. apply Rmult_comm. apply is_derive_scal'. 
@@ -495,16 +495,16 @@ Qed.
 Lemma F_is_derive n x :  is_derive (F n) x (pow_minus_one (n+1) * INR (order n) * (F (dephase n) x)).
 Proof.
   destruct n. apply is_derive_ext with (fun t => 1). intros; by rewrite F0.
-  simpl. rewrite F0 Rmult_0_r Rmult_0_l /=. apply @is_derive_const.
+  rewrite /= F0 Rmult_0_r Rmult_0_l /=. apply @is_derive_const.
   
   rewrite /F.
   case_eq (even n.+1) => He.
-  + have Ho : even (n .+2) = false. rewrite Nat.even_succ. rewrite <- Nat.negb_even. rewrite He. reflexivity.
-    rewrite Nat.add_1_r /pow_minus_one Ho /dephase He /=. rewrite <- Nat.even_succ_succ. rewrite Ho.
+  + have Ho : even (n .+2) = false. by rewrite Nat.even_succ -Nat.negb_even He. 
+    rewrite Nat.add_1_r /pow_minus_one Ho /dephase He /= -Nat.even_succ_succ Ho.
     rewrite Nat.even_succ_succ in Ho. apply order_succ in Ho. rewrite Ho Rmult_opp.
     apply CC_is_derive.
-  + have Ho : even (n .+2). rewrite Nat.even_succ. rewrite <- Nat.negb_even. rewrite He. reflexivity.
-    rewrite Nat.add_1_r /pow_minus_one Ho /dephase He /=. rewrite <- Nat.even_succ_succ. rewrite Ho Rmult_1_l.
+  + have Ho : even (n .+2). by rewrite Nat.even_succ -Nat.negb_even He.
+    rewrite Nat.add_1_r /pow_minus_one Ho /dephase He /= -Nat.even_succ_succ Ho Rmult_1_l.
     apply order_succ in He. rewrite He.
     apply SS_is_derive.
 Qed.
