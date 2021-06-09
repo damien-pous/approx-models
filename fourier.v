@@ -4,6 +4,7 @@ Require Import vectorspace rescale.
 Require Import FSets.FMapPositive Reals.
 Require Import Nat ZArith.Zdiv.
 Require Import Coq.Program.Wf.
+Require Import FunInd Recdef.
 Set Implicit Arguments.
 Unset Strict Implicit.
 Unset Printing Implicit Defensive.
@@ -599,38 +600,57 @@ Definition cons_right (x: C) (pc: list C * list C) := (fst pc , x::(snd pc)).
 
 Definition rev_couple (pc: list C *list C) := (rev (fst pc) , rev (snd pc)).
 
-Fixpoint split_ (b:bool) (p: list C)  : (list C * list C)  :=
+Fixpoint split_left (p: list C)  : (list C * list C)  :=
   match p with
   | [] => ([],[])
-  | c::q => (if b then cons_left else cons_right) c (split_ (~~ b) q)
+  | c::q => cons_left c (split_right q)
+  end
+
+with split_right (p: list C) : (list C * list C) :=
+  match p with
+  | [] => ([],[])
+  | c::q => cons_right c (split_left q)
   end.
+            
+Definition split' (p:list C) := split_left p.
 
-Definition split (p:list C) := split_ true p.
+Definition splitCC (p:list C) := fst (split' p).
 
-Definition splitCC (p:list C) := fst (split p).
+Definition splitSS (p:list C) := snd (split' p).
 
-Definition splitSS (p:list C) := snd (split p).
+Definition sum_length (p : list C * list C) := (length (fst p) + length (snd p))%nat.
 
-Program Fixpoint merge_ (b:bool) (pCC : list C) (pSS : list C)  { measure (length pCC + length pSS)} : list C :=
+(* Definition of the merge operation for a cosin polynom and a sinus polynom. 
+   merge_left and merge_right have an unspecified behaviour on arguments that are not obtained with splits functions! *)
+
+(*Function merge_left (pCCSS : list C * list C)  {measure sum_length pCCSS} : list C :=
+  match (pCCSS) with
+  | ([],l) | (l,[]) => l
+  | (hC::qC,hS::qS) => hC::hS::(merge_left (qC,qS))
+  end.
+intros. rewrite /sum_length /=;lia. Defined.
+*)
+
+Fixpoint merge_left (pCC : list C) (pSS : list C) : list C :=
   match pCC with
-  | [] => match pSS with
-          | [] => []
-          | hS::qS => if b then 0::hS::(merge_ true [] qS) else hS::(merge_ true [] qS)
-          end
+  | [] => pSS
   | hC::qC => match pSS with
-              | [] => if b then hC::(merge_ false qC []) else 0::hC::(merge_ false qC [])
-              | hS::qS => if b then hC::hS::(merge_ true qC qS) else hS::hC::(merge_ false qC qS)
+              | []=> pCC
+              | hS::qS => hC::hS::(merge_left qC qS)
               end
   end.
+ 
 
-Obligation 5. simpl. lia. Qed.
-Obligation 6. simpl. lia. Qed.
-
-Definition merge_from_left := merge_ true.
-
-Definition merge_from_right := merge_ false.
-
-Definition merge := merge_from_left.
+(*
+Function merge_right (pCCSS : list C * list C) {measure sum_length pCCSS} : list C :=
+  match (pCCSS) with
+  | ([],l) | (l,[]) => l
+  | (hC::qC,hS::qS) => hS::hC::(merge_right (qC,qS))
+  end.
+intros. rewrite /sum_length /=;lia. Defined. 
+*)
+  
+Definition merge := merge_left.
 
 
 Lemma fst_rev_couple (pc : list C * list C) : fst (rev_couple pc) = rev (fst pc).
@@ -639,27 +659,70 @@ Proof. by []. Qed.
 Lemma snd_rev_couple (pc : list C * list C) : snd (rev_couple pc) = rev (snd pc).
 Proof. by []. Qed.
 
-(*
-Lemma merge_rev (p q : list C) : rev (merge_from_left (rev p) (rev q) []) = merge_from_left p q [] /\
-                                 rev (merge_from_right (rev p) (rev q) []) = merge_from_right p q [].
-Proof.
-  induction p. induction q. by [].
-  move: IHq; rewrite /merge_from_left /merge_from_right /=. 
-  split. simpl. unfold merge_from_left. 
-*)  
 
-Lemma merge_true_cons (a:C) (p q : list C) : merge_ true (a::p) q = a::(merge_ false p q).
+Lemma split_CC_SS (p :list C) : split' p = ( splitCC p , splitSS p).
 Proof.
-  induction p. simpl.
-  destruct q. by [].
-  by [].
-    by [].
+  rewrite /splitCC /splitSS /split'. apply surjective_pairing.
+Qed.
   
-  
-Lemma merge_split (p : list C) (b : bool) : merge_ b (fst (split_ b p)) (snd (split_ b p)) = p.
+Lemma split_left_right (p: list C) : splitCC p = snd (split_right p) /\ splitSS p = fst (split_right p).
+Proof.  rewrite /splitCC /splitSS /split'. induction p. by [].
+       simpl. inversion IHp. by rewrite H0 H. 
+Qed.  
+
+Lemma splitCC_cons (p: list C) (a:C) :  splitCC (a::p) = a::(splitSS p).
+Proof. 
+  move: (split_left_right p) => H; inversion H.
+    by rewrite  /splitCC /splitSS /split' /= -H1 /splitSS /split'. 
+Qed.
+
+Lemma splitSS_cons (p: list C) (a:C) : splitSS (a::p) = splitCC p.
 Proof.
-  induction p. by [].
-    
+  move: (split_left_right p) => H; inversion H.
+    by rewrite  /splitCC /splitSS /split'.
+Qed.
+
+(*
+Lemma couple_ind ( P : list C * list C -> Prop) (pc : list C * list C) :
+  P ([],[]) ->
+  (forall (p q : list C) (a:  C ), P (p,q) -> P (a::p,q) /\ P (p,a::q)) ->
+  P pc.
+Proof.
+  intros. induction pc. 
+  induction a. induction b.
+  apply H.
+  apply H0. apply IHb.
+  apply H0. apply IHa.
+Qed.  
+*)
+
+Lemma merge_cons_cons ( p q : list C)  : forall (a b  : C ), merge (a::p) (b::q) = a::b::(merge p q).
+Proof.
+  intros. rewrite /merge /=. by [].
+Qed.
+
+
+
+
+Lemma merge_cons (p q : list C)  : forall (a b:C), merge (a::p) q = a::merge q p.
+Proof.
+  rewrite /merge.
+
+  induction p. intros. simpl. destruct q. by []. by [].
+  intros. destruct q. by [].
+  apply IHq. destruct p. by [].
+  simpl.
+  induction p. intros. destruct q. by []. by [].
+  intros. destruct q. 
+ simpl. destruct p.  by []. by []. simpl.
+    by []. 
+    intros. rewrite (IHp a1).
+
+ Lemma merge_split (p : list C) : merge (splitCC p, splitSS p)  = p.
+
+Proof.
+  induction p. by []. 
+ rewrite splitSS_cons. rewrite splitCC_cons. simpl.
     
 
   case_eq b => H.
@@ -675,6 +738,7 @@ Lemma eval_evalCCSS :
 
 
 
+
 End ops.
 
 
@@ -682,9 +746,14 @@ Check  [ 0 ; 1 ; 2 ; 3 ; 4 ; 5 ].
 
 Eval compute in split [ 0 ; 1 ; 2 ; 3 ; 4 ; 5].
 
-Eval compute in split_ false [ 0 ; 1 ; 2 ; 3 ; 4 ; 5 ].
+Eval compute in split_right [ 0 ; 1 ; 2 ; 3 ; 4 ; 5 ].
  
-Eval compute in merge [ 1 ; 2 ; 3 ] [-1 ; -2 ; -3 ; -4].
+Eval compute in merge [ 1 ; 2 ; 3 ; 4] [-1 ; -2 ].
+
+
+
+
+
 
 
 
