@@ -563,7 +563,7 @@ Proof. apply eval_ex_derive_. Qed.
 
 Section ops.
 
-  Context {C: Ops1}.
+  Context {C: Ops0}.
 
   (** constant *)
   Definition pcst a: list C := [a].
@@ -599,37 +599,39 @@ Definition cons_right (x: C) (pc: list C * list C) := (fst pc , x::(snd pc)).
 
 Definition rev_couple (pc: list C *list C) := (rev (fst pc) , rev (snd pc)).
 
-Fixpoint split_ (b:bool) (p: list C) (plr : list C * list C) : (list C * list C)  :=
+Fixpoint split_ (b:bool) (p: list C)  : (list C * list C)  :=
   match p with
-  | [] => plr
-  | c::q => split_ (~~ b) q ((if b then cons_left else cons_right) c plr)
+  | [] => ([],[])
+  | c::q => (if b then cons_left else cons_right) c (split_ (~~ b) q)
   end.
 
-Definition split (p:list C) := rev_couple (split_ true p ([],[])).
+Definition split (p:list C) := split_ true p.
 
 Definition splitCC (p:list C) := fst (split p).
 
 Definition splitSS (p:list C) := snd (split p).
 
-Program Fixpoint merge_ (b:bool) (pCC : list C) (pSS : list C) (acc: list C) { measure (length pCC + length pSS) } : list C :=
-  match (pCC,pSS,b) with
-  | ([],[],_) => acc
-  | ([],h::q,true) => merge_ true [] q (h::0::acc)
-  | (h::q,[],false) => merge_ false q [] (h::0::acc)
-  | (h::q,_,true) => merge_ false q pSS (h::acc)
-  | (_,h::q,false) => merge_ true pCC q (h::acc)
+Program Fixpoint merge_ (b:bool) (pCC : list C) (pSS : list C)  { measure (length pCC + length pSS)} : list C :=
+  match pCC with
+  | [] => match pSS with
+          | [] => []
+          | hS::qS => if b then 0::hS::(merge_ true [] qS) else hS::(merge_ true [] qS)
+          end
+  | hC::qC => match pSS with
+              | [] => if b then hC::(merge_ false qC []) else 0::hC::(merge_ false qC [])
+              | hS::qS => if b then hC::hS::(merge_ true qC qS) else hS::hC::(merge_ false qC qS)
+              end
   end.
 
-Next Obligation. simpl. lia.
-Qed.
+Obligation 5. simpl. lia. Qed.
+Obligation 6. simpl. lia. Qed.
 
 Definition merge_from_left := merge_ true.
 
 Definition merge_from_right := merge_ false.
 
-Definition merge pCC pSS := rev (merge_from_left pCC pSS []).
+Definition merge := merge_from_left.
 
-Search rev.
 
 Lemma fst_rev_couple (pc : list C * list C) : fst (rev_couple pc) = rev (fst pc).
 Proof. by []. Qed.
@@ -645,13 +647,45 @@ Proof.
   move: IHq; rewrite /merge_from_left /merge_from_right /=. 
   split. simpl. unfold merge_from_left. 
 *)  
+
+Lemma merge_true_cons (a:C) (p q : list C) : merge_ true (a::p) q = a::(merge_ false p q).
+Proof.
+  induction p. simpl.
+  destruct q. by [].
+  by [].
+    by [].
   
-Lemma merge_split (p : list C) : merge (splitCC p) (splitSS p) = p.
+  
+Lemma merge_split (p : list C) (b : bool) : merge_ b (fst (split_ b p)) (snd (split_ b p)) = p.
 Proof.
   induction p. by [].
+    
+    
 
-Lemma   
+  case_eq b => H.
+  simpl. intros. simpl.
+
+
+  
+Lemma eval_evalCCSS (p : list C) 
                  
   (*
 Lemma eval_evalCCSS : 
- *
+ *)
+
+
+
+End ops.
+
+
+Check  [ 0 ; 1 ; 2 ; 3 ; 4 ; 5 ].
+
+Eval compute in split [ 0 ; 1 ; 2 ; 3 ; 4 ; 5].
+
+Eval compute in split_ false [ 0 ; 1 ; 2 ; 3 ; 4 ; 5 ].
+ 
+Eval compute in merge [ 1 ; 2 ; 3 ] [-1 ; -2 ; -3 ; -4].
+
+
+
+
