@@ -3,6 +3,7 @@
 Require Import vectorspace rescale.
 Require Import FSets.FMapPositive Reals.
 Require Import Nat ZArith.Zdiv.
+Require Import Coq.Program.Wf.
 Set Implicit Arguments.
 Unset Strict Implicit.
 Unset Printing Implicit Defensive.
@@ -512,21 +513,16 @@ Qed.
 
 
 (** naive evaluation (defined in vectorspace) 
-    eval [a b c] x = a * T 0 x + b * T 1 x + c * T 2 x + 0
+    eval [a b c] x = a * F 0 x + b * F 1 x + c * F 2 x + 0
  *)
 Notation evalCC_ := (eval_ CC).
 Notation evalCC := (eval CC).
-Notation evalSS_ := (fun n => (eval_ SS (S n))). Check evalSS_. Check evalSS_ (1%nat).
+Notation evalSS_ := (fun n => (eval_ SS (S n))). 
 Notation evalSS := (eval_ SS 0).
 Notation eval_ := (eval_ F).
 Notation eval := (eval F).
 
-(** Definition split/merge splitCC splitSS **)
 
-
-(*
-Lemma eval_evalCCSS : 
- *)
 
 (** properties of evaluation: continuity, integrability, and derivability *)
 
@@ -593,4 +589,69 @@ Section ops.
       match n mod 2 with
         | 
 *)
+
   
+   (** Definition split/merge splitCC splitSS **)
+
+Definition cons_left (x: C) (pc: list C * list C) := (x:: (fst pc) , snd pc).
+
+Definition cons_right (x: C) (pc: list C * list C) := (fst pc , x::(snd pc)).
+
+Definition rev_couple (pc: list C *list C) := (rev (fst pc) , rev (snd pc)).
+
+Fixpoint split_ (b:bool) (p: list C) (plr : list C * list C) : (list C * list C)  :=
+  match p with
+  | [] => plr
+  | c::q => split_ (~~ b) q ((if b then cons_left else cons_right) c plr)
+  end.
+
+Definition split (p:list C) := rev_couple (split_ true p ([],[])).
+
+Definition splitCC (p:list C) := fst (split p).
+
+Definition splitSS (p:list C) := snd (split p).
+
+Program Fixpoint merge_ (b:bool) (pCC : list C) (pSS : list C) (acc: list C) { measure (length pCC + length pSS) } : list C :=
+  match (pCC,pSS,b) with
+  | ([],[],_) => acc
+  | ([],h::q,true) => merge_ true [] q (h::0::acc)
+  | (h::q,[],false) => merge_ false q [] (h::0::acc)
+  | (h::q,_,true) => merge_ false q pSS (h::acc)
+  | (_,h::q,false) => merge_ true pCC q (h::acc)
+  end.
+
+Next Obligation. simpl. lia.
+Qed.
+
+Definition merge_from_left := merge_ true.
+
+Definition merge_from_right := merge_ false.
+
+Definition merge pCC pSS := rev (merge_from_left pCC pSS []).
+
+Search rev.
+
+Lemma fst_rev_couple (pc : list C * list C) : fst (rev_couple pc) = rev (fst pc).
+Proof. by []. Qed.
+
+Lemma snd_rev_couple (pc : list C * list C) : snd (rev_couple pc) = rev (snd pc).
+Proof. by []. Qed.
+
+(*
+Lemma merge_rev (p q : list C) : rev (merge_from_left (rev p) (rev q) []) = merge_from_left p q [] /\
+                                 rev (merge_from_right (rev p) (rev q) []) = merge_from_right p q [].
+Proof.
+  induction p. induction q. by [].
+  move: IHq; rewrite /merge_from_left /merge_from_right /=. 
+  split. simpl. unfold merge_from_left. 
+*)  
+  
+Lemma merge_split (p : list C) : merge (splitCC p) (splitSS p) = p.
+Proof.
+  induction p. by [].
+
+Lemma   
+                 
+  (*
+Lemma eval_evalCCSS : 
+ *
