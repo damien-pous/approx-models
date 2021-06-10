@@ -598,8 +598,6 @@ Definition cons_left (x: C) (pc: list C * list C) := (x:: (fst pc) , snd pc).
 
 Definition cons_right (x: C) (pc: list C * list C) := (fst pc , x::(snd pc)).
 
-Definition rev_couple (pc: list C *list C) := (rev (fst pc) , rev (snd pc)).
-
 Fixpoint split_left (p: list C)  : (list C * list C)  :=
   match p with
   | [] => ([],[])
@@ -612,136 +610,103 @@ with split_right (p: list C) : (list C * list C) :=
   | c::q => cons_right c (split_left q)
   end.
             
-Definition split' (p:list C) := split_left p.
+Definition split_ (p:list C) := split_left p.
 
-Definition splitCC (p:list C) := fst (split' p).
+Definition splitCC (p:list C) := fst (split_ p).
 
-Definition splitSS (p:list C) := snd (split' p).
+Definition splitSS (p:list C) := snd (split_ p).
 
-Definition sum_length (p : list C * list C) := (length (fst p) + length (snd p))%nat.
 
-(* Definition of the merge operation for a cosin polynom and a sinus polynom. 
-   merge_left and merge_right have an unspecified behaviour on arguments that are not obtained with splits functions! *)
-
-(*Function merge_left (pCCSS : list C * list C)  {measure sum_length pCCSS} : list C :=
-  match (pCCSS) with
-  | ([],l) | (l,[]) => l
-  | (hC::qC,hS::qS) => hC::hS::(merge_left (qC,qS))
+Fixpoint inject_inF (p : list C) : list C :=
+  match p with
+  | [] => []
+  | h::q => 0::h::(inject_inF q)
   end.
-intros. rewrite /sum_length /=;lia. Defined.
-*)
 
 Fixpoint merge_left (pCC : list C) (pSS : list C) : list C :=
   match pCC with
-  | [] => pSS
+  | [] => inject_inF pSS
   | hC::qC => match pSS with
-              | []=> pCC
+              | []=> hC::(inject_inF qC)
               | hS::qS => hC::hS::(merge_left qC qS)
               end
   end.
- 
 
-(*
-Function merge_right (pCCSS : list C * list C) {measure sum_length pCCSS} : list C :=
-  match (pCCSS) with
-  | ([],l) | (l,[]) => l
-  | (hC::qC,hS::qS) => hS::hC::(merge_right (qC,qS))
+Fixpoint merge_right (pCC : list C) (pSS : list C) : list C :=
+  match pSS with
+  | [] => inject_inF pCC
+  | hS::qS => match pCC with
+              | []=> hS::(inject_inF qS)
+              | hC::qC => hS::hC::(merge_right qC qS)
+              end
   end.
-intros. rewrite /sum_length /=;lia. Defined. 
-*)
+ 
   
 Definition merge := merge_left.
 
 
-Lemma fst_rev_couple (pc : list C * list C) : fst (rev_couple pc) = rev (fst pc).
-Proof. by []. Qed.
-
-Lemma snd_rev_couple (pc : list C * list C) : snd (rev_couple pc) = rev (snd pc).
-Proof. by []. Qed.
-
-
-Lemma split_CC_SS (p :list C) : split' p = ( splitCC p , splitSS p).
+Lemma split_CC_SS (p :list C) : split_ p = ( splitCC p , splitSS p).
 Proof.
-  rewrite /splitCC /splitSS /split'. apply surjective_pairing.
+  rewrite /splitCC /splitSS /split_. apply surjective_pairing.
 Qed.
   
 Lemma split_left_right (p: list C) : splitCC p = snd (split_right p) /\ splitSS p = fst (split_right p).
-Proof.  rewrite /splitCC /splitSS /split'. induction p. by [].
+Proof.  rewrite /splitCC /splitSS /split_. induction p. by [].
        simpl. inversion IHp. by rewrite H0 H. 
 Qed.  
 
 Lemma splitCC_cons (p: list C) (a:C) :  splitCC (a::p) = a::(splitSS p).
 Proof. 
   move: (split_left_right p) => H; inversion H.
-    by rewrite  /splitCC /splitSS /split' /= -H1 /splitSS /split'. 
+    by rewrite  /splitCC /splitSS /split_ /= -H1 /splitSS /split_. 
 Qed.
 
 Lemma splitSS_cons (p: list C) (a:C) : splitSS (a::p) = splitCC p.
 Proof.
   move: (split_left_right p) => H; inversion H.
-    by rewrite  /splitCC /splitSS /split'.
-Qed.
-
-(*
-Lemma couple_ind ( P : list C * list C -> Prop) (pc : list C * list C) :
-  P ([],[]) ->
-  (forall (p q : list C) (a:  C ), P (p,q) -> P (a::p,q) /\ P (p,a::q)) ->
-  P pc.
-Proof.
-  intros. induction pc. 
-  induction a. induction b.
-  apply H.
-  apply H0. apply IHb.
-  apply H0. apply IHa.
-Qed.  
-*)
-
-Lemma merge_cons_cons ( p q : list C)  : forall (a b  : C ), merge (a::p) (b::q) = a::b::(merge p q).
-Proof.
-  intros. rewrite /merge /=. by [].
+    by rewrite  /splitCC /splitSS /split_.
 Qed.
 
 
+Lemma merge_left_cons_cons ( p q : list C)  : forall (a b  : C ), merge_left (a::p) (b::q) = a::b::(merge_left p q).
+Proof. intros; by []. Qed.
+
+Lemma merge_right_cons_cons ( p q : list C)  : forall (a b  : C ), merge_right (b::p) (a::q) = a::b::(merge_right p q).
+Proof. intros; by []. Qed.
 
 
-Lemma merge_cons (p q : list C)  : forall (a b:C), merge (a::p) q = a::merge q p.
+Lemma merge_right_nil q : merge_right q [] = inject_inF q.
 Proof.
-  rewrite /merge.
-
-  induction p. intros. simpl. destruct q. by []. by [].
-  intros. destruct q. by [].
-  apply IHq. destruct p. by [].
-  simpl.
-  induction p. intros. destruct q. by []. by [].
-  intros. destruct q. 
- simpl. destruct p.  by []. by []. simpl.
-    by []. 
-    intros. rewrite (IHp a1).
-
- Lemma merge_split (p : list C) : merge (splitCC p, splitSS p)  = p.
-
-Proof.
-  induction p. by []. 
- rewrite splitSS_cons. rewrite splitCC_cons. simpl.
-    
-
-  case_eq b => H.
-  simpl. intros. simpl.
-
-
+  elim: q => [ // | IHq a q]. by [].
+Qed.
   
-Lemma eval_evalCCSS (p : list C) 
-                 
-  (*
-Lemma eval_evalCCSS : 
- *)
+ 
+Lemma merge_left_right (p q:list C) : merge_left p q = merge_right q p.
+Proof.
+  move : q.
+  induction p.
+    intro q; by rewrite /= merge_right_nil. 
+    intro q; move : q => [ // | b q]. by rewrite merge_left_cons_cons merge_right_cons_cons IHp.
+Qed. 
+
+Lemma merge_cons (p q : list C)  :  forall (a : C), merge (a::p) q = a::merge q p.
+Proof.
+  move :q; rewrite /merge. 
+  induction p.
+  + intros; move : q => [ // | //].
+  + intros; move : q => [ // | b q]; by rewrite !merge_left_cons_cons IHp.
+Qed.
 
 
+Lemma merge_split (p : list C) : merge (splitCC p) (splitSS p)  = p.
 
+Proof.
+  elim: p => [ // | a p IHp ]; by rewrite splitCC_cons splitSS_cons merge_cons IHp.
+Qed.  
 
 End ops.
 
-
+(*
 Check  [ 0 ; 1 ; 2 ; 3 ; 4 ; 5 ].
 
 Eval compute in split [ 0 ; 1 ; 2 ; 3 ; 4 ; 5].
@@ -749,6 +714,8 @@ Eval compute in split [ 0 ; 1 ; 2 ; 3 ; 4 ; 5].
 Eval compute in split_right [ 0 ; 1 ; 2 ; 3 ; 4 ; 5 ].
  
 Eval compute in merge [ 1 ; 2 ; 3 ; 4] [-1 ; -2 ].
+*)
+
 
 
 
