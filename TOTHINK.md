@@ -2,6 +2,7 @@
 
 for the first release:
 - proofread/document example_abs/h16.v 
+- derive integrateE', eval_cont
 
 for the next release:
 

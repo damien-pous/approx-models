@@ -65,7 +65,6 @@ Proof.
   unfold eval. rewrite H. simpl. lra. (* BUG: ring fails *)
 Qed.
 
-
 Section r.
  Context {C: Ops0}.
  Notation poly := (list C).
@@ -111,6 +110,10 @@ Section r'.
    end.
 
  Definition prim P := 0::prim_ 1 P.
+
+ (** integration *)
+ Definition integrate p a b :=
+   let q := prim p in eval' q b - eval' q a. 
 
 End r'.
 
@@ -173,8 +176,11 @@ Proof.
   apply continuity_pt_filterlim; apply eval_cont.
 Qed.
 
-Lemma eval_prim' p a b : is_RInt (eval p) a b (eval (prim p) b - eval (prim p) a).
-Proof. rewrite eval_prim; apply (RInt_correct (eval p)); apply eval_ex_RInt. Qed.
+Lemma integrateE p a b : integrate p a b = RInt (eval p) a b.
+Proof. rewrite /integrate 2!evalR. apply eval_prim. Qed.
+
+Lemma integrateE' p a b : is_RInt (eval p) a b (integrate p a b).
+Proof. rewrite integrateE; apply (RInt_correct (eval p)). apply eval_ex_RInt. Qed.
 
 (** ** parametricity of the operations  *)
 
@@ -208,6 +214,12 @@ Section s'.
  Hint Resolve rprim_ reval: rel.
  Lemma rprim: forall x y, sT x y -> sT (prim x) (prim y).
  Proof. intros. constructor; rel. Qed.
+ Hint Resolve rprim: rel.
+ Lemma rintegrate: forall p q, sT p q ->
+                   forall a b, T a b ->
+                   forall c d, T c d ->
+                               T (integrate p a c) (integrate q b d).
+ Proof. unfold integrate. rel. Qed.
 End s'.
 
 (** packing everything together, we get a basis *)
@@ -218,7 +230,7 @@ Definition basis_ops_on (C: Ops1) (lo hi: C): BasisOps_on C := {|
   vectorspace.bmul := smul;
   vectorspace.bone := sone;
   vectorspace.bid := sid;
-  vectorspace.bprim := prim;
+  vectorspace.bintegrate := integrate;
   vectorspace.beval := @eval' C;
   vectorspace.brange := None;
   vectorspace.interpolate := interpolate
@@ -239,15 +251,15 @@ Program Definition basis {N: NBH} (D: Domain):
   vectorspace.eval_mul := eval_mul;
   vectorspace.eval_one := eval_one;
   vectorspace.eval_id := eval_id;
-  vectorspace.eval_prim' := eval_prim';
-  vectorspace.eval_prim := eval_prim;
+  vectorspace.integrateE' := integrateE';
+  vectorspace.integrateE := integrateE;
   vectorspace.eval_range := I;
   vectorspace.rlo := rdlo;
   vectorspace.rhi := rdhi;
   vectorspace.rbmul := @rsmul _ _ (contains (NBH:=N));
   vectorspace.rbone := @rsone _ _ _;
   vectorspace.rbid := @rsid _ _ _;
-  vectorspace.rbprim := @rprim _ _ _;
+  vectorspace.rbintegrate := @rintegrate _ _ _;
   vectorspace.rbeval := @reval _ _ _;
   vectorspace.rbrange := I;
 |}.

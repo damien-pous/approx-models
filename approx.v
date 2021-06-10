@@ -68,8 +68,7 @@ Section n.
 
  (** integration *)
  Definition mintegrate_unsafe (M: Tube) (a b: II): II :=
-   let N := bprim (pol M) in 
-   beval N b - beval N a + (b-a)*rem M.
+   bintegrate (pol M) a b + (b-a)*rem M.
  Definition mintegrate (M: Tube) (a b: option II): E II :=
    if ~~ cont M then err "mintegrate: need a continuous function" else
    match a,b with
@@ -419,7 +418,7 @@ Section n.
    have Hfpint : ex_RInt (f - eval p) a d by apply @ex_RInt_minus with (V:=R_NormedModule).
    rewrite (RInt_ext _ (eval p+(f-eval p))); last by (move => x _; rewrite /=/f_bin; lra).
    rewrite RInt_plus => //; first apply radd.
-   rewrite -eval_prim -2!evalE. rel. 
+   rewrite -integrateE. rel. 
    case (Req_dec a d) => ad.
    destruct ad. replace (RInt _ _ _) with (RInt (fun _ => f a - eval p a) a a).
      by rewrite RInt_const; apply rmul; rel.

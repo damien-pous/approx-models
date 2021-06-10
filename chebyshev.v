@@ -259,6 +259,10 @@ Section ops.
     - [eval'] is the efficient evaluation of a polynomial, available on R, F, I 
     - [eval]  is the inefficient yet mathematically simple evaluation of a polynomial, available only on R *)
 
+ (** integration *)
+ Definition integrate p a b :=
+   let q := prim p in eval' q b - eval' q a. 
+ 
  (** domain *)
  Definition lo: C := fromZ (-1).
  Definition hi: C := 1.
@@ -381,8 +385,11 @@ Proof.
   apply continuity_pt_filterlim; apply eval_cont.
 Qed.
 
-Lemma eval_prim' p a b : is_RInt (eval p) a b (eval (prim p) b - eval (prim p) a).
-Proof. rewrite eval_prim; apply (RInt_correct (eval p)). apply eval_ex_RInt. Qed.
+Lemma integrateE p a b : integrate p a b = RInt (eval p) a b.
+Proof. rewrite /integrate 2!evalR. apply eval_prim. Qed.
+
+Lemma integrateE' p a b : is_RInt (eval p) a b (integrate p a b).
+Proof. rewrite integrateE; apply (RInt_correct (eval p)). apply eval_ex_RInt. Qed.
 
 Lemma lohi: lo < hi.
 Proof. cbv; lra. Qed.
@@ -449,6 +456,12 @@ Section s.
  Hint Resolve reval rprim_: rel.
  Lemma rprim: forall p q, pT p q -> pT (prim p) (prim q).
  Proof. unfold prim. rel. Qed.
+ Hint Resolve rprim: rel.
+ Lemma rintegrate: forall p q, pT p q ->
+                   forall a b, T a b ->
+                   forall c d, T c d ->
+                               T (integrate p a c) (integrate q b d).
+ Proof. unfold integrate. rel. Qed.
  Lemma rlo: T lo lo.
  Proof. unfold lo; rel. Qed. 
  Lemma rhi: T hi hi.
@@ -461,7 +474,6 @@ Section s.
    rewrite /range. intros [|a b AB p' q' p'q']; rel.
  Qed.
 End s.
-Global Hint Resolve rcons0 rcons00 rpmul rpone rpid rpcst reval rprim rrange_ rrange: rel.
 
 
 
@@ -548,7 +560,7 @@ Definition basis11_ops_on (C: Ops1): BasisOps_on C := {|
   vectorspace.bmul := pmul;
   vectorspace.bone := pone;
   vectorspace.bid := pid;
-  vectorspace.bprim := prim;
+  vectorspace.bintegrate := integrate;
   vectorspace.beval := @eval' C;
   vectorspace.brange := Some range;
   vectorspace.interpolate := interpolate
@@ -572,15 +584,15 @@ Program Definition basis11 {N: NBH}: Basis basis11_ops := {|
   vectorspace.eval_mul := eval_mul;
   vectorspace.eval_one := eval_one;
   vectorspace.eval_id := eval_id;
-  vectorspace.eval_prim' := eval_prim';
-  vectorspace.eval_prim := eval_prim;
+  vectorspace.integrateE' := integrateE';
+  vectorspace.integrateE := integrateE;
   vectorspace.eval_range := eval_range;
   vectorspace.rlo := rfromZ _ (-1);
   vectorspace.rhi := @rone _ _ _;
   vectorspace.rbmul := @rpmul _ _ (contains (NBH:=N));
   vectorspace.rbone := @rpone _ _ _;
   vectorspace.rbid := @rpid _ _ _;
-  vectorspace.rbprim := @rprim _ _ _;
+  vectorspace.rbintegrate := @rintegrate _ _ _;
   vectorspace.rbeval := @reval _ _ _;
   vectorspace.rbrange := @rrange _ _ _;
 |}.

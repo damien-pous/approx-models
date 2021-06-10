@@ -200,7 +200,7 @@ Class BasisOps_on (C: Type) := {
   bmul: list C -> list C -> list C;
   bone: list C;
   bid: list C;
-  bprim: list C -> list C;
+  bintegrate: list C -> C -> C -> C;
   (* range is an optional operation (implemented locally if absent, e.g., for Taylor models) *)
   brange: option (list C -> C*C); 
   interpolate: Z -> (C -> C) -> list C;
@@ -241,11 +241,11 @@ Class Basis {N: NBH} (B: BasisOps) := {
   eval_mul: forall p q x, eval TT (bmul p q) x = eval TT p x * eval TT q x;
   eval_one: forall x, eval TT bone x = 1;
   eval_id: forall x, eval TT bid x = x;
-  eval_prim': forall p a b, is_RInt (eval TT p) a b (eval TT (bprim p) b - eval TT (bprim p) a);
-  eval_prim: forall p a b, eval TT (bprim p) b - eval TT (bprim p) a = RInt (eval TT p) a b;
   eval_range: match brange with
                | Some range => (forall p x, dom x -> (range p).1 <= eval TT p x <= (range p).2)
                | None => True end;
+  integrateE': forall p a b, is_RInt (eval TT p) a b (bintegrate p a b);
+  integrateE: forall p a b, bintegrate p a b = RInt (eval TT p) a b;
   
   (** link between BI and BR *)
   rlo: contains lo lo;
@@ -255,8 +255,10 @@ Class Basis {N: NBH} (B: BasisOps) := {
                          scontains (bmul p p') (bmul q q');
   rbone: scontains bone bone;
   rbid: scontains bid bid;
-  rbprim: forall p q, scontains p q ->
-                     scontains (bprim p) (bprim q);
+  rbintegrate: forall P p, scontains P p ->
+               forall A a, contains A a ->
+               forall B b, contains B b ->
+                           contains (bintegrate P A B) (bintegrate p a b);
   rbeval: forall p q, scontains p q ->
           forall x y, contains x y ->
                       contains (beval p x) (beval q y);
@@ -268,7 +270,7 @@ Class Basis {N: NBH} (B: BasisOps) := {
            | _,_ => False
            end;
 }.
-Global Hint Resolve rbmul rbone rbid rbprim rbeval rlo rhi: rel.
+Global Hint Resolve rbmul rbone rbid rbintegrate rbeval rlo rhi: rel.
 
 
 Lemma domlo `{Basis}: dom lo.

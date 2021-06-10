@@ -19,7 +19,7 @@ Section r.
  Let r_id: list C := sscal cahilo bid + sscal (a-lo*cahilo) bone.
  Let r_eval (p: list C) (y: C) := beval p (g y).
  Let r_interpolate n h := interpolate n (fun x => h (f x)).
- Let r_prim (p: list C): list C := sscal cahilo (bprim p).
+ Let r_integrate (p: list C) (a b: C): C := cahilo * bintegrate p (g a) (g b).
  Definition rescale_ops_on: BasisOps_on C :=
    {|
      lo := a;
@@ -27,7 +27,7 @@ Section r.
      bmul := bmul;
      bone := bone;
      bid := r_id;
-     bprim := r_prim;
+     bintegrate := r_integrate;
      beval := r_eval;
      brange := brange;
      interpolate := r_interpolate;
@@ -103,31 +103,6 @@ Section s.
    field. lra.
  Qed.
  Next Obligation.
-   intros p i j.
-   set (v := lo - a * hiloca: R).
-   rewrite 2!eval_scal/= -Rmult_minus_distr_l.
-   eapply is_RInt_ext; last first.
-   apply: is_RInt_scal. apply: (is_RInt_comp_lin _ hiloca v).
-   rewrite 2!r_eval/=.
-   eapply is_RInt_ext'; last apply eval_prim';
-     rewrite /g/v/=; field; lra.
-   intros=>/=. rewrite r_eval /scal/=/mult/v/=.
-   field_simplify. 2: lra. f_equal. rewrite /g/=. field; lra.  
- Qed.
- Next Obligation.
-   intros p i j. 
-   set (v := lo - a * hiloca: R).
-   rewrite 2!eval_scal/= -Rmult_minus_distr_l 2!r_eval eval_prim /=.
-   symmetry. erewrite RInt_ext; last first. intros.
-   rewrite r_eval /g.
-   replace (_+_) with (hiloca*x + v). 2: rewrite/v/=; ring. reflexivity.
-   rewrite RInt_lin. 3: eexists; apply eval_prim'.
-   set (e:=RInt _ _ _). replace (RInt _ _ _) with e. rewrite /=. field; lra.
-   unfold e. f_equal; rewrite /g/v/=; field; lra.
-   apply Rmult_integral_contrapositive; (split; last apply Rinv_neq_0_compat);
-     rewrite /=; lra.
- Qed.
- Next Obligation.
    generalize eval_range. rewrite /dom/=.
    case brange=>[mM H p x Hx|_]//.
    rewrite r_eval. apply H. split; rewrite /g/=.
@@ -138,6 +113,29 @@ Section s.
    rewrite Rmult_comm.
    apply Rmult_le_compat; lra.
  Qed.
+ Next Obligation.
+   intros p i j.
+   set (v := lo - a * hiloca: R).
+   eapply is_RInt_ext; last first.
+   apply: is_RInt_scal. apply: (is_RInt_comp_lin _ hiloca v).
+   eapply is_RInt_ext'; last apply integrateE';
+     rewrite /g/v/=; field; lra.
+   intros=>/=. rewrite r_eval /scal/=/mult/v/=.
+   field_simplify. 2: lra. f_equal. rewrite /g/=. field; lra.  
+ Qed.
+ Next Obligation.
+   intros p i j. 
+   set (v := lo - a * hiloca: R).
+   rewrite /= integrateE /=.
+   symmetry. erewrite RInt_ext; last first. intros.
+   rewrite r_eval /g.
+   replace (_+_) with (hiloca*x + v). 2: rewrite/v/=; ring. reflexivity.
+   rewrite RInt_lin. 3: eexists; apply integrateE'.
+   set (e:=RInt _ _ _). replace (RInt _ _ _) with e. rewrite /=. field; lra.
+   unfold e. f_equal; rewrite /g/v/=; field; lra.
+   apply Rmult_integral_contrapositive; (split; last apply Rinv_neq_0_compat);
+     rewrite /=; lra.
+ Qed.
  Next Obligation. apply rdlo. Qed.
  Next Obligation. apply rdhi. Qed.
  Next Obligation. intros=>/=. by apply rbmul. Qed.
@@ -147,10 +145,7 @@ Section s.
    apply rbid.
    apply rbone.
  Qed.
- Next Obligation.
-   intros. apply rsscal. rel. 
-   by apply rbprim.
- Qed.
+ Next Obligation. cbn. rel. Qed.
  Next Obligation. cbn. rel. Qed.
  Next Obligation. cbn. apply rbrange. Qed.
 End s.
