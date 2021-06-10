@@ -352,17 +352,11 @@ Qed.
 Lemma eval_prim_Derive p x : Derive (eval (prim p)) x = eval p x.
 Proof. apply (eval_prim_ 0). Qed.
 
-Lemma eval_prim p a b : eval (prim p) b - eval (prim p) a = RInt (eval p) a b.
-Proof.
-  rewrite -(RInt_ext (Derive (eval (prim p)))). 2: by intro; rewrite eval_prim_Derive.
-  rewrite RInt_Derive. by [].
-* intros t _; apply eval_ex_derive.
-* intros t _; apply continuous_ext with (f:= eval p); first by intro; rewrite eval_prim_Derive.
-  apply continuity_pt_filterlim; apply eval_cont_basis, T_cont.
-Qed.
-
 Lemma integrateE p a b : integrate p a b = RInt (eval p) a b.
-Proof. rewrite /integrate 2!evalR. apply eval_prim. Qed.
+Proof.
+  unfold integrate. rewrite 2!evalR. apply integrate_prim.
+  apply T_cont. apply T_ex_derive. apply eval_prim_Derive.
+Qed.
 
 Lemma lohi: lo < hi.
 Proof. cbv; lra. Qed.

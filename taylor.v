@@ -159,17 +159,11 @@ Proof.
   rewrite Derive_const eval_prim_; ring.
 Qed.
 
-Lemma eval_prim p a b : eval (prim p) b - eval (prim p) a = RInt (eval p) a b.
-Proof.
-  rewrite -(RInt_ext (Derive (eval (prim p)))); last by move => t _; rewrite eval_prim_Derive.
-  rewrite RInt_Derive. by []. 
-* move => t _; apply eval_ex_derive.
-* move => t _; apply continuous_ext with (f:= eval p); first by move => u; rewrite eval_prim_Derive.
-  apply continuity_pt_filterlim; apply eval_cont_basis, M_cont.
-Qed.
-
 Lemma integrateE p a b : integrate p a b = RInt (eval p) a b.
-Proof. rewrite /integrate 2!evalR. apply eval_prim. Qed.
+Proof.
+  unfold integrate. rewrite 2!evalR. apply integrate_prim.
+  apply M_cont. apply M_ex_derive. apply eval_prim_Derive.
+Qed.
 
 (** ** parametricity of the operations  *)
 

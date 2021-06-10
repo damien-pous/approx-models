@@ -134,6 +134,8 @@ Section e.
    rewrite eval_cons0_. lra.
  Qed.
 
+ (** helpers from constructing bases with additional common properties  *)
+ 
  Hypothesis H: forall n x, continuity_pt (M n) x. 
  Lemma eval_cont_ P x: forall n, continuity_pt (eval_ n P) x.
  Proof.
@@ -147,6 +149,7 @@ Section e.
  Lemma eval_cont_basis P x: continuity_pt (eval P) x.
  Proof. apply eval_cont_. Qed.
 
+ (** when the basis elements are derivable *)
  Hypothesis D: forall n x, ex_derive (M n) x.
  Lemma eval_ex_derive_basis_ n P x: ex_derive (eval_ n P) x.
  Proof. elim: P n => [ | a P IHP] n /=; now auto_derive. Qed.
@@ -154,6 +157,19 @@ Section e.
  Lemma eval_ex_derive_basis P x : ex_derive (eval P) x.
  Proof. apply eval_ex_derive_basis_. Qed.
 
+ (** when there is an operation for taking primitives *)
+ Variable prim: list R -> list R.
+ Hypothesis P: forall p x, Derive (eval (prim p)) x = eval p x.
+
+ Lemma integrate_prim p a b : eval (prim p) b - eval (prim p) a = RInt (eval p) a b.
+ Proof.
+   rewrite -(RInt_ext (Derive (eval (prim p)))). 2: by intro; rewrite P.
+   rewrite RInt_Derive. by [].
+   * intros t _; apply eval_ex_derive_basis.
+   * intros t _; apply continuous_ext with (f:= eval p); first by intro; rewrite P.
+     apply continuity_pt_filterlim; apply eval_cont_basis.
+ Qed.
+ 
 End e.
 
 
