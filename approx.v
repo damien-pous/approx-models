@@ -120,7 +120,7 @@ Section n.
     g' ~ sqrt f'
     k' ~ 1 / 2g' *)
  Definition msqrt_aux (f' h' w': Tube): E Tube :=
-   let x0' := lo in
+   let x0' := (lo+hi)//2 in
    let y0' := meval_unsafe w' x0' in
    if ~~ is_lt 0 y0' then err "msqrt: potentially negative value" else
    let k1' := 1 - (mscal (fromZ 2) (w' * h')) in
@@ -530,8 +530,11 @@ Section n.
    EP' mcontains (msqrt_aux f' h' w') (fun x => R_sqrt.sqrt (f x)).
  Proof.
    move => Hf Hh Hw Hwcont. rewrite /msqrt_aux.
-   case is_ltE => [Hwlo|]=>[|//=]. 
-   specialize (Hwlo _ _ (rzer _) (rmeval_unsafe Hw rlo domlo)).
+   set (x0:=(lo+hi)//2).
+   have domx0: dom ((lo+hi)/2) by generalize domlo; generalize domhi; rewrite /dom; lra. 
+   have rx0: contains x0 ((lo+hi)/2) by rel. 
+   case is_ltE => [Hwx0|]=>[|//=]. 
+   specialize (Hwx0 _ _ (rzer _) (rmeval_unsafe Hw rx0 domx0)).
    simpl negb.
    case magE => [Mu0 mu0 MU0 Hmu0|]=>[|//=]. 
    case magE => [Mu1 mu1 MU1 Hmu1|]=>[|//=].
@@ -551,15 +554,14 @@ Section n.
      (unshelve eapply (sqrt.newton (w:=w) _ _ _ _ _ _ _ _ _ _ _)) =>//.
      + move => t Ht; rewrite Rmult_assoc. by apply Hmu0'.
      + move => t Ht /=; rewrite Rmult_1_r. by apply Hb'.
-     + split=>//. rewrite <-(Hmu0' _ domlo). apply Rabs_pos. 
-     + apply Rlt_le_trans with (Rabs (w lo)); eauto.
-       clear -Hwlo. split_Rabs; simpl in *; lra.
-       apply Hmu1', domlo. 
-     + rewrite <- (Hb' _ domlo). apply Rabs_pos.
+     + split=>//. rewrite <-(Hmu0' _ domx0). apply Rabs_pos. 
+     + apply Rlt_le_trans with (Rabs (w ((lo+hi)/2))); eauto.
+       clear -Hwx0. split_Rabs; simpl in *; lra.
+     + rewrite <- (Hb' _ domx0). apply Rabs_pos.
      + apply Rlt_le, Hmu0b; rel.
      + apply Hmu; rel.
      + unfold dom. clear. intros; simpl in *; lra. 
-     + exists lo. split. apply domlo. apply Hwlo. 
+     + exists ((lo+hi)/2). split. apply domx0. apply Hwx0. 
    constructor. split. 
    - elim:(proj1 Hf)=>[Cf|]; constructor=>x Dx.
      apply (continuity_pt_comp f). apply Cf, Dx. 

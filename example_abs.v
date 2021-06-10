@@ -91,18 +91,18 @@ Time Eval native_compute in (wrem (NearAbs F11  90 0.01)).
 Time Eval native_compute in (wrem (NearAbs F11 100 0.01)).
 
 (** eps = 1/1000 *)
-(* TOCHECK: we only get one non-error value *)
-Time Eval native_compute in (wrem (NearAbs F11  10 0.001)).
-Time Eval native_compute in (wrem (NearAbs F11  20 0.001)).
-Time Eval native_compute in (wrem (NearAbs F11  30 0.001)).
+(* TOCHECK: we get some errors *)
+Time Eval native_compute in (wrem (NearAbs F11  10 0.001)). (* err *)
+Time Eval native_compute in (wrem (NearAbs F11  20 0.001)). (* err *)
+Time Eval native_compute in (wrem (NearAbs F11  30 0.001)). (* err *)
 Time Eval native_compute in (wrem (NearAbs F11  35 0.001)). (* yep *)
-Time Eval native_compute in (wrem (NearAbs F11  40 0.001)).
-Time Eval native_compute in (wrem (NearAbs F11  50 0.001)).
-Time Eval native_compute in (wrem (NearAbs F11  60 0.001)).
-Time Eval native_compute in (wrem (NearAbs F11  70 0.001)).
-Time Eval native_compute in (wrem (NearAbs F11  80 0.001)).
-Time Eval native_compute in (wrem (NearAbs F11  90 0.001)).
-Time Eval native_compute in (wrem (NearAbs F11 100 0.001)).
+Time Eval native_compute in (wrem (NearAbs F11  40 0.001)). (* err *)
+Time Eval native_compute in (wrem (NearAbs F11  50 0.001)). (* err *)
+Time Eval native_compute in (wrem (NearAbs F11  60 0.001)). (* yep *)
+Time Eval native_compute in (wrem (NearAbs F11  70 0.001)). (* yep *)
+Time Eval native_compute in (wrem (NearAbs F11  80 0.001)). (* yep *)
+Time Eval native_compute in (wrem (NearAbs F11  90 0.001)). (* yep *)
+Time Eval native_compute in (wrem (NearAbs F11 100 0.001)). (* yep *)
 
 (** eps = 1/10000 *)
 (* TOCHECK: we only get errors *)
@@ -232,7 +232,7 @@ Time Eval vm_compute in (NearAbsRem01 25 0.0001).
 Time Eval vm_compute in (NearAbsRem01 26 0.0001).
 Time Eval vm_compute in (NearAbsRem01 27 0.0001).
 Time Eval vm_compute in (NearAbsRem01 28 0.0001).
-Time Eval vm_compute in (NearAbsRem01 30 0.0001).#
+Time Eval vm_compute in (NearAbsRem01 30 0.0001).
 Time Eval vm_compute in (NearAbsRem01 32 0.0001).
 
 Fact coqapprox_compare (x : R) : 0 <= x <= 1 -> R_sqrt.sqrt (1/100 + x^2) - x <= 1/10*(101/100).
