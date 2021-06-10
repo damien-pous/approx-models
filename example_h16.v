@@ -7,11 +7,18 @@ Unset Strict Implicit.
 Unset Printing Implicit Defensive.
 
 Section s.
+ (** [NN] is an arbitrary neighborhood, i.e., an abstract machine for computing with intervals *)
  Context {NN: NBH}.
- Variables (rp rq: Z) (N: nat).
+ (** [r_] is a parameter for the considered computations *)
+ Variable r_: Q.
+ (** [N] is the interpolation degree for divisions/square roots 
+     and the truncation degree for multiplications 
+     (in other words, the maximal degree for the considered approximations)
+  *)
+ Variable N: nat.
 
  Let N' := Z.of_nat N.
- Let r: II := fromZ rp / fromZ rq.
+ Let r: II := fromQ r_.
  Let x0: II := fromZ 9 / fromZ 10.
  Let y0: II := fromZ 11 / fromZ 10.
  Let sqrt2: II := sqrt (fromZ 2). 
@@ -22,6 +29,7 @@ Section s.
  Let ymin: II := sqrt (y0 - r_sqrt2).
  Let ymax: II := sqrt (y0 + r_sqrt2).
 
+ (** we use two instances of the Chebyshev basis: on [xmin;xmax], and on [ymin;ymax] *)
  Let Fx := approx.model_ops (chebyshev.basis_ops xmin xmax).
  Let Fy := approx.model_ops (chebyshev.basis_ops ymin ymax).
  
@@ -31,6 +39,8 @@ Section s.
  Infix "^x" := powx (at level 30).
  Let powy f n: Fy := match n with 1 => f | 2 => sqry f | 3 => mtruncate N (f*sqry f) | 4 => sqry (sqry f) | _ => 1 end.
  Infix "^y" := powy (at level 30).
+ 
+ (** the considered integrals, in monadic style for dealing with potential runtime errors *)
  Definition calcul :=
    LET deltay ::= msqrt N' (mcst r2 - sqrx (sqrx mid - mcst x0)) IN
    LET deltax ::= msqrt N' (mcst r2 - sqry (sqry mid - mcst y0)) IN
@@ -73,17 +83,26 @@ Section s.
 End s.
 Arguments calcul: clear implicits.
 
-(* TOCHECK *)
-Time Eval vm_compute in     calcul       _       5  10  13.
+(** computations with the virtual machine *)
+Time Eval vm_compute in     calcul       _       0.5  13.
 
-(* first one is always slow: native_compute must initialise *)
-Time Eval native_compute in calcul       _       5  10  13.
-Time Eval native_compute in calcul       _       5  10  13.
-Time Eval native_compute in calcul       _      78 100  15.
+(** computations with native runtime
+   first call with is always slow: native_compute must initialise *)
+Time Eval native_compute in calcul       _       0.5  13.
+Time Eval native_compute in calcul       _       0.5  13.
+Time Eval native_compute in calcul       _       0.78 15.
 
-(* quite slower with IBigInt... *)
-Time Eval native_compute in @calcul IBigInt.nbh 78 100  15.
+(** by default, native floating point numbers are used
+    by specifying the first argument, we may chose other options *)
+(** here with emulated floating point numbers, based on BigInts (big numbers based on 63bit native integers) 
+    -> quite slower *)
+Time Eval native_compute in @calcul IBigInt.nbh  0.5 8.
+(** or with emulated floating point numbers, based on emulated relative numbers 
+    -> even slower *)
+Time Eval native_compute in @calcul IZ.nbh  0.5 8.
 
+
+(** instances of neighborhoods with higher precision (128 and 300 bits, respectively) *)
 From Interval Require Import Specific_bigint Specific_ops.
 Import BigZ.
 
@@ -99,9 +118,9 @@ Module FBigInt300 <: FloatOpsP.
 End FBigInt300. 
 Module IBigInt300 := Make FBigInt300.
 
-(* TOCHECK: looks ok now! (but pretty slow and thus commented out) *)
+(** allow for much more precise computations, but pretty slow and thus commented out *)
 (*
-Time Eval native_compute in calcul IBigInt128.nbh 88   100  65.
-Time Eval native_compute in calcul IBigInt128.nbh 89   100  95.
-Time Eval native_compute in calcul IBigInt300.nbh 895 1000 135.
+Time Eval native_compute in calcul IBigInt128.nbh 0.88   65.
+Time Eval native_compute in calcul IBigInt128.nbh 0.89   95.
+Time Eval native_compute in calcul IBigInt300.nbh 0.895 135.
 *)

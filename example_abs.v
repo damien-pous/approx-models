@@ -16,9 +16,9 @@ Fact test0 x :
   Rabs (f1 eps x - Rabs x) <= eps+1/10000.
 Proof.
   intros eps H; subst eps; unfold f1.
-  (* does not work without subdivision *)
+  (** does not work without subdivision *)
   Fail interval.
-  (* works with *)
+  (** works with *)
   interval with (i_bisect x).
 Qed.
 
@@ -28,9 +28,9 @@ Fact test1 x :
   Rabs (f1 eps x - x) <= eps+1/10000.
 Proof.
   intros eps H; subst eps; unfold f1.
-  (* does not work without subdivision *)
+  (** does not work without subdivision *)
   Fail interval.
-  (* works with *)
+  (** works with *)
   interval with (i_bisect x).
 Qed.
 
@@ -43,104 +43,103 @@ Set Implicit Arguments.
 Unset Strict Implicit.
 Unset Printing Implicit Defensive.
 
-(* Section s. *)
-(* Variable N : Z. *)
-(* Variable eps : forall {C : Ops1}, C. *)
-(* Arguments eps {C}. *)
-(* Context {C : Ops1} {F: FunOps C}. *)
-(* Definition NearAbs : E F := msqrt N (mcst eps + mid * mid). *)
-(* End s. *)
-
+(** two domains: [-1;0] and [0;1]  *)
 Definition D10: Domain := DZ2 (-1) 0.
 Definition D01: Domain := DZ2 0 1.
 
-(* implicit use of [Iprimitive.nbh] below *)
+(** associated model operations, plus operations on [-1;1]
+    note the implicit use of [Iprimitive.nbh] *)
 Definition F11 := approx.model_ops chebyshev.basis11_ops.
 Definition F10 := approx.model_ops (chebyshev.basis_ops (fromZ (-1)) 0).
 Definition F01 := approx.model_ops (chebyshev.basis_ops 0            1).
 
+(** width of the remainder of a model *)
 Definition wrem (x: E (Tube II)) := x >>= fun x => ret (width (rem x)). 
 
-Definition NearAbs (MM: ModelOps) (deg: Z) (eps: II): E MM := msqrt deg (mcst eps + mid * mid). 
+(** model approximating the absolute value function,
+    parameterised by 
+    - [deg]: the interpolation degree for square root
+    - [eps]: the smaller the better *)
+Definition NearAbs (MM: ModelOps) (deg: Z) (eps: Q): E MM := msqrt deg (mcst (fromQ eps) + mid * mid). 
 
 
 
-(* First, compute rigorous approximations over [-1,1] and check remainders *)
+(** First, compute rigorous approximations over [-1,1] and check remainders *)
 
-(* eps = 1/10 *)
-Time Eval native_compute in (wrem (NearAbs F11  10 (1/fromZ 10))).
-Time Eval native_compute in (wrem (NearAbs F11  20 (1/fromZ 10))).
-Time Eval native_compute in (wrem (NearAbs F11  30 (1/fromZ 10))).
-Time Eval native_compute in (wrem (NearAbs F11  40 (1/fromZ 10))).
-Time Eval native_compute in (wrem (NearAbs F11  50 (1/fromZ 10))).
-Time Eval native_compute in (wrem (NearAbs F11  60 (1/fromZ 10))).
-Time Eval native_compute in (wrem (NearAbs F11  70 (1/fromZ 10))).
-Time Eval native_compute in (wrem (NearAbs F11  80 (1/fromZ 10))).
-Time Eval native_compute in (wrem (NearAbs F11  90 (1/fromZ 10))).
-Time Eval native_compute in (wrem (NearAbs F11 100 (1/fromZ 10))).
+(** eps = 1/10 *)
+Time Eval native_compute in (wrem (NearAbs F11  10 0.1)).
+Time Eval native_compute in (wrem (NearAbs F11  20 0.1)).
+Time Eval native_compute in (wrem (NearAbs F11  30 0.1)).
+Time Eval native_compute in (wrem (NearAbs F11  40 0.1)).
+Time Eval native_compute in (wrem (NearAbs F11  50 0.1)).
+Time Eval native_compute in (wrem (NearAbs F11  60 0.1)).
+Time Eval native_compute in (wrem (NearAbs F11  70 0.1)).
+Time Eval native_compute in (wrem (NearAbs F11  80 0.1)).
+Time Eval native_compute in (wrem (NearAbs F11  90 0.1)).
+Time Eval native_compute in (wrem (NearAbs F11 100 0.1)).
 
-(* eps = 1/100 *)
-Time Eval native_compute in (wrem (NearAbs F11  10 (1/fromZ 100))).
-Time Eval native_compute in (wrem (NearAbs F11  20 (1/fromZ 100))).
-Time Eval native_compute in (wrem (NearAbs F11  30 (1/fromZ 100))).
-Time Eval native_compute in (wrem (NearAbs F11  40 (1/fromZ 100))).
-Time Eval native_compute in (wrem (NearAbs F11  50 (1/fromZ 100))).
-Time Eval native_compute in (wrem (NearAbs F11  60 (1/fromZ 100))).
-Time Eval native_compute in (wrem (NearAbs F11  70 (1/fromZ 100))).
-Time Eval native_compute in (wrem (NearAbs F11  80 (1/fromZ 100))).
-Time Eval native_compute in (wrem (NearAbs F11  90 (1/fromZ 100))).
-Time Eval native_compute in (wrem (NearAbs F11 100 (1/fromZ 100))).
+(** eps = 1/100 *)
+Time Eval native_compute in (wrem (NearAbs F11  10 0.01)).
+Time Eval native_compute in (wrem (NearAbs F11  20 0.01)).
+Time Eval native_compute in (wrem (NearAbs F11  30 0.01)).
+Time Eval native_compute in (wrem (NearAbs F11  40 0.01)).
+Time Eval native_compute in (wrem (NearAbs F11  50 0.01)).
+Time Eval native_compute in (wrem (NearAbs F11  60 0.01)).
+Time Eval native_compute in (wrem (NearAbs F11  70 0.01)).
+Time Eval native_compute in (wrem (NearAbs F11  80 0.01)).
+Time Eval native_compute in (wrem (NearAbs F11  90 0.01)).
+Time Eval native_compute in (wrem (NearAbs F11 100 0.01)).
 
-(* eps = 1/1000 *)
-Time Eval native_compute in (wrem (NearAbs F11  10 (1/fromZ 1000))).
-Time Eval native_compute in (wrem (NearAbs F11  20 (1/fromZ 1000))).
-Time Eval native_compute in (wrem (NearAbs F11  30 (1/fromZ 1000))).
-Time Eval native_compute in (wrem (NearAbs F11  40 (1/fromZ 1000))).
-Time Eval native_compute in (wrem (NearAbs F11  50 (1/fromZ 1000))).
-Time Eval native_compute in (wrem (NearAbs F11  60 (1/fromZ 1000))).
-Time Eval native_compute in (wrem (NearAbs F11  70 (1/fromZ 1000))).
-Time Eval native_compute in (wrem (NearAbs F11  80 (1/fromZ 1000))).
-Time Eval native_compute in (wrem (NearAbs F11  90 (1/fromZ 1000))).
-Time Eval native_compute in (wrem (NearAbs F11 100 (1/fromZ 1000))).
+(** eps = 1/1000 *)
+(* TOCHECK: we only get one non-error value *)
+Time Eval native_compute in (wrem (NearAbs F11  10 0.001)).
+Time Eval native_compute in (wrem (NearAbs F11  20 0.001)).
+Time Eval native_compute in (wrem (NearAbs F11  30 0.001)).
+Time Eval native_compute in (wrem (NearAbs F11  35 0.001)). (* yep *)
+Time Eval native_compute in (wrem (NearAbs F11  40 0.001)).
+Time Eval native_compute in (wrem (NearAbs F11  50 0.001)).
+Time Eval native_compute in (wrem (NearAbs F11  60 0.001)).
+Time Eval native_compute in (wrem (NearAbs F11  70 0.001)).
+Time Eval native_compute in (wrem (NearAbs F11  80 0.001)).
+Time Eval native_compute in (wrem (NearAbs F11  90 0.001)).
+Time Eval native_compute in (wrem (NearAbs F11 100 0.001)).
 
-(* eps = 1/10000 *)
-(* TOCHECK: we get errors *)
-Time Eval native_compute in (wrem (NearAbs F11  10 (1/fromZ 10000))).
-Time Eval native_compute in (wrem (NearAbs F11  20 (1/fromZ 10000))).
-Time Eval native_compute in (wrem (NearAbs F11  30 (1/fromZ 10000))).
-Time Eval native_compute in (wrem (NearAbs F11  40 (1/fromZ 10000))).
-Time Eval native_compute in (wrem (NearAbs F11  50 (1/fromZ 10000))).
-Time Eval native_compute in (wrem (NearAbs F11  60 (1/fromZ 10000))).
-Time Eval native_compute in (wrem (NearAbs F11  70 (1/fromZ 10000))).
-Time Eval native_compute in (wrem (NearAbs F11  80 (1/fromZ 10000))).
-Time Eval native_compute in (wrem (NearAbs F11  90 (1/fromZ 10000))).
-Time Eval native_compute in (wrem (NearAbs F11 100 (1/fromZ 10000))).
-Time Eval native_compute in (wrem (NearAbs F11 200 (1/fromZ 10000))).
+(** eps = 1/10000 *)
+(* TOCHECK: we only get errors *)
+Time Eval native_compute in (wrem (NearAbs F11  10 0.0001)).
+Time Eval native_compute in (wrem (NearAbs F11  20 0.0001)).
+Time Eval native_compute in (wrem (NearAbs F11  30 0.0001)).
+Time Eval native_compute in (wrem (NearAbs F11  40 0.0001)).
+Time Eval native_compute in (wrem (NearAbs F11  50 0.0001)).
+Time Eval native_compute in (wrem (NearAbs F11  60 0.0001)).
+Time Eval native_compute in (wrem (NearAbs F11  70 0.0001)).
+Time Eval native_compute in (wrem (NearAbs F11  80 0.0001)).
+Time Eval native_compute in (wrem (NearAbs F11  90 0.0001)).
+Time Eval native_compute in (wrem (NearAbs F11 100 0.0001)).
+Time Eval native_compute in (wrem (NearAbs F11 200 0.0001)).
 
-(* compare timings with coqapprox, with eps=2 *)
-
-(* ignore the first one with native_compute, which needs to be initialised *)
-Time Eval native_compute in (wrem (NearAbs F11  10 (fromZ 2))).
-Time Eval native_compute in (wrem (NearAbs F11  10 (fromZ 2))).
-Time Eval native_compute in (wrem (NearAbs F11  20 (fromZ 2))).
-Time Eval native_compute in (wrem (NearAbs F11  30 (fromZ 2))).
-Time Eval native_compute in (wrem (NearAbs F11  40 (fromZ 2))).
-Time Eval native_compute in (wrem (NearAbs F11  50 (fromZ 2))).
-Time Eval native_compute in (wrem (NearAbs F11  60 (fromZ 2))).
-Time Eval native_compute in (wrem (NearAbs F11  70 (fromZ 2))).
-Time Eval native_compute in (wrem (NearAbs F11  80 (fromZ 2))).
-Time Eval native_compute in (wrem (NearAbs F11  90 (fromZ 2))).
-Time Eval native_compute in (wrem (NearAbs F11 100 (fromZ 2))).
-Time Eval native_compute in (wrem (NearAbs F11 110 (fromZ 2))).
-Time Eval native_compute in (wrem (NearAbs F11 120 (fromZ 2))).
-Time Eval native_compute in (wrem (NearAbs F11 130 (fromZ 2))).
-Time Eval native_compute in (wrem (NearAbs F11 140 (fromZ 2))).
-Time Eval native_compute in (wrem (NearAbs F11 150 (fromZ 2))).
-Time Eval native_compute in (wrem (NearAbs F11 160 (fromZ 2))).
-Time Eval native_compute in (wrem (NearAbs F11 170 (fromZ 2))).
-Time Eval native_compute in (wrem (NearAbs F11 180 (fromZ 2))).
-Time Eval native_compute in (wrem (NearAbs F11 190 (fromZ 2))).
-Time Eval native_compute in (wrem (NearAbs F11 200 (fromZ 2))).
+(** compare timings with coqapprox, with eps=2 *)
+Time Eval native_compute in (wrem (NearAbs F11  10 2)).
+Time Eval native_compute in (wrem (NearAbs F11  10 2)).
+Time Eval native_compute in (wrem (NearAbs F11  20 2)).
+Time Eval native_compute in (wrem (NearAbs F11  30 2)).
+Time Eval native_compute in (wrem (NearAbs F11  40 2)).
+Time Eval native_compute in (wrem (NearAbs F11  50 2)).
+Time Eval native_compute in (wrem (NearAbs F11  60 2)).
+Time Eval native_compute in (wrem (NearAbs F11  70 2)).
+Time Eval native_compute in (wrem (NearAbs F11  80 2)).
+Time Eval native_compute in (wrem (NearAbs F11  90 2)).
+Time Eval native_compute in (wrem (NearAbs F11 100 2)).
+Time Eval native_compute in (wrem (NearAbs F11 110 2)).
+Time Eval native_compute in (wrem (NearAbs F11 120 2)).
+Time Eval native_compute in (wrem (NearAbs F11 130 2)).
+Time Eval native_compute in (wrem (NearAbs F11 140 2)).
+Time Eval native_compute in (wrem (NearAbs F11 150 2)).
+Time Eval native_compute in (wrem (NearAbs F11 160 2)).
+Time Eval native_compute in (wrem (NearAbs F11 170 2)).
+Time Eval native_compute in (wrem (NearAbs F11 180 2)).
+Time Eval native_compute in (wrem (NearAbs F11 190 2)).
+Time Eval native_compute in (wrem (NearAbs F11 200 2)).
 
 (* TOCHECK: coqapprox no longer fails! *)
 Fact coqapprox_no_longer_fails (x : R) : 0 <= x <= 1 -> R_sqrt.sqrt (1/100 + x^2) <= 200.
@@ -179,62 +178,62 @@ Proof.
 Abort.
 *)
 
-Definition NearAbsRem01 (deg : Z) (eps: II) :=
+Definition NearAbsRem01 (deg : Z) (eps: Q) :=
   LET Rem01 ::= @NearAbs F01 deg eps IN
   ret (width (mrange (Rem01 - mid))).
 
-Time Eval vm_compute in (NearAbsRem01  4 (1/fromZ 100)).
-Time Eval vm_compute in (NearAbsRem01  5 (1/fromZ 100)).
-Time Eval vm_compute in (NearAbsRem01  6 (1/fromZ 100)).
-Time Eval vm_compute in (NearAbsRem01  7 (1/fromZ 100)).
-Time Eval vm_compute in (NearAbsRem01  8 (1/fromZ 100)).
-Time Eval vm_compute in (NearAbsRem01  9 (1/fromZ 100)).
-Time Eval vm_compute in (NearAbsRem01 10 (1/fromZ 100)).
-Time Eval vm_compute in (NearAbsRem01 11 (1/fromZ 100)).
-Time Eval vm_compute in (NearAbsRem01 12 (1/fromZ 100)).
-Time Eval vm_compute in (NearAbsRem01 13 (1/fromZ 100)).
-Time Eval vm_compute in (NearAbsRem01 14 (1/fromZ 100)).
-Time Eval vm_compute in (NearAbsRem01 15 (1/fromZ 100)).
-Time Eval vm_compute in (NearAbsRem01 16 (1/fromZ 100)).
-Time Eval vm_compute in (NearAbsRem01 17 (1/fromZ 100)).
-Time Eval vm_compute in (NearAbsRem01 18 (1/fromZ 100)).
-Time Eval vm_compute in (NearAbsRem01 19 (1/fromZ 100)).
-Time Eval vm_compute in (NearAbsRem01 20 (1/fromZ 100)).
+Time Eval vm_compute in (NearAbsRem01  4 0.01).
+Time Eval vm_compute in (NearAbsRem01  5 0.01).
+Time Eval vm_compute in (NearAbsRem01  6 0.01).
+Time Eval vm_compute in (NearAbsRem01  7 0.01).
+Time Eval vm_compute in (NearAbsRem01  8 0.01).
+Time Eval vm_compute in (NearAbsRem01  9 0.01).
+Time Eval vm_compute in (NearAbsRem01 10 0.01).
+Time Eval vm_compute in (NearAbsRem01 11 0.01).
+Time Eval vm_compute in (NearAbsRem01 12 0.01).
+Time Eval vm_compute in (NearAbsRem01 13 0.01).
+Time Eval vm_compute in (NearAbsRem01 14 0.01).
+Time Eval vm_compute in (NearAbsRem01 15 0.01).
+Time Eval vm_compute in (NearAbsRem01 16 0.01).
+Time Eval vm_compute in (NearAbsRem01 17 0.01).
+Time Eval vm_compute in (NearAbsRem01 18 0.01).
+Time Eval vm_compute in (NearAbsRem01 19 0.01).
+Time Eval vm_compute in (NearAbsRem01 20 0.01).
 
-Time Eval vm_compute in (NearAbsRem01  8 (1/fromZ 1000)).
-Time Eval vm_compute in (NearAbsRem01  9 (1/fromZ 1000)).
-Time Eval vm_compute in (NearAbsRem01 10 (1/fromZ 1000)).
-Time Eval vm_compute in (NearAbsRem01 11 (1/fromZ 1000)).
-Time Eval vm_compute in (NearAbsRem01 12 (1/fromZ 1000)).
-Time Eval vm_compute in (NearAbsRem01 13 (1/fromZ 1000)).
-Time Eval vm_compute in (NearAbsRem01 14 (1/fromZ 1000)).
-Time Eval vm_compute in (NearAbsRem01 15 (1/fromZ 1000)).
-Time Eval vm_compute in (NearAbsRem01 16 (1/fromZ 1000)).
-Time Eval vm_compute in (NearAbsRem01 18 (1/fromZ 1000)).
-Time Eval vm_compute in (NearAbsRem01 20 (1/fromZ 1000)).
-Time Eval vm_compute in (NearAbsRem01 22 (1/fromZ 1000)).
-Time Eval vm_compute in (NearAbsRem01 24 (1/fromZ 1000)).
-Time Eval vm_compute in (NearAbsRem01 26 (1/fromZ 1000)).
-Time Eval vm_compute in (NearAbsRem01 28 (1/fromZ 1000)).
-Time Eval vm_compute in (NearAbsRem01 30 (1/fromZ 1000)).
+Time Eval vm_compute in (NearAbsRem01  8 0.001).
+Time Eval vm_compute in (NearAbsRem01  9 0.001).
+Time Eval vm_compute in (NearAbsRem01 10 0.001).
+Time Eval vm_compute in (NearAbsRem01 11 0.001).
+Time Eval vm_compute in (NearAbsRem01 12 0.001).
+Time Eval vm_compute in (NearAbsRem01 13 0.001).
+Time Eval vm_compute in (NearAbsRem01 14 0.001).
+Time Eval vm_compute in (NearAbsRem01 15 0.001).
+Time Eval vm_compute in (NearAbsRem01 16 0.001).
+Time Eval vm_compute in (NearAbsRem01 18 0.001).
+Time Eval vm_compute in (NearAbsRem01 20 0.001).
+Time Eval vm_compute in (NearAbsRem01 22 0.001).
+Time Eval vm_compute in (NearAbsRem01 24 0.001).
+Time Eval vm_compute in (NearAbsRem01 26 0.001).
+Time Eval vm_compute in (NearAbsRem01 28 0.001).
+Time Eval vm_compute in (NearAbsRem01 30 0.001).
 
-Time Eval vm_compute in (NearAbsRem01 14 (1/fromZ 10000)).
-Time Eval vm_compute in (NearAbsRem01 15 (1/fromZ 10000)).
-Time Eval vm_compute in (NearAbsRem01 16 (1/fromZ 10000)).
-Time Eval vm_compute in (NearAbsRem01 17 (1/fromZ 10000)).
-Time Eval vm_compute in (NearAbsRem01 18 (1/fromZ 10000)).
-Time Eval vm_compute in (NearAbsRem01 19 (1/fromZ 10000)).
-Time Eval vm_compute in (NearAbsRem01 20 (1/fromZ 10000)).
-Time Eval vm_compute in (NearAbsRem01 21 (1/fromZ 10000)).
-Time Eval vm_compute in (NearAbsRem01 22 (1/fromZ 10000)).
-Time Eval vm_compute in (NearAbsRem01 23 (1/fromZ 10000)).
-Time Eval vm_compute in (NearAbsRem01 24 (1/fromZ 10000)).
-Time Eval vm_compute in (NearAbsRem01 25 (1/fromZ 10000)).
-Time Eval vm_compute in (NearAbsRem01 26 (1/fromZ 10000)).
-Time Eval vm_compute in (NearAbsRem01 27 (1/fromZ 10000)).
-Time Eval vm_compute in (NearAbsRem01 28 (1/fromZ 10000)).
-Time Eval vm_compute in (NearAbsRem01 30 (1/fromZ 10000)).
-Time Eval vm_compute in (NearAbsRem01 32 (1/fromZ 10000)).
+Time Eval vm_compute in (NearAbsRem01 14 0.0001).
+Time Eval vm_compute in (NearAbsRem01 15 0.0001).
+Time Eval vm_compute in (NearAbsRem01 16 0.0001).
+Time Eval vm_compute in (NearAbsRem01 17 0.0001).
+Time Eval vm_compute in (NearAbsRem01 18 0.0001).
+Time Eval vm_compute in (NearAbsRem01 19 0.0001).
+Time Eval vm_compute in (NearAbsRem01 20 0.0001).
+Time Eval vm_compute in (NearAbsRem01 21 0.0001).
+Time Eval vm_compute in (NearAbsRem01 22 0.0001).
+Time Eval vm_compute in (NearAbsRem01 23 0.0001).
+Time Eval vm_compute in (NearAbsRem01 24 0.0001).
+Time Eval vm_compute in (NearAbsRem01 25 0.0001).
+Time Eval vm_compute in (NearAbsRem01 26 0.0001).
+Time Eval vm_compute in (NearAbsRem01 27 0.0001).
+Time Eval vm_compute in (NearAbsRem01 28 0.0001).
+Time Eval vm_compute in (NearAbsRem01 30 0.0001).#
+Time Eval vm_compute in (NearAbsRem01 32 0.0001).
 
 Fact coqapprox_compare (x : R) : 0 <= x <= 1 -> R_sqrt.sqrt (1/100 + x^2) - x <= 1/10*(101/100).
 Proof.
@@ -244,7 +243,7 @@ Qed.
 
 
 
-Definition NearAbsRem' (deg: Z) (eps: II) :=
+Definition NearAbsRem' (deg: Z) (eps: Q) :=
   (
   LET f11 ::= NearAbs F11 deg eps IN
   let fl := f11 + mid in
@@ -259,9 +258,9 @@ Definition NearAbsRem' (deg: Z) (eps: II) :=
   ).
 
 (* TOCHECK: we get errors... *)
-Eval vm_compute in (NearAbsRem' 40 (1/fromZ 100)  ). (* [.1002] *)
-Eval vm_compute in (NearAbsRem' 40 (1/fromZ 1000) ). (* [.0317] *)
-Eval vm_compute in (NearAbsRem' 10 (1/fromZ 10000)). (* nan *)
-Eval vm_compute in (NearAbsRem' 15 (1/fromZ 10000)). (* [.0123] *)
-Eval vm_compute in (NearAbsRem' 20 (1/fromZ 10000)). (* [.0107] *)
-Eval vm_compute in (NearAbsRem' 40 (1/fromZ 10000)). (* [.0100] *)
+Eval vm_compute in (NearAbsRem' 40 0.01  ). (* [.1002] *)
+Eval vm_compute in (NearAbsRem' 40 0.001 ). (* [.0317] *)
+Eval vm_compute in (NearAbsRem' 10 0.0001). (* nan *)
+Eval vm_compute in (NearAbsRem' 15 0.0001). (* [.0123] *)
+Eval vm_compute in (NearAbsRem' 20 0.0001). (* [.0107] *)
+Eval vm_compute in (NearAbsRem' 40 0.0001). (* [.0100] *)

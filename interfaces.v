@@ -259,28 +259,36 @@ Global Hint Constructors ocontains: rel.
 
 (** ** Models: abstraction for functions on real numbers *)
 
+(** operations on models *)
 Class ModelOps {N: NBH} := {
   (** pointwise operations *)
   MM: Ops0;
   (** operations specific to functions *)
   mid: MM;                 
   mcst: II -> MM;
+  (** evaluation may raise errors, when the argument does not belong to the considered domain *)
   meval: MM -> II -> E II;
   (** integration; missing bounds are assumed to be those of the domain *)
   mintegrate: MM -> option II -> option II -> E II;
+  (** division and square root: we use an certification a posteriori, the first argument is supposed to be the interpolation degree for the oracles 
+      may raise errors, in case the oracles do not provide appropriate approximations
+   *)
   mdiv: Z -> MM -> MM -> E MM;
   msqrt: Z -> MM -> E MM;
   (** [truncate] acts as the identity *)
   mtruncate: nat -> MM -> MM;
+  (** [mrange] returns an approximation of the range of the model on the considered domain *)
   mrange: MM -> II;
-  (** nullability/positivity test *)
+  (** nullability/positivity test, first argument is supposed to be the interpolation degree for computing the inverse of the model in order get a well-conditionned problem 
+      positivity test may raise an error, in case the given model is not declared as continuous
+   *)
   mne0: Z -> MM -> bool;
   mgt0: Z -> MM -> E bool;
 }.
 Coercion MM: ModelOps >-> Ops0.
 
+(** specification of the above operations, on the domain [lo;hi] *)
 Class Model {N: NBH} (MO: ModelOps) (lo hi: R) := {
-  (* specification *)
   mcontains: Rel0 MM (f_Ops0 R ROps0);
   rmid: mcontains mid id;
   rmcst: forall C c, contains C c -> mcontains (mcst C) (fun _ => c);
