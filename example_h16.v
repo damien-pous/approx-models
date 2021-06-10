@@ -74,7 +74,6 @@ End s.
 Arguments calcul: clear implicits.
 
 (* TOCHECK *)
-
 Time Eval vm_compute in     calcul       _       5  10  13.
 
 (* first one is always slow: native_compute must initialise *)

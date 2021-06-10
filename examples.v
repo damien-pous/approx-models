@@ -1,7 +1,7 @@
 (** * Examples on how to use the tactics *)
 
 Require Import Reals Floats.
-Require Import syntax tactic.
+Require Import syntax tactic errors intervals.
 Require taylor chebyshev approx.
 
 

@@ -119,9 +119,8 @@ Section n.
  (** square root: g' and k' are given by an oracle 
     g' ~ sqrt f'
     k' ~ 1 / 2g' *)
- Definition msqrt_aux (f' h' w': Tube) (x0' : II): E Tube :=
-   (* TODO: move to a plain meval with monadic style *)
-   if ~~ Dom x0' then err "msqrt: given point out of the domain" else
+ Definition msqrt_aux (f' h' w': Tube): E Tube :=
+   let x0' := lo in
    let y0' := meval_unsafe w' x0' in
    if ~~ is_lt 0 y0' then err "msqrt: potentially negative value" else
    let k1' := 1 - (mscal (fromZ 2) (w' * h')) in
@@ -156,8 +155,7 @@ Section n.
    let h := interpolate n (fun x: FF => sqrt (beval p x)) in
    msqrt_aux M
              (mfc h)
-             (mfc (interpolate n (fun x: FF => 1 / (fromZ 2 * beval h x))))
-             lo.
+             (mfc (interpolate n (fun x: FF => 1 / (fromZ 2 * beval h x)))).
 
  (** testing nullability *)
  Definition mne0 n (M: Tube): bool :=
@@ -526,16 +524,14 @@ Section n.
 
  (** *** square root *)
  
- Lemma rmsqrt_aux (f' h' w': Tube) (x0' : II) (f h w : R -> R) x0:
+ Lemma rmsqrt_aux (f' h' w': Tube) (f h w : R -> R):
    mcontains f' f -> mcontains h' h -> mcontains w' w ->
-   contains x0' x0 -> 
    (forall x, dom x -> continuity_pt w x) ->
-   EP' mcontains (msqrt_aux f' h' w' x0') (fun x => R_sqrt.sqrt (f x)).
+   EP' mcontains (msqrt_aux f' h' w') (fun x => R_sqrt.sqrt (f x)).
  Proof.
-   move => Hf Hh Hw X0 Hwcont. rewrite /msqrt_aux.
-   case DomE=>[Vx0|//=]. specialize (Vx0 _ X0).
-   case is_ltE => [Hwx0|]=>[|//=]. 
-   specialize (Hwx0 _ _ (rzer _) (rmeval_unsafe Hw X0 Vx0)).
+   move => Hf Hh Hw Hwcont. rewrite /msqrt_aux.
+   case is_ltE => [Hwlo|]=>[|//=]. 
+   specialize (Hwlo _ _ (rzer _) (rmeval_unsafe Hw rlo domlo)).
    simpl negb.
    case magE => [Mu0 mu0 MU0 Hmu0|]=>[|//=]. 
    case magE => [Mu1 mu1 MU1 Hmu1|]=>[|//=].
@@ -555,14 +551,16 @@ Section n.
      (unshelve eapply (sqrt.newton (w:=w) _ _ _ _ _ _ _ _ _ _ _)) =>//.
      + move => t Ht; rewrite Rmult_assoc. by apply Hmu0'.
      + move => t Ht /=; rewrite Rmult_1_r. by apply Hb'.
-     + split=>//. rewrite <-(Hmu0' _ Vx0). apply Rabs_pos. 
-     + apply Rlt_le_trans with (Rabs (w x0)); eauto. clear -Hwx0. split_Rabs; simpl in *; lra.
-     + rewrite <- (Hb' _ Vx0). apply Rabs_pos.
+     + split=>//. rewrite <-(Hmu0' _ domlo). apply Rabs_pos. 
+     + apply Rlt_le_trans with (Rabs (w lo)); eauto.
+       clear -Hwlo. split_Rabs; simpl in *; lra.
+       apply Hmu1', domlo. 
+     + rewrite <- (Hb' _ domlo). apply Rabs_pos.
      + apply Rlt_le, Hmu0b; rel.
      + apply Hmu; rel.
      + unfold dom. clear. intros; simpl in *; lra. 
-     + exists x0; auto.      
-   constructor. split.
+     + exists lo. split. apply domlo. apply Hwlo. 
+   constructor. split. 
    - elim:(proj1 Hf)=>[Cf|]; constructor=>x Dx.
      apply (continuity_pt_comp f). apply Cf, Dx. 
      apply continuity_pt_sqrt. by apply L. 
@@ -577,8 +575,7 @@ Section n.
  Lemma rmsqrt n M f: 
    mcontains M f -> EP' mcontains (msqrt n M) (f_unr R_sqrt.sqrt f).
  Proof.
-   move => Mf. eapply rmsqrt_aux with _ _ lo => //; try apply rmfc. 
-   apply rlo. 
+   move => Mf. eapply rmsqrt_aux=> //; try apply rmfc. 
    move => ??. apply eval_cont.
  Qed.
 
