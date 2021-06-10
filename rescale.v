@@ -84,17 +84,16 @@ Section s.
    BR := rescale_ops_on BR a c;
  |}.
  Next Obligation. by move=>p x/=; rewrite evalE r_eval /g. Qed. 
- Next Obligation.
-   move=> p x.
-   eapply continuity_pt_ext. intro. rewrite r_eval. reflexivity.
-   apply (continuity_pt_comp g (eval TT p)).
+ Next Obligation. 
+   move=> n x.
+   apply (continuity_pt_comp g (TT n)).
    apply continuity_pt_plus.
    by apply continuity_pt_const.
    apply continuity_pt_mult. 
    apply continuity_pt_minus. apply continuity_pt_id.
    by apply continuity_pt_const.
    by apply continuity_pt_const.
-   apply eval_cont.
+   apply basis_cont.
  Qed.
  Next Obligation. intros. rewrite 3!r_eval. apply eval_mul. Qed.
  Next Obligation. intros. rewrite r_eval. apply eval_one. Qed.
@@ -114,23 +113,13 @@ Section s.
    apply Rmult_le_compat; lra.
  Qed.
  Next Obligation.
-   intros p i j.
-   set (v := lo - a * hiloca: R).
-   eapply is_RInt_ext; last first.
-   apply: is_RInt_scal. apply: (is_RInt_comp_lin _ hiloca v).
-   eapply is_RInt_ext'; last apply integrateE';
-     rewrite /g/v/=; field; lra.
-   intros=>/=. rewrite r_eval /scal/=/mult/v/=.
-   field_simplify. 2: lra. f_equal. rewrite /g/=. field; lra.  
- Qed.
- Next Obligation.
    intros p i j. 
    set (v := lo - a * hiloca: R).
    rewrite /= integrateE /=.
    symmetry. erewrite RInt_ext; last first. intros.
    rewrite r_eval /g.
    replace (_+_) with (hiloca*x + v). 2: rewrite/v/=; ring. reflexivity.
-   rewrite RInt_lin. 3: eexists; apply integrateE'.
+   rewrite RInt_lin. 3: eexists; apply integrateE'. (* only place where we need integrateE' *)
    set (e:=RInt _ _ _). replace (RInt _ _ _) with e. rewrite /=. field; lra.
    unfold e. f_equal; rewrite /g/v/=; field; lra.
    apply Rmult_integral_contrapositive; (split; last apply Rinv_neq_0_compat);

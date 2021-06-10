@@ -147,12 +147,13 @@ Section e.
  Lemma eval_cont_basis P x: continuity_pt (eval P) x.
  Proof. apply eval_cont_. Qed.
 
- Lemma eval_ex_RInt P a b: ex_RInt (eval P) a b.
- Proof.
-   apply ex_RInt_Reals_1; case (Rle_dec a b) => Hab; [ | apply RiemannInt.RiemannInt_P1];
-   apply RiemannInt.continuity_implies_RiemannInt; try lra;
-     now intros t _; apply eval_cont_basis.
- Qed.
+ Hypothesis D: forall n x, ex_derive (M n) x.
+ Lemma eval_ex_derive_basis_ n P x: ex_derive (eval_ n P) x.
+ Proof. elim: P n => [ | a P IHP] n /=; now auto_derive. Qed.
+
+ Lemma eval_ex_derive_basis P x : ex_derive (eval P) x.
+ Proof. apply eval_ex_derive_basis_. Qed.
+
 End e.
 
 
@@ -237,14 +238,13 @@ Class Basis {N: NBH} (B: BasisOps) := {
   
   (** properties of BR *)
   evalE: forall p x, beval p x = eval TT p x;
-  eval_cont: forall p x, continuity_pt (eval TT p) x;
+  basis_cont: forall n x, continuity_pt (TT n) x; (* would make sense to require this only on the domain *)
   eval_mul: forall p q x, eval TT (bmul p q) x = eval TT p x * eval TT q x;
   eval_one: forall x, eval TT bone x = 1;
   eval_id: forall x, eval TT bid x = x;
   eval_range: match brange with
                | Some range => (forall p x, dom x -> (range p).1 <= eval TT p x <= (range p).2)
                | None => True end;
-  integrateE': forall p a b, is_RInt (eval TT p) a b (bintegrate p a b);
   integrateE: forall p a b, bintegrate p a b = RInt (eval TT p) a b;
   
   (** link between BI and BR *)
@@ -273,16 +273,32 @@ Class Basis {N: NBH} (B: BasisOps) := {
 Global Hint Resolve rbmul rbone rbid rbintegrate rbeval rlo rhi: rel.
 
 
-Lemma domlo `{Basis}: dom lo.
+Section s.
+Context `{Basis}.
+
+Lemma domlo: dom lo.
 Proof. generalize lohi. split; lra. Qed.
 
-Lemma domhi `{Basis}: dom hi.
+Lemma domhi: dom hi.
 Proof. generalize lohi. split; lra. Qed.
 
-Lemma DomE `{Basis} X: wreflect (forall x, contains X x -> dom x) (Dom X).
+Lemma DomE X: wreflect (forall x, contains X x -> dom x) (Dom X).
 Proof.
   rewrite /Dom.
   case is_leE=>[Lo|]. 2: constructor. 
   case is_leE=>[Hi|]; constructor=> x Xx.
   split; [apply Lo|apply Hi]=>//. apply rlo. apply rhi.
 Qed.
+
+Lemma eval_cont p x: continuity_pt (eval TT p) x.
+Proof. apply eval_cont_basis. apply basis_cont. Qed.
+
+Lemma integrateE' p a b: is_RInt (eval TT p) a b (bintegrate p a b).
+Proof.
+  rewrite integrateE; apply (RInt_correct (eval TT p)).
+  apply ex_RInt_Reals_1; case (Rle_dec a b) => Hab; [ | apply RiemannInt.RiemannInt_P1];
+  apply RiemannInt.continuity_implies_RiemannInt; try lra;
+     now intros t _; apply eval_cont.
+Qed.
+
+End s.

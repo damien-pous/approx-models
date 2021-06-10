@@ -163,36 +163,12 @@ Qed.
 Notation eval_ := (eval_ T).
 Notation eval := (eval T).
 
-(** properties of evaluation: continuity, integrability, and derivability *)
-Lemma eval_cont_ P x: forall n, continuity_pt (eval_ n P) x.
-Proof.
-  induction P as [|a Q IH]; intros n; simpl. 
-  + by apply continuity_pt_const. 
-  + apply continuity_pt_plus; trivial.
-    apply continuity_pt_mult.
-      by apply continuity_pt_const.
-      by apply T_cont.
-Qed.
-
-Lemma eval_cont P x: continuity_pt (eval P) x.
-Proof. apply eval_cont_. Qed.
-
-Lemma eval_ex_RInt P a b: ex_RInt (eval P) a b.
-Proof.
-  apply ex_RInt_Reals_1; case (Rle_dec a b); intro Hab; [ | apply RiemannInt.RiemannInt_P1];
-  apply RiemannInt.continuity_implies_RiemannInt; try lra;
-    now intros t _; apply eval_cont.
-Qed.
+(** derivability of evaluation *)
 
 Lemma eval_ex_derive_ n P x: ex_derive (eval_ n P) x.
-Proof.
-  elim: P n => [ | a P IHP] n /=.
-  + apply ex_derive_const.
-  + auto_derive; repeat split; trivial. apply T_ex_derive.
-Qed.
-
-Lemma eval_ex_derive P x : ex_derive (eval P) x.
-Proof. apply eval_ex_derive_. Qed.
+Proof. apply eval_ex_derive_basis_, T_ex_derive. Qed. 
+Lemma eval_ex_derive P x: ex_derive (eval P) x.
+Proof. apply eval_ex_derive_. Qed. 
 
 
 (** ** Operations on polynomials
@@ -382,14 +358,11 @@ Proof.
   rewrite RInt_Derive. by [].
 * intros t _; apply eval_ex_derive.
 * intros t _; apply continuous_ext with (f:= eval p); first by intro; rewrite eval_prim_Derive.
-  apply continuity_pt_filterlim; apply eval_cont.
+  apply continuity_pt_filterlim; apply eval_cont_basis, T_cont.
 Qed.
 
 Lemma integrateE p a b : integrate p a b = RInt (eval p) a b.
 Proof. rewrite /integrate 2!evalR. apply eval_prim. Qed.
-
-Lemma integrateE' p a b : is_RInt (eval p) a b (integrate p a b).
-Proof. rewrite integrateE; apply (RInt_correct (eval p)). apply eval_ex_RInt. Qed.
 
 Lemma lohi: lo < hi.
 Proof. cbv; lra. Qed.
@@ -580,11 +553,10 @@ Program Definition basis11 {N: NBH}: Basis basis11_ops := {|
   BR := basis11_ops_on _;
   vectorspace.lohi := lohi;
   vectorspace.evalE := evalR;
-  vectorspace.eval_cont := eval_cont;
+  vectorspace.basis_cont := T_cont;
   vectorspace.eval_mul := eval_mul;
   vectorspace.eval_one := eval_one;
   vectorspace.eval_id := eval_id;
-  vectorspace.integrateE' := integrateE';
   vectorspace.integrateE := integrateE;
   vectorspace.eval_range := eval_range;
   vectorspace.rlo := rfromZ _ (-1);

@@ -24,8 +24,6 @@ Proof.
   now intros eps Heps; exists eps; split; first apply Heps; intros t.
   apply IHn.
 Qed.
-Definition eval_cont := eval_cont_basis M_cont.
-Definition eval_ex_RInt := eval_ex_RInt M_cont.
 
 
 Lemma M_ex_derive n x : ex_derive (M n) x.
@@ -37,16 +35,10 @@ Proof.
   rewrite Derive_id /=; ring.
 Qed.
 
-Lemma eval_ex_derive_ P n x : ex_derive (eval_ n P) x.
-Proof.
-  elim: P n => [ | a P IHP] n /=.
-+ apply ex_derive_const.
-+ apply ex_derive_plus with (g:=eval_ n.+1 P); last apply IHP.
-  apply ex_derive_mult; [apply ex_derive_const | apply M_ex_derive].
-Qed.
-
-Lemma eval_ex_derive P x : ex_derive (eval P) x.
-Proof. apply eval_ex_derive_. Qed.
+Lemma eval_ex_derive_ n P x: ex_derive (eval_ n P) x.
+Proof. apply eval_ex_derive_basis_, M_ex_derive. Qed. 
+Lemma eval_ex_derive P x: ex_derive (eval P) x.
+Proof. apply eval_ex_derive_. Qed. 
 
 
 (** ** definition of the operations *)
@@ -173,14 +165,11 @@ Proof.
   rewrite RInt_Derive. by []. 
 * move => t _; apply eval_ex_derive.
 * move => t _; apply continuous_ext with (f:= eval p); first by move => u; rewrite eval_prim_Derive.
-  apply continuity_pt_filterlim; apply eval_cont.
+  apply continuity_pt_filterlim; apply eval_cont_basis, M_cont.
 Qed.
 
 Lemma integrateE p a b : integrate p a b = RInt (eval p) a b.
 Proof. rewrite /integrate 2!evalR. apply eval_prim. Qed.
-
-Lemma integrateE' p a b : is_RInt (eval p) a b (integrate p a b).
-Proof. rewrite integrateE; apply (RInt_correct (eval p)). apply eval_ex_RInt. Qed.
 
 (** ** parametricity of the operations  *)
 
@@ -247,11 +236,10 @@ Program Definition basis {N: NBH} (D: Domain):
   BR := basis_ops_on dlo dhi;
   vectorspace.lohi := dlohi;
   vectorspace.evalE := evalR;
-  vectorspace.eval_cont := eval_cont;
+  vectorspace.basis_cont := M_cont;
   vectorspace.eval_mul := eval_mul;
   vectorspace.eval_one := eval_one;
   vectorspace.eval_id := eval_id;
-  vectorspace.integrateE' := integrateE';
   vectorspace.integrateE := integrateE;
   vectorspace.eval_range := I;
   vectorspace.rlo := rdlo;
