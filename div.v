@@ -3,7 +3,6 @@
 Require Import ZArith Reals Psatz.
 Require Import ssreflect.
 Require Import Coquelicot.Coquelicot.
-Require Import posreal_complements cball domfct banach.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -13,8 +12,6 @@ Section TubeDiv.
 
 (** D is the domain of the considered functions *)
 Variable (D : R -> Prop).
-(** real valued functions with domain D form a complete space *)
-Notation "{R,I -> R}" := (@domfct_CompleteSpace R_CompleteSpace R_CompleteSpace I).
 
 
 (** this is purely a lemma about real numbers and functions, no intervals or models involved *)
