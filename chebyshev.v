@@ -402,7 +402,7 @@ Section s.
  Proof. intros ?? H; induction H; intros ?? [|???]; simpl; rel. Qed.
  Lemma rmul_plus: forall x y, pT x y -> forall x' y', pT x' y' -> pT (mul_plus x x') (mul_plus y y').
  Proof. intros ?? H; induction H; intros ?? [|???]; simpl; rel. Qed.
- Local Hint Resolve rmul_minus rmul_plus: rel.
+ Hint Resolve rmul_minus rmul_plus: rel.
  Lemma rpmul: forall x y, pT x y -> forall x' y', pT x' y' -> pT (pmul x x') (pmul y y').
  Proof. simpl. unfold pmul. rel. Qed.
  Lemma rpone: pT pone pone.
