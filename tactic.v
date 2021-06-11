@@ -40,7 +40,7 @@ Tactic Notation "gen_check" uconstr(check) constr(d) :=
   intro X; vm_compute in X;
   lazymatch eval hnf in X with
   | err ?s => fail 100 s
-  | ret true => reflexivity
+  | ret true => vm_cast_no_check (eq_refl true)
   | ret false => fail 100 "could not validate this, try increase degree"
   end ]
   end.

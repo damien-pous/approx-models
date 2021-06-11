@@ -49,7 +49,7 @@ For more details, see the corresponding [article](https://hal.laas.fr/hal-020885
 * Examples and benchmarks
   + `examples.v` : basic examples on how to use the library
   + `tests.v` : tests for the library
-  + `example_abs.v` : tests for approximating the function [abs] on [-1;1], as discussed in the the ITP19 paper
+  + `example_abs.v` : tests for approximating the function [abs], as discussed in the the ITP19 paper
   + `example_h16.v` : computation of Abelian integrals related to Hilbert 16th problem
 
 **Axioms**

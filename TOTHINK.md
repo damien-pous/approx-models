@@ -1,8 +1,5 @@
 ## TODO list
 
-for the first release:
-- proofread/document example_abs/h16.v 
-
 for the next release:
 - more examples / more doc in examples.v
 - choice of interval implementation when calling the tactic (by types and canonical structures ?)
@@ -11,8 +8,6 @@ for the next release:
 - side-conditions left to the user (mcontinuous)
 - more functions on reals from coq-interval
 - interpolation oracle for Taylor basis
-
-
 
 
 tactic parameters:
