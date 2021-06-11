@@ -56,6 +56,8 @@ Inductive term {X: sort -> Type}: sort -> Type :=
 (* let..in and variable *)
 | t_var: forall {S}, X S -> term S
 | t_let: forall {S T}, term S -> (X S -> term T) -> term T.
+Definition let' {X S T}: @term X S -> (term S -> term T) -> term T :=
+  fun a k => t_let a (fun x => k (t_var x)). 
 
 (** closed terms: they act polymorphically in X *)
 Definition Term S := forall X, @term X S.
@@ -155,16 +157,17 @@ Ltac breify b :=
   lazymatch b with
   | ?e <= ?f <= ?g =>
     let e:=ereify e in let f:=ereify f in let g:=ereify g in
-    uconstr:(t_let f (fun f => b_conj (b_le e (t_var f)) (b_le (t_var f) g)))
+    uconstr:(let' f (fun x => b_conj (b_le e x) (b_le x g)))
+    (* TOREPORT: weird bug if we alpha-rename x into f above (see DAGGER below) *)
   | ?e <= ?f < ?g =>
     let e:=ereify e in let f:=ereify f in let g:=ereify g in
-    uconstr:(t_let f (fun f => b_conj (b_le e (t_var f)) (b_lt (t_var f) g)))
+    uconstr:(let' f (fun x => b_conj (b_le e x) (b_lt x g)))
   | ?e < ?f <= ?g =>
     let e:=ereify e in let f:=ereify f in let g:=ereify g in
-    uconstr:(t_let f (fun f => b_conj (b_lt e (t_var f)) (b_le (t_var f) g)))
+    uconstr:(let' f (fun x => b_conj (b_lt e x) (b_le x g)))
   | ?e < ?f <= ?g =>
     let e:=ereify e in let f:=ereify f in let g:=ereify g in
-    uconstr:(t_let f (fun f => b_conj (b_lt e (t_var f)) (b_lt (t_var f) g)))
+    uconstr:(let' f (fun x => b_conj (b_lt e x) (b_lt x g)))
   | Rle ?e ?f => let e:=ereify e in let f:=ereify f in uconstr:(b_le e f)
   | Rge ?e ?f => let e:=ereify e in let f:=ereify f in uconstr:(b_ge e f)
   | Rlt ?e ?f => let e:=ereify e in let f:=ereify f in uconstr:(b_lt e f)
@@ -216,11 +219,13 @@ Goal True.
   let e := reify_real constr:(RInt (@sqrt _) R0 R1) in pose e.
   let e := reify_real constr:(RInt (@sqrt _ + @sqrt _) R0 R1) in pose e.
   let e := reify_real constr:(RInt (fun z => R0+z+cos (1/fromZ 2)) R0 R1) in pose e.
+  let b := reify_prop constr:(1/2 <= 3 <= 1/2) in pose b. (* DAGGER: double check *)
   let b := reify_prop constr:(4 <= 5 <= 6) in pose b.
-  let b := reify_prop constr:(4 < 5 /\ RInt id 3.3 4.4 <= 18.9) in pose b.
+  let b := reify_prop constr:(4 < 5 /\ 3 <= RInt id 3.3 4.4 <= 18.9) in pose b.
   let b := reify_prop constr:(4 >= 5) in pose b. 
-  let b := reify_prop constr:(forall x, 4 <= x <= 5 -> x*x < sqrt x) in pose b. 
-Abort.
+  let b := reify_prop constr:(forall x, 4 <= x <= 5 -> x*x < sqrt x) in pose b.
+  exact I. 
+Qed.
  *)
 (* reifying under lambdas?
 Ltac r e := match eval hnf in e with forall x: R, @?P x => r (P (VAR)) | ?x = ?y => idtac x y | _ => idtac e end.
@@ -653,8 +658,6 @@ Infix ">" := b_gt': bxpr_scope.
 Infix "/\" := b_conj': bxpr_scope. 
 Infix "\/" := b_disj': bxpr_scope.
 
-Definition let' {X S T}: @term X S -> (term S -> term T) -> term T :=
-  fun a k => t_let a (fun x => k (t_var x)). 
 Notation "'let_ee' x := e 'in' g" := (let' (e%expr: expr _) (fun (x: expr _) => (g%expr: expr _))) (at level 200, x binder, right associativity): expr_scope.
 Notation "'let_ef' x := e 'in' g" := (let' (e%expr: expr _) (fun (x: expr _) => (g%fxpr: fxpr _))) (at level 200, x binder, right associativity): fxpr_scope.
 Notation "'let_eb' x := e 'in' g" := (let' (e%expr: expr _) (fun (x: expr _) => (g%bxpr: bxpr _))) (at level 200, x binder, right associativity): bxpr_scope.
