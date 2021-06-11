@@ -1,6 +1,7 @@
-(** Example 1: rigorous approximations of the absolute value function *)
+(** Example 1: on approximations of the absolute value function *)
 
 Require Import Reals.
+Require Import Coquelicot.Coquelicot.
 Open Scope R_scope.
 
 Set Implicit Arguments.
@@ -9,7 +10,9 @@ Unset Printing Implicit Defensive.
 
 
 (** the following function approximates the absolute value function on reals:
-    the smaller [eps], the closer [g eps] from [abs] *)
+    the smaller [eps], the closer [g eps] from [abs] 
+    below ve verify some properties of this function
+ *)
 Definition g eps x := sqrt (eps*eps + x*x).
 
 
@@ -26,7 +29,7 @@ Proof.
   Fail interval with (i_taylor x, i_degree 50).
   (* Fail interval with (i_taylor x, i_degree 100). *)
 
-  (** works easily with subdivision (which is not what we are trying to use here) *)
+  (** works easily with subdivision *)
   interval with (i_bisect x).
 Qed.
 
@@ -44,19 +47,43 @@ Proof.
   interval with (i_bisect x).
 Qed.
 
+(** we also need subdivision to approximate related integrals: 
+    Taylor models, even with a high degree, are not precise enough *)
+Goal let eps := 1/10 in 1/2+eps/10 <= RInt (g eps) 0 1 <= 1/2+eps+eps/10.
+  intro eps. unfold g, eps.
+  (** [i_fuel 1] means no subdivision *)
+  Fail integral with (i_fuel 1).
+  (** larger degrees for Taylor models are expensive, and to not permit to conclude  *)
+  Fail integral with (i_fuel 1, i_degree 20).
+  (* Fail integral with (i_fuel 1, i_degree 60, i_prec 300). *)
+  (** works with subdivision *)
+  integral with (i_fuel 3).     
+Qed.
+
+Goal let eps := 1/1000 in 1/2+eps/1000 <= RInt (g eps) 0 1 <= 1/2+eps+eps/10.
+  intro eps. unfold g, eps.
+  (** works with more subdivision *)
+  integral with (i_fuel 13).     
+Qed.
 
 (** * with Chebyshev models (present library) *)
 Require Import approx rescale intervals errors syntax tactic.
 Require chebyshev.
 
-Goal let eps := 0.1 in
+Goal let eps := 1/10 in
      forall x, 0 <= x <= 1 -> g eps x - x < eps+eps/10.
 Proof.
   intros eps; unfold eps, g.
   dynamic.        
 Qed.
 
-Goal let eps := 0.01 in
+(* since we construct a single Chebyshev model, integration works smoothly, without subdivision *)
+Goal let eps := 1/10 in 1/2+eps/10 <= RInt (g eps) 0 1 <= 1/2+eps+eps/10.
+  intro eps. unfold g, eps.
+  dynamic. 
+Qed.
+
+Goal let eps := 1/100 in
      forall x, 0 <= x <= 1 -> g eps x - x < eps+eps/10.
 Proof.
   intros eps; unfold eps, g.
@@ -68,8 +95,13 @@ Proof.
   dynamic 32%Z. 
 Qed.
 
+Goal let eps := 1/100 in 1/2+eps/100 <= RInt (g eps) 0 1 <= 1/2+eps+eps/10.
+  intro eps. unfold g, eps.
+  dynamic 32%Z. 
+Qed.
+
 (** for smaller values of epsilon, we need more precision for the floating points themselves *)
-Goal let eps := 0.001 in
+Goal let eps := 1/1000 in
      forall x, 0 <= x <= 1 -> g eps x - x < eps+eps/10.
 Proof.
   intros eps; unfold eps, g.
@@ -92,7 +124,7 @@ Module FBigInt128 <: FloatOpsP.
 End FBigInt128. 
 Module IBigInt128 := Make FBigInt128.
 
-Goal let eps := 0.001 in
+Goal let eps := 1/1000 in
      forall x, 0 <= x <= 1 -> g eps x - x < eps+eps/10.
 Proof.
   intros eps; unfold eps, g.
@@ -130,7 +162,7 @@ Definition NearAbs (MM: ModelOps) (deg: Z) (eps: Q): E MM :=
 
 
 
-(** below we compute rigorous approximations over [-1,1] or [0;1], and we check their remainders
+(** below we compute rigorous approximations over [-1,1] or [0;1], and we check their remainders.
     it is always much easier to get approximations on [0;1] *)
 
 (** eps = 1/10 *)
@@ -165,6 +197,9 @@ Eval native_compute in (wrem (NearAbs F01  20 0.032)). (* 9e-5 *)
 (** eps = 1/100 *)
 Eval native_compute in (wrem (NearAbs F11 100 0.01)). (* err *)
 Eval native_compute in (wrem (NearAbs F11 200 0.01)). (* 0.004 *)
+(** above: this means we could use (NearAbs F11 200 0.01) as a 
+    model for the absolute value function on [-1;1], 
+    with error around 0.004+0.01=0.014 *)
 (* easier on [0;1] *)
 Eval native_compute in (wrem (NearAbs F01  50 0.01)). (* 2e-6 *)
 Eval native_compute in (wrem (NearAbs F01 100 0.01)). (* 7e-10 *)
@@ -206,33 +241,33 @@ Goal forall x, -1 <= x <= 1 -> R_sqrt.sqrt (2 + x^2) <= 0.
 Proof.
   intros.
   (* ignore the first one with native_compute, which needs to be initialised *)
-  Time Fail interval with (i_native_compute, i_taylor x, i_degree  10, i_prec 64).
-  Time Fail interval with (i_native_compute, i_taylor x, i_degree  10, i_prec 64).
-  Time Fail interval with (i_native_compute, i_taylor x, i_degree  20, i_prec 64).
-  Time Fail interval with (i_native_compute, i_taylor x, i_degree  30, i_prec 64).
-  Time Fail interval with (i_native_compute, i_taylor x, i_degree  40, i_prec 64).
-  Time Fail interval with (i_native_compute, i_taylor x, i_degree  50, i_prec 64).
-  Time Fail interval with (i_native_compute, i_taylor x, i_degree  60, i_prec 64).
-  Time Fail interval with (i_native_compute, i_taylor x, i_degree  70, i_prec 64).
+  Time Fail interval with (i_native_compute, i_taylor x, i_degree  10).
+  Time Fail interval with (i_native_compute, i_taylor x, i_degree  10).
+  Time Fail interval with (i_native_compute, i_taylor x, i_degree  20).
+  Time Fail interval with (i_native_compute, i_taylor x, i_degree  30).
+  Time Fail interval with (i_native_compute, i_taylor x, i_degree  40).
+  Time Fail interval with (i_native_compute, i_taylor x, i_degree  50).
+  Time Fail interval with (i_native_compute, i_taylor x, i_degree  60).
+  Time Fail interval with (i_native_compute, i_taylor x, i_degree  70).
   (*
-  Time Fail interval with (i_native_compute, i_taylor x, i_degree  80, i_prec 64).
-  Time Fail interval with (i_native_compute, i_taylor x, i_degree  90, i_prec 64).
-  Time Fail interval with (i_native_compute, i_taylor x, i_degree 100, i_prec 64).
-  Time Fail interval with (i_native_compute, i_taylor x, i_degree 110, i_prec 64).
-  Time Fail interval with (i_native_compute, i_taylor x, i_degree 120, i_prec 64).
-  Time Fail interval with (i_native_compute, i_taylor x, i_degree 130, i_prec 64).
-  Time Fail interval with (i_native_compute, i_taylor x, i_degree 140, i_prec 64).
-  Time Fail interval with (i_native_compute, i_taylor x, i_degree 150, i_prec 64).
-  Time Fail interval with (i_native_compute, i_taylor x, i_degree 160, i_prec 64).
-  Time Fail interval with (i_native_compute, i_taylor x, i_degree 170, i_prec 64).
-  Time Fail interval with (i_native_compute, i_taylor x, i_degree 180, i_prec 64).
-  Time Fail interval with (i_native_compute, i_taylor x, i_degree 190, i_prec 64).
-  Time Fail interval with (i_native_compute, i_taylor x, i_degree 200, i_prec 64).
+  Time Fail interval with (i_native_compute, i_taylor x, i_degree  80).
+  Time Fail interval with (i_native_compute, i_taylor x, i_degree  90).
+  Time Fail interval with (i_native_compute, i_taylor x, i_degree 100).
+  Time Fail interval with (i_native_compute, i_taylor x, i_degree 110).
+  Time Fail interval with (i_native_compute, i_taylor x, i_degree 120).
+  Time Fail interval with (i_native_compute, i_taylor x, i_degree 130).
+  Time Fail interval with (i_native_compute, i_taylor x, i_degree 140).
+  Time Fail interval with (i_native_compute, i_taylor x, i_degree 150).
+  Time Fail interval with (i_native_compute, i_taylor x, i_degree 160).
+  Time Fail interval with (i_native_compute, i_taylor x, i_degree 170).
+  Time Fail interval with (i_native_compute, i_taylor x, i_degree 180).
+  Time Fail interval with (i_native_compute, i_taylor x, i_degree 190).
+  Time Fail interval with (i_native_compute, i_taylor x, i_degree 200).
    *)
 Abort.
 
 
-(** * computing the error between [g eps] and [abs] on [0;1], directly *)
+(** * computing the error between [NearAbs deg eps] and [abs] on [0;1], directly *)
 Definition NearAbsErr01 (deg : Z) (eps: Q) :=
   LET G ::= @NearAbs F01 deg eps IN
   ret (width (mrange (G - mid))).
@@ -252,4 +287,3 @@ Eval vm_compute in (NearAbsErr01 60 0.01). (* 0.02 *)
 Eval vm_compute in (NearAbsErr01  50 0.001).  (* err *)
 Eval vm_compute in (NearAbsErr01 100 0.001).  (* 0.002 *)
 Eval vm_compute in (NearAbsErr01 200 0.001).  (* 0.002 *)
-
