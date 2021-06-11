@@ -162,6 +162,15 @@ Proof.
   destruct IHn. by rewrite -H0 /order /= He. 
 Qed. 
 
+Lemma order_succ_succ n : order (n .+2) = (order n) .+1.
+Proof.
+  case_eq (even n) => Hn.
+  have HnS :(even n .+1 = false). by rewrite Nat.even_succ -Nat.negb_even Hn.
+  apply order_succ in Hn; apply order_succ in HnS; by rewrite -HnS Hn.
+  have HnS : even n .+1. by rewrite Nat.even_succ -Nat.negb_even Hn.
+  apply order_succ in Hn; apply order_succ in HnS; by rewrite -HnS Hn.
+Qed.
+
 Lemma order_plus1 n m : even n -> order (n+m) = (order n + order m)%nat.
 Proof. intros. rewrite /order even_plus => //.
        case_eq (even m) => Hm.
@@ -243,9 +252,14 @@ Definition SS (n:nat) x := sin (INR n * x).
 Definition F (n:nat) :=
   (if even n then CC else SS) (order n).
 
+Lemma C0 x : CC 0 x = 1.
+Proof. by rewrite /CC /= Rmult_0_l cos_0. Qed.         
 
+Lemma S0 x : SS 0 x = 0.
+Proof. by rewrite /SS /= Rmult_0_l sin_0. Qed.
+  
 Lemma F0 x : F 0 x = 1.
-Proof. by rewrite /F /CC /= Rmult_0_l cos_0. Qed.        
+Proof. by rewrite /F /= /order /= C0. Qed.        
 
 Lemma F1 x : F 1 x = sin x.
 Proof. by rewrite /F /SS /= Rmult_1_l. Qed.
@@ -309,6 +323,10 @@ Proof.
   rewrite Rmult_plus_distr_r Rmult_minus_distr_r form_prod_cos. by rewrite (cos_sym (INR n * x - INR m * x)) opp_diff Rplus_comm /=. 
 Qed.
 
+Corollary CCsqr : forall n (x: R),
+    CC n x ^ 2 = (CC (n+n) x + 1)/2.
+Proof. intros. rewrite (pow_add _ 1 1) pow_1 CCprod // Nat.sub_diag // C0 //. Qed. 
+
 Lemma SSprod : forall n m (x: R),
     (n<=m)%nat ->
     SS n x * SS m x = (CC (m-n) x - CC (m+n) x)/2.
@@ -317,6 +335,10 @@ Proof.
   rewrite /SS /CC plus_INR minus_INR => //.
   rewrite Rmult_plus_distr_r Rmult_minus_distr_r form_prod_sin. by rewrite (cos_sym (INR n * x - INR m * x)) opp_diff Rplus_comm /=. 
 Qed.
+
+Corollary SSsqr : forall n (x: R),
+    SS n x ^ 2 = (1 - CC (n+n) x)/2.
+Proof. intros. rewrite (pow_add _ 1 1) pow_1 SSprod // Nat.sub_diag // C0 //. Qed.
 
 Lemma SCprod : forall n m (x: R),
     (n<=m)%nat ->
@@ -328,6 +350,18 @@ Proof.
   replace (INR m * x - INR n * x)%R with (- (INR n * x - INR m * x)%R).
   by rewrite sin_antisym opp_opp (Rplus_comm (INR n * x)%R (INR m * x)%R). 
   ring.
+Qed.
+
+Corollary SCsqr : forall n (x:R),
+    SS n x * CC n x = (SS (n+n) x)/2.
+Proof. intros. rewrite SCprod // Nat.sub_diag // S0 /=. field. Qed.
+
+Lemma CSprod : forall n m (x:R),
+    (n<=m)%nat ->
+    CC n x * SS m x = (SS (m+n) x + SS (m-n) x)/2.
+Proof.
+  intros. rewrite /SS /CC plus_INR minus_INR => //.
+  by rewrite /= (Rmult_comm (cos (INR n * x)) (sin (INR m * x))) Rmult_plus_distr_r Rmult_minus_distr_r form_prod_sin_cos.
 Qed.
 
 Lemma FtoCC : forall k (x : R),  F (double k) x = CC k x.
@@ -518,8 +552,8 @@ Qed.
  *)
 Notation evalCC_ := (eval_ CC).
 Notation evalCC := (eval CC).
-Notation evalSS_ := (fun n => (eval_ SS (S n))). 
-Notation evalSS := (eval_ SS 0).
+Notation evalSS_ := (eval_ SS). 
+Notation evalSS := (eval_ SS 1).
 Notation eval_ := (eval_ F).
 Notation eval := (eval F).
 
@@ -564,7 +598,7 @@ Proof. apply eval_ex_derive_. Qed.
 
 Section ops.
 
-  Context {C: Ops0}.
+  Context {C: Ops1}.
 
   (** constant *)
   Definition pcst a: list C := [a].
@@ -574,154 +608,374 @@ Section ops.
 
   (***** /!\ No identity function -> someting to change in BasisOps_on *)
 
-  (** optimised cons operations, don't know now if it will be useful *)
   Definition cons0 (p: list C) := match p with [] => p | _=>0::p end.
   
   Definition cons00 (p: list C) :=
     match p with [] => p | _=>0::0::p end.
 
 
-  (** primitive 
-   /!\ No periodic primitive for a trigonometric polynom with a non-zero mean value /*\ *)
-(*  Fixpoint prim_ (n : nat) (p : list C) : list C :=
+  (** Definition of split/merge splitCC splitSS **)
+
+  Definition cons_left (x: C) (pc: list C * list C) := (x:: (fst pc) , snd pc).
+
+  Definition cons_right (x: C) (pc: list C * list C) := (fst pc , x::(snd pc)).
+
+  Fixpoint split_left (p: list C)  : (list C * list C)  :=
+    match p with
+    | [] => ([],[])
+    | c::q => cons_left c (split_right q)
+    end
+
+  with split_right (p: list C) : (list C * list C) :=
+    match p with
+    | [] => ([],[])
+    | c::q => cons_right c (split_left q)
+    end.
+            
+  Definition split_ (p:list C) := split_left p.
+  
+  Definition splitCC (p:list C) := fst (split_ p).
+  
+  Definition splitSS (p:list C) := snd (split_ p).
+    
+  Fixpoint inject_inF (p : list C) : list C :=
     match p with
     | [] => []
-    | a::q =>
-      match n mod 2 with
-        | 
-*)
+    | h::q => 0::h::(inject_inF q)
+    end.
 
-  
-   (** Definition split/merge splitCC splitSS **)
+  Fixpoint merge_left (pCC : list C) (pSS : list C) : list C :=
+    match pCC with
+    | [] => inject_inF pSS
+    | hC::qC => match pSS with
+                | []=> hC::(inject_inF qC)
+                | hS::qS => hC::hS::(merge_left qC qS)
+                end
+    end.
 
-Definition cons_left (x: C) (pc: list C * list C) := (x:: (fst pc) , snd pc).
-
-Definition cons_right (x: C) (pc: list C * list C) := (fst pc , x::(snd pc)).
-
-Fixpoint split_left (p: list C)  : (list C * list C)  :=
-  match p with
-  | [] => ([],[])
-  | c::q => cons_left c (split_right q)
-  end
-
-with split_right (p: list C) : (list C * list C) :=
-  match p with
-  | [] => ([],[])
-  | c::q => cons_right c (split_left q)
-  end.
-            
-Definition split_ (p:list C) := split_left p.
-
-Definition splitCC (p:list C) := fst (split_ p).
-
-Definition splitSS (p:list C) := snd (split_ p).
-
-
-Fixpoint inject_inF (p : list C) : list C :=
-  match p with
-  | [] => []
-  | h::q => 0::h::(inject_inF q)
-  end.
-
-Fixpoint merge_left (pCC : list C) (pSS : list C) : list C :=
-  match pCC with
-  | [] => inject_inF pSS
-  | hC::qC => match pSS with
-              | []=> hC::(inject_inF qC)
-              | hS::qS => hC::hS::(merge_left qC qS)
-              end
-  end.
-
-Fixpoint merge_right (pCC : list C) (pSS : list C) : list C :=
-  match pSS with
-  | [] => inject_inF pCC
-  | hS::qS => match pCC with
-              | []=> hS::(inject_inF qS)
-              | hC::qC => hS::hC::(merge_right qC qS)
-              end
-  end.
+  Fixpoint merge_right (pCC : list C) (pSS : list C) : list C :=
+    match pSS with
+    | [] => inject_inF pCC
+    | hS::qS => match pCC with
+                | []=> hS::(inject_inF qS)
+                | hC::qC => hS::hC::(merge_right qC qS)
+                end
+    end.
  
   
-Definition merge := merge_left.
-
-
-Lemma split_CC_SS (p :list C) : split_ p = ( splitCC p , splitSS p).
-Proof.
-  rewrite /splitCC /splitSS /split_. apply surjective_pairing.
-Qed.
+  Definition merge := merge_left.
   
-Lemma split_left_right (p: list C) : splitCC p = snd (split_right p) /\ splitSS p = fst (split_right p).
-Proof.  rewrite /splitCC /splitSS /split_. induction p. by [].
-       simpl. inversion IHp. by rewrite H0 H. 
-Qed.  
-
-Lemma splitCC_cons (p: list C) (a:C) :  splitCC (a::p) = a::(splitSS p).
-Proof. 
-  move: (split_left_right p) => H; inversion H.
-    by rewrite  /splitCC /splitSS /split_ /= -H1 /splitSS /split_. 
-Qed.
-
-Lemma splitSS_cons (p: list C) (a:C) : splitSS (a::p) = splitCC p.
-Proof.
-  move: (split_left_right p) => H; inversion H.
-    by rewrite  /splitCC /splitSS /split_.
-Qed.
-
-
-Lemma merge_left_cons_cons ( p q : list C)  : forall (a b  : C ), merge_left (a::p) (b::q) = a::b::(merge_left p q).
-Proof. intros; by []. Qed.
-
-Lemma merge_right_cons_cons ( p q : list C)  : forall (a b  : C ), merge_right (b::p) (a::q) = a::b::(merge_right p q).
-Proof. intros; by []. Qed.
-
-
-Lemma merge_right_nil q : merge_right q [] = inject_inF q.
-Proof.
-  elim: q => [ // | IHq a q]. by [].
-Qed.
+  Lemma split_left_right (p: list C) : fst (split_left p) = snd (split_right p) /\ snd (split_left p) = fst (split_right p).
+  Proof. elim: p => [ // | a p IHp] /=. inversion IHp. by rewrite H H0. Qed.
   
- 
-Lemma merge_left_right (p q:list C) : merge_left p q = merge_right q p.
-Proof.
-  move : q.
-  induction p.
+  Lemma split_lr_fst_cons p a : fst (split_left (a::p)) = a::(fst (split_right p)).
+  Proof. by []. Qed.
+
+  Lemma split_lr_snd_cons p a : snd (split_left (a::p)) = (snd (split_right p)).
+  Proof. by []. Qed.
+
+  Lemma splitCC_cons (p: list C) (a:C) :  splitCC (a::p) = a::(splitSS p).
+  Proof. 
+    move: (split_left_right p) => H; inversion H.
+      by rewrite  /splitCC /splitSS /split_ /= -H1. 
+  Qed.
+
+  Lemma splitSS_cons (p: list C) (a:C) : splitSS (a::p) = splitCC p.
+  Proof.
+    move: (split_left_right p) => H; inversion H.
+      by rewrite  /splitCC /splitSS /split_.
+  Qed.
+
+  Lemma merge_left_cons_cons ( p q : list C)  : forall (a b  : C ), merge_left (a::p) (b::q) = a::b::(merge_left p q).
+  Proof. by []. Qed.
+
+  Lemma merge_right_cons_cons ( p q : list C)  : forall (a b  : C ), merge_right (b::p) (a::q) = a::b::(merge_right p q).
+  Proof. by []. Qed.
+
+  Lemma merge_right_nil q : merge_right q [] = inject_inF q.
+  Proof. elim: q => [ // | //]. Qed. 
+
+  Lemma merge_left_right (p q:list C) : merge_left p q = merge_right q p.
+  Proof.
+    move : q.
+    induction p.
     intro q; by rewrite /= merge_right_nil. 
     intro q; move : q => [ // | b q]. by rewrite merge_left_cons_cons merge_right_cons_cons IHp.
-Qed. 
+  Qed. 
 
-Lemma merge_cons (p q : list C)  :  forall (a : C), merge (a::p) q = a::merge q p.
+  Lemma merge_cons (p q : list C)  :  forall (a : C), merge (a::p) q = a::merge q p.
+  Proof.
+    move :q; rewrite /merge. 
+    induction p.
+    + intros; move : q => [ // | //].
+    + intros; move : q => [ // | b q]; by rewrite !merge_left_cons_cons IHp.
+  Qed.
+
+
+  Lemma merge_split (p : list C) : merge (splitCC p) (splitSS p)  = p.
+  Proof.
+    elim: p => [ // | a p IHp ]; by rewrite splitCC_cons splitSS_cons merge_cons IHp.
+  Qed.  
+
+
+
+  (** Multiplication *)
+  
+  Fixpoint mul_minus (p q : list C) : list C :=
+    match p,q with
+    | [],_ | _,[] => []
+    | a :: p', b :: q' => sadd (a*b :: (sadd (sscal a q') (sscal b p'))) (mul_minus p' q')
+    end.
+
+  Fixpoint mul_minusSC (p q : list C) : list C :=
+    match p,q with
+    | [],_ | _,[] => []
+    | a :: p', b :: q' => sadd (a*b :: (ssub (sscal a q') (sscal b p'))) (mul_minusSC p' q')
+    end.
+  
+  Fixpoint mul_plus (p q: list C): list C :=
+    match p,q with
+    | [],_ | _,[] => []
+    | a :: p', b :: q' => sadd (a*b :: (sadd (sscal a q') (sscal b p'))) (cons00 (mul_plus p' q'))
+    end.
+
+  Definition pmulCC (pCC qCC: list C): list C :=
+    sscal (1//2) (sadd (mul_minus pCC qCC) (mul_plus pCC qCC)).
+
+  Definition pmulSS (pSS qSS: list C): list C :=
+    sscal (1//2) (ssub (mul_minus pSS qSS) (cons00 (mul_plus pSS qSS))).
+
+  Definition pmulSC' (pSS0 qCC: list C): list C :=
+    (* Here only, the polynom in sinus pSS0 has its first index begining in 0 *)  
+    sscal (1//2) (ssub (mul_plus pSS0 qCC) (mul_minusSC pSS0 qCC)).
+
+  Definition pmulSC (pSS qCC: list C): list C :=
+    tl (pmulSC' (cons0 pSS) qCC).
+
+  Definition pmul (p q : list C): list C :=
+    let (pCC,pSS) := split_ p in
+    let (qCC,qSS) := split_ q in
+    merge (sadd (pmulCC pCC qCC) (pmulSS pSS qSS)) (sadd (pmulSC pSS qCC) (pmulSC qSS pCC)).
+
+  (** Primitive 
+   /!\ No periodic primitive for a trigonometric polynom with a non-zero mean value /*\ *)
+  
+  (** domain *)
+  Definition lo: C := 0.
+  (* Definition hi: C := 2*pi.*)
+  
+  (** range on C
+    since the [F n] have their range in [-1;1], it suffices to take the sum of the absolute values of   the coefficients. for the constant coefficient, we don't even have to take the absolute value.
+   *)
+  Definition range_: list C -> C := List.fold_right (fun a x => abs a + x) 0.
+  Definition range p: C*C :=
+    match p with
+    | [] => (0,0)
+    | a::q => let r := range_ q in (a-r,a+r)
+    end.
+  
+End ops.
+
+(** ** Correctness of the above polynomial operations, on R *)
+
+Lemma eval_cst a (x: R): eval (pcst a) x = a.
+Proof. rewrite /pcst /eval /= F0/=. ring. Qed.
+
+Lemma eval_one (x: R): eval pone x = 1.
+Proof. rewrite /pcst /eval /= F0/=. ring. Qed.
+
+(* Multiplication of cosinus polynoms *)
+Lemma evalCC_cons00_ n p (x: R): evalCC_ n (cons00 p) x = evalCC_ n.+2 p x.
+Proof. destruct p=>//=. ring. Qed.
+
+Lemma CCeval: forall p n m x,
+  (n<=m)%nat -> CC n x * evalCC_ m p x = (evalCC_ (m+n) p x + evalCC_ (m-n) p x)/2.
 Proof.
-  move :q; rewrite /merge. 
-  induction p.
-  + intros; move : q => [ // | //].
-  + intros; move : q => [ // | b q]; by rewrite !merge_left_cons_cons IHp.
+  induction p as [|a p IH]; intros n m x H; simpl.
+  - field.
+  - ring_simplify. rewrite IH. 2: lia. 
+    replace (_*CC m x) with (a*(CC n x * CC m x)) by (simpl; ring). 
+    rewrite  CCprod //. 
+    replace (S m - n)%nat with (S (m-n)) by lia.
+    rewrite Nat.add_succ_l /=. field. 
+Qed.
+
+Lemma eval_mulCC_ : forall pCC qCC n x,
+    evalCC_ n pCC x * evalCC_ n qCC x =
+    (evalCC_ 0 (mul_minus pCC qCC) x + evalCC_ (n+n) (mul_plus pCC qCC) x)/2.
+Proof.
+  induction pCC as [ | a p IHp]; intros [ | b q] n x; simpl; try field.
+  rewrite !eval_add_ /=; ring_simplify.
+  rewrite IHp !eval_add_ !eval_scal_ evalCC_cons00_ CCsqr /= Nat.add_succ_r.
+  rewrite 2!Rmult_assoc CCeval. 2: lia. rewrite CCeval. 2:lia. 
+  replace (S n-n)%nat with 1%nat by lia.
+  rewrite C0 Nat.add_succ_l /=. field.
+Qed.
+
+Lemma eval_mulCC: forall pCC qCC (x: R), evalCC (pmulCC pCC qCC) x = evalCC pCC x * evalCC qCC x.
+Proof. intros. rewrite /evalCC eval_mulCC_ /pmulCC eval_scal_ eval_add_/= /Rdiv /=. ring. Qed.
+
+(* Multiplication of sinus polynoms *)
+Lemma evalSS_cons00_ n p (x: R): evalSS_ n (cons00 p) x = evalSS_ n.+2 p x.
+Proof. destruct p=>//=. ring. Qed.
+
+Lemma SSeval: forall p n m x,
+    (n<=m)%nat -> SS n x * evalSS_ m p x = (evalCC_ (m-n) p x - evalCC_ (m+n) p x)/2.
+Proof.
+  induction p as [|a p IH]; intros n m x H; simpl.
+  - field.
+  - ring_simplify. rewrite IH. 2 :lia.
+    replace ( _ * SS m x) with (a*(SS n x * SS m x)) by (simpl;ring).
+    rewrite SSprod //.
+    replace ( m .+1 - n)%nat with ( (m-n) .+1)%nat by lia.
+    rewrite Nat.add_succ_l /=. field.
+Qed.    
+
+Lemma eval_mulSS_ : forall pSS qSS n x,
+    evalSS_ n pSS x * evalSS_ n qSS x =
+    (evalCC_ 0 (mul_minus pSS qSS) x - evalCC_ (n+n) (mul_plus pSS qSS) x)/2.
+Proof.
+  induction pSS as [ | a p IHp]; intros [ | b q] n x; simpl; try field.
+  rewrite !eval_add_ /=; ring_simplify.
+  rewrite IHp !eval_add_ !eval_scal_ !evalCC_cons00_ SSsqr /= Nat.add_succ_r.
+  rewrite 2!Rmult_assoc !SSeval. 2: lia. 2:lia. 
+  replace (S n-n)%nat with 1%nat by lia.
+  rewrite C0 /=. field.
+Qed.  
+
+Lemma eval_mulSS: forall pSS qSS (x: R), evalCC (pmulSS pSS qSS) x = evalSS pSS x * evalSS qSS x.
+(* pSS and qSS are polynoms in sinus in which the first index equals to 1 *)
+Proof. intros. rewrite /evalCC /evalSS eval_mulSS_ /pmulSS eval_scal_ eval_sub_ evalCC_cons00_ /= /Rdiv /=. ring. Qed.
+
+(* Multiplication of a sinus polynom with a cosinus polynom *)
+Lemma SCeval: forall p n m x,
+    (n<=m)%nat -> SS n x * evalCC_ m p x = (evalSS_ (m+n) p x - evalSS_ (m-n) p x)/2.
+Proof.
+  induction p as [|a p IH]; intros n m x H; simpl.
+  - field.
+  - ring_simplify. rewrite IH. 2 :lia.
+    replace ( _ * CC m x) with (a*(SS n x * CC m x)) by (simpl;ring).
+    rewrite SCprod //.
+    replace ( m .+1 - n)%nat with ( (m-n) .+1)%nat by lia.
+    rewrite Nat.add_succ_l /=. field.
+Qed.    
+
+Lemma CSeval: forall p n m x,
+    (n<=m)%nat -> CC n x * evalSS_ m p x = (evalSS_ (m+n) p x + evalSS_ (m-n) p x)/2. 
+Proof.
+  induction p as [|a p IH]; intros n m x H; simpl.
+  - field.
+  - ring_simplify. rewrite IH. 2 :lia.
+    replace ( _ * SS m x) with (a*(CC n x * SS m x)) by (simpl;ring).
+    rewrite CSprod //.
+    replace ( m .+1 - n)%nat with ( (m-n) .+1)%nat by lia.
+    rewrite Nat.add_succ_l /=. field.
+Qed.
+
+  
+Lemma eval_mulSC_ : forall pSS qCC n x,
+    evalSS_ n pSS x * evalCC_ n qCC x =
+    (evalSS_ (n+n) (mul_plus pSS qCC) x - evalSS_ 0 (mul_minusSC pSS qCC) x)/2.
+Proof.
+  induction pSS as [ | a p IHp]; intros [ | b q] n x; simpl; try field.
+  rewrite !eval_add_ /=; ring_simplify. replace ( a * SS n x * b * CC n x )%R with (a * b * (SS n x * CC n x) )%R by (simpl;ring).
+  rewrite IHp. rewrite !eval_sub_ !eval_add_  !eval_scal_ /= !evalSS_cons00_ SCsqr /= Nat.add_succ_r.
+  replace ( evalSS_ n .+1 p x * b * CC n x )%R with ( b * (CC n x * evalSS_ n .+1 p x)%R)%R by (simpl;ring).
+  rewrite 2!Rmult_assoc. rewrite SCeval. rewrite CSeval. 2: lia. 2:lia.
+  
+  replace (S n-n)%nat with 1%nat by lia.
+  rewrite S0 Rmult_0_r /=. field.
+Qed.
+
+Lemma evalSS_0_1 : forall p x,
+    evalSS (tl p) x = evalSS_ 0 p x.
+Proof. intros. destruct p as [ | a p ]. by [].
+       rewrite /= S0 /=; ring.
+Qed.
+
+Lemma tail_cons0 : forall (p:list R) , tl (cons0 p) = p.
+Proof. intros. destruct p; by []. Qed.
+
+Lemma eval_mulSC': forall pSS qCC (x: R), evalSS_ 0 (pmulSC' pSS qCC) x = evalSS_ 0 pSS x * evalCC qCC x.
+Proof. intros.
+       rewrite /evalCC eval_mulSC_ /pmulSC' eval_scal_ eval_sub_ /= /Rdiv /=;ring.
+Qed.
+
+Lemma eval_mulSC : forall pSS qCC (x: R), evalSS (pmulSC pSS qCC) x = evalSS pSS x * evalCC qCC x.
+(* pSS is a polynom in sinus in which the first index equals to 1 *)
+Proof. intros.
+         by rewrite /pmulSC evalSS_0_1 eval_mulSC' -evalSS_0_1 tail_cons0.
 Qed.
 
 
-Lemma merge_split (p : list C) : merge (splitCC p) (splitSS p)  = p.
+(* Useful lemmas for the evaluation of lists after split or merge operations *)
 
+Lemma eval_split_ n p x :
+  eval_ n p x =
+  if (even n) then evalCC_ (order n) (splitCC p) x + evalSS_ (order n .+1) (splitSS p) x
+  else evalCC_ (order n .+1) (split_ p).2 x + evalSS_ (order n) (split_ p).1 x.
 Proof.
-  elim: p => [ // | a p IHp ]; by rewrite splitCC_cons splitSS_cons merge_cons IHp.
-Qed.  
+  rewrite /splitCC /splitSS /split_.
+  elim: p n => [ | a p IHp] n.
+  + case (even n) => /=; lra.
+  + rewrite split_lr_fst_cons split_lr_snd_cons /=.
+    move : IHp => /(_ n.+1) ->.
+    move : (split_left_right p) => H. inversion H. rewrite H0 H1 !order_succ_succ.
+    move : (order_succ n .+1) => Hn. inversion Hn.
+    rewrite Nat.even_succ -Nat.negb_even /F /=.
+    destruct (even n) => /=; lra. 
+Qed.
 
-End ops.
+Lemma eval_split p x :
+  eval p x = evalCC (splitCC p) x + evalSS (splitSS p) x.
+Proof. by apply eval_split_. Qed.
 
-(*
-Check  [ 0 ; 1 ; 2 ; 3 ; 4 ; 5 ].
+Lemma eval_inject_inF_ n q x :
+  eval_ n (inject_inF q) x =
+  if (even n) then
+    evalSS_ (order n) .+1 q x
+  else evalCC_ (order n) q x.
+Proof.
+  elim: q n => [ | b q IHq] n /=.
+  + by case (even n).
+  + move: IHq => /(_ n .+2) ->.
+    rewrite Nat.even_succ_succ order_succ_succ /F Nat.even_succ -Nat.negb_even.
+    move: (order_succ n) => [IHe IHo].
+  destruct (even n) => /=.
+* rewrite -IHe => //; lra.
+* rewrite -IHo => //; lra.
+Qed.
 
-Eval compute in split [ 0 ; 1 ; 2 ; 3 ; 4 ; 5].
+Lemma eval_inject_inF q x : eval (inject_inF q) x = evalSS q x.
+Proof. by apply eval_inject_inF_. Qed.
 
-Eval compute in split_right [ 0 ; 1 ; 2 ; 3 ; 4 ; 5 ].
- 
-Eval compute in merge [ 1 ; 2 ; 3 ; 4] [-1 ; -2 ].
-*)
+Lemma eval_merge_ n p q x :
+  eval_ n (merge p q) x =
+  if (even n) then evalCC_ (order n) p x + evalSS_ (order n .+1) q x
+  else evalSS_ (order n) p x + evalCC_ (order n .+1) q x.
+Proof. 
+  elim: p q n => [ q n   /= | a p IHp [ | b q ] n  /=].
+  + rewrite eval_inject_inF_.
+    case_eq (even n) => H; apply order_succ in H; rewrite H; lra.
+  + rewrite /= eval_inject_inF_ /F Nat.even_succ -Nat.negb_even.
+    move: (order_succ n) => [IHe IHo].  
+    destruct (even n) => /=.
+    rewrite IHe => //; lra.
+    rewrite IHo => //; lra.
+  + rewrite IHp Nat.even_succ_succ /F.
+    rewrite /F Nat.even_succ -Nat.negb_even /= !order_succ_succ. 
+    destruct (even n) => /=; ring.
+Qed.
 
-
-
-
-
-
-
-
+Lemma eval_merge p q x :
+  eval (merge p q) x = evalCC p x + evalSS q x.
+Proof. by apply eval_merge_. Qed.
+  
+(* Multiplication of Fourier polynoms *)
+Theorem eval_mul: forall P Q (x: R), eval (pmul P Q) x = eval P x * eval Q x.
+Proof. intros.
+       rewrite /pmul (eval_split P) (eval_split Q) /splitCC /splitSS. destruct (split_ P) as (pCC,pSS); destruct (split_ Q) as (qCC, qSS).
+       rewrite /= eval_merge eval_add eval_add_ eval_mulCC eval_mulSS 2!eval_mulSC /=. ring.
+Qed.
 
 
