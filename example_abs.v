@@ -5,29 +5,29 @@
 Require Import Reals.
 Open Scope R_scope.
 
+Set Implicit Arguments.
+Unset Strict Implicit.
+Unset Printing Implicit Defensive.
+
 
 (** * with CoqApprox.interval  *)
 From Interval Require Import Tactic.
-Definition f1 eps x := sqrt (eps^2 + x^2).
+Definition g eps x := sqrt (eps^2 + x^2).
 
-Fact test0 x :
-  let eps := 1/1000 in
-  -1 <= x <= 1 ->
-  Rabs (f1 eps x - Rabs x) <= eps+1/10000.
+Goal let eps := 1/1000 in
+     forall x, -1 <= x <= 1 -> Rabs (g eps x - Rabs x) < eps+1/10000.
 Proof.
-  intros eps H; subst eps; unfold f1.
+  intros eps x H; unfold eps, g.
   (** does not work without subdivision *)
   Fail interval.
   (** works with *)
   interval with (i_bisect x).
 Qed.
 
-Fact test1 x :
-  let eps := 1/1000 in
-  0 <= x <= 1 ->
-  Rabs (f1 eps x - x) <= eps+1/10000.
+Goal let eps := 1/1000 in
+     forall x, 0 <= x <= 1 -> Rabs (g eps x - x) < eps+1/10000.
 Proof.
-  intros eps H; subst eps; unfold f1.
+  intros eps x H; unfold eps, g.
   (** does not work without subdivision *)
   Fail interval.
   (** works with *)
@@ -36,12 +36,56 @@ Qed.
 
 
 (** * with our library *)
-Require Import approx rescale intervals errors.
+Require Import approx rescale intervals errors syntax tactic.
 Require chebyshev.
 
-Set Implicit Arguments.
-Unset Strict Implicit.
-Unset Printing Implicit Defensive.
+Goal let eps := 0.001 in
+     forall x, -1 <= x <= 1 -> Rabs (g eps x - Rabs x) < eps+0.0001.
+Proof.
+  intros eps; unfold eps, g, Rpow_def.pow.
+  Fail dynamic.                 (** absolute value not supported for functions *)
+Abort.
+
+(** we circumvent this difficulty by decomposing the problem manually, 
+    here for easier values of epsilon *)
+Goal let eps := 1/10 in
+     forall x, 0 <= x <= 1 -> g eps x - x < eps+1/100.
+Proof.
+  intros eps; unfold eps, g, Rpow_def.pow.
+  dynamic. 
+Qed.
+
+(** for the initial value of epsilon, we probably need more precision *)
+Goal let eps := 1/1000 in
+     forall x, 0 <= x <= 1 -> g eps x - x < eps+1/10000.
+Proof.
+  intros eps; unfold eps, g, Rpow_def.pow.
+  (* we fail to construct a model for the involved square root *)
+  Fail dynamic.
+  Fail dynamic 20%Z.
+  Fail dynamic 40%Z.
+Abort.
+
+From Interval Require Import Specific_bigint Specific_ops.
+Import BigZ.
+
+Module FBigInt300 <: FloatOpsP.
+  Include SpecificFloat BigIntRadix2.
+  Definition p := 300%bigZ.
+End FBigInt300. 
+Module IBigInt300 := Make FBigInt300.
+
+Goal let eps := 1/1000 in
+     forall x, 0 <= x <= 1 -> g eps x - x < eps+1/10000.
+Proof.
+  intros eps; unfold eps, g, Rpow_def.pow.
+  (** DAMIEN: this doesn't seem to suffice, is there a bug?  *)
+  (* Fail gen_check (Dynamic.check (N:=IBigInt300.nbh) chebyshev_model) 60%Z. *)
+Abort.
+
+Remove Hints IBigInt300.nbh: typeclass_instances.
+
+(** below we perform direct computations *)
 
 (** two domains: [-1;0] and [0;1]  *)
 Definition D10: Domain := DZ2 (-1) 0.
@@ -60,6 +104,7 @@ Definition wrem (x: E (Tube II)) := x >>= fun x => ret (width (rem x)).
     parameterised by 
     - [deg]: the interpolation degree for square root
     - [eps]: the smaller the better *)
+(** DAMIEN: be careful, epsilon is not squared in the def below, while it is in [g] above *)
 Definition NearAbs (MM: ModelOps) (deg: Z) (eps: Q): E MM := msqrt deg (mcst (fromQ eps) + mid * mid). 
 
 

@@ -75,6 +75,23 @@ Goal RInt (fun x => RInt id 1 x) 0 1 <= 5.
   Fail dynamic.
 Abort.
 
+Goal forall x, 0<=x<=1 -> 1<2.
+  dynamic.
+Qed.
+Goal forall x, 0<=x<=1 -> x<2.
+  dynamic.
+Qed.
+Goal forall x, 0.1<=x<=0.9 -> x*x<x.
+  dynamic.
+Qed.
+Goal forall x, 0.1<=x<=0.9 -> x < sqrt x.
+  dynamic.
+Qed.
+Goal forall x, 0.1<=x<=0.9 -> x <> sqrt x.
+  dynamic.
+Qed.
+
+
 (** direct computations  *)
 (* Need to reenable notations for syntactic expressions first *)
 Eval vm_compute in

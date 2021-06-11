@@ -50,6 +50,9 @@ Inductive term {X: sort -> Type}: sort -> Type :=
     (* need b_ge and not b_gt because Rgt unfolds to Rlt while Rge does not unfold to Rle *)
 | b_disj: term BOOL -> term BOOL -> term BOOL
 | b_conj: term BOOL -> term BOOL -> term BOOL
+    (* testing < or <> on a given domain (to be generalised) *)
+| b_mlt: term REAL -> term REAL -> term FUN -> term FUN -> term BOOL
+| b_mne: term REAL -> term REAL -> term FUN -> term FUN -> term BOOL
 (* let..in and variable *)
 | t_var: forall {S}, X S -> term S
 | t_let: forall {S T}, term S -> (X S -> term T) -> term T.
@@ -92,6 +95,8 @@ Fixpoint sem S (t: @term rval S): rval S :=
   | b_ne e f => sem e <> sem f
   | b_disj b c => sem b \/ sem c
   | b_conj b c => sem b /\ sem c
+  | b_mlt a b f g => forall x, sem a <= x <= sem b -> sem f x < sem g x
+  | b_mne a b f g => forall x, sem a <= x <= sem b -> sem f x <> sem g x
   | t_var _ x => x
   | t_let _ _ x k => sem (k (sem x))
   end.
@@ -167,6 +172,22 @@ Ltac breify b :=
   | ?e <> ?f => let e:=ereify e in let f:=ereify f in uconstr:(b_ne e f)
   | ?b /\ ?c => let b:=breify b in let c:=breify c in uconstr:(b_conj b c)
   | ?b \/ ?c => let b:=breify b in let c:=breify c in uconstr:(b_disj b c)
+  | forall x, ?a <= x <= ?b -> @?f x < @?g x =>
+    let a:=ereify a in
+    let b:=ereify b in
+    let fVAR:=reduce (f VAR) in
+    let f:=freify fVAR in
+    let gVAR:=reduce (g VAR) in
+    let g:=freify gVAR in
+    uconstr:(b_mlt a b f g)
+  | forall x, ?a <= x <= ?b -> @?f x <> @?g x =>
+    let a:=ereify a in
+    let b:=ereify b in
+    let fVAR:=reduce (f VAR) in
+    let f:=freify fVAR in
+    let gVAR:=reduce (g VAR) in
+    let g:=freify gVAR in
+    uconstr:(b_mne a b f g)
   end.
 Ltac reify_real e :=
   let e := reduce e in
@@ -198,6 +219,7 @@ Goal True.
   let b := reify_prop constr:(4 <= 5 <= 6) in pose b.
   let b := reify_prop constr:(4 < 5 /\ RInt id 3.3 4.4 <= 18.9) in pose b.
   let b := reify_prop constr:(4 >= 5) in pose b. 
+  let b := reify_prop constr:(forall x, 4 <= x <= 5 -> x*x < sqrt x) in pose b. 
 Abort.
  *)
 (* reifying under lambdas?
@@ -239,6 +261,10 @@ Inductive trel X Y (R: forall S, X S -> Y S -> Prop): forall S, @term X S -> @te
 | rb_ne: forall x y, trel R x y -> forall x' y', trel R x' y' -> trel R (b_ne x x') (b_ne y y')
 | rb_disj: forall x y, trel R x y -> forall x' y', trel R x' y' -> trel R (b_disj x x') (b_disj y y')
 | rb_conj: forall x y, trel R x y -> forall x' y', trel R x' y' -> trel R (b_conj x x') (b_conj y y')
+| rb_mlt: forall x y, trel R x y -> forall x' y', trel R x' y' ->
+          forall f g, trel R f g -> forall h k, trel R h k -> trel R (b_mlt x x' f h) (b_mlt y y' g k)
+| rb_mne: forall x y, trel R x y -> forall x' y', trel R x' y' ->
+          forall f g, trel R f g -> forall h k, trel R h k -> trel R (b_mne x x' f h) (b_mne y y' g k)
 | rt_var: forall S x y, R S x y -> trel R (t_var x) (t_var y)
 | rt_let: forall S T x y h k, trel R x y -> (forall a b, R S a b -> trel R (h a) (k b)) -> trel R (t_let x h) (@t_let _ _ T y k).
 
@@ -305,6 +331,8 @@ Fixpoint Sem S (t: @term sval S): sval S :=
   | b_ne e f => e_map2 is_ne (Sem e) (Sem f)
   | b_disj b c => LET b ::= Sem b IN if b then ret true else Sem c
   | b_conj b c => LET b ::= Sem b IN if b then Sem c else ret false
+  | b_mlt _ _ _ _
+  | b_mne _ _ _ _ => err "comparison of univariate functions not supported in static mode"
   | t_var _ x => x
   | t_let _ _ x k => Sem (k (Sem x))
   end.
@@ -360,6 +388,8 @@ Proof.
     case: IHtrel2=>//. constructor. right; auto.
   - eapply ep_bind=>[b|]; eauto. 
     case b. case: IHtrel2=>//. constructor. auto. by constructor.
+  - constructor. 
+  - constructor. 
   - assumption.
   - auto. 
 Qed.
@@ -438,6 +468,22 @@ Fixpoint Sem S (t: @term sval S): sval S :=
   | b_ne e f => e_map2 is_ne (Sem e) (Sem f)
   | b_disj b c => LET b ::= Sem b IN if b then ret true else Sem c
   | b_conj b c => LET b ::= Sem b IN if b then Sem c else ret false
+  | b_mlt a b f g =>
+      LET a ::= Sem a IN 
+      LET b ::= Sem b IN
+      if ~~ is_lt a b then err "invalid domain" else
+      let M := MO a b in
+      LET f ::= Sem f M IN 
+      LET g ::= Sem g M IN
+      mlt deg f g
+  | b_mne a b f g =>
+      LET a ::= Sem a IN 
+      LET b ::= Sem b IN
+      if ~~ is_lt a b then err "invalid domain" else
+      let M := MO a b in
+      LET f ::= Sem f M IN 
+      LET g ::= Sem g M IN
+      ret (mne deg f g)
   | t_var _ x => x
   | t_let _ _ x k => Sem (k (Sem x))
   end.
@@ -499,6 +545,22 @@ Proof.
     case: IHtrel2=>//. constructor. right; auto.
   - eapply ep_bind=>[b|]; eauto. 
     case b. case: IHtrel2=>//. constructor. auto. by constructor.
+  - eapply ep_bind=>[A Aa|]; eauto.  
+    eapply ep_bind=>[B Bb|]; eauto.  
+    case_eq (is_lt A B)=>[ab|]. 2: constructor.
+    specialize (IHtrel3 _ _ _ (M (DfromI2 Aa Bb ab))).
+    specialize (IHtrel4 _ _ _ (M (DfromI2 Aa Bb ab))).
+    eapply ep_bind=>[F Ff|]; eauto.
+    eapply ep_bind=>[G Gg|]; eauto.
+    eapply rmlt. apply Ff. apply Gg. 
+  - eapply ep_bind=>[A Aa|]; eauto.  
+    eapply ep_bind=>[B Bb|]; eauto.  
+    case_eq (is_lt A B)=>[ab|]. 2: constructor.
+    specialize (IHtrel3 _ _ _ (M (DfromI2 Aa Bb ab))).
+    specialize (IHtrel4 _ _ _ (M (DfromI2 Aa Bb ab))).
+    eapply ep_bind=>[F Ff|]; eauto.
+    eapply ep_bind=>[G Gg|]; eauto.
+    constructor. eapply rmne. apply Ff. apply Gg. 
   - assumption.
   - auto. 
 Qed.

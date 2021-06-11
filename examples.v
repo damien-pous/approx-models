@@ -49,6 +49,18 @@ Proof.
   dynamic.
 Qed.
 
+(** [dynamic] also makes it possible to compare univariate functions on a given interval
+    (the goal show be presented in a rather strict way for now, essentially as in the two examples below; this should be improved in the following release)
+ *)
+Goal forall x, 0.1<=x<=0.9 -> x < sqrt x.
+  dynamic.
+Qed.
+
+Goal forall x, 0.1<=x<=0.9 -> x <> sqrt x.
+  dynamic.
+Qed.
+
+
 
 (** the tactic [dynamic_est e] makes it possible to compute and print an interval enclosing the expression [e]
     this would typically be the estimation used by the [dynamic] tactic.

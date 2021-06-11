@@ -287,6 +287,9 @@ Class ModelOps {N: NBH} := {
 }.
 Coercion MM: ModelOps >-> Ops0.
 
+Definition mlt `{ModelOps} z f g := mgt0 z (g-f).
+Definition mne `{ModelOps} z f g := mne0 z (f-g).
+
 (** specification of the above operations, on the domain [lo;hi] *)
 Class Model {N: NBH} (MO: ModelOps) (lo hi: R) := {
   mcontains: Rel0 MM (f_Ops0 R ROps0);
@@ -314,6 +317,19 @@ Class Model {N: NBH} (MO: ModelOps) (lo hi: R) := {
 Coercion mcontains: Model >-> Rel0.
 Global Hint Resolve rmid rmcst (* rmeval rmintegrate rmdiv rmsqrt *): rel.
 
+Lemma rmne `{Model} n F f G g: mcontains F f -> mcontains G g -> mne n F G ->
+                               forall x, lo<=x<=hi -> f x <> g x.
+Proof.
+  intros Ff Gg C x Dx. apply Rminus_not_eq.
+  eapply (rmne0 (F:=F - G) (f:=f-g)). rel. apply C. assumption. 
+Qed.
+
+Lemma rmlt `{Model} n F f G g: mcontains F f -> mcontains G g ->
+                               EPimpl (mlt n F G) (forall x, lo<=x<=hi -> f x < g x).
+Proof.
+  intros Ff Gg. unfold mlt. ecase rmgt0. rel. 2: constructor.
+  intros b B. constructor. intros. now apply Rminus_gt_0_lt, B.
+Qed.
 
 (** ** domains *)
 

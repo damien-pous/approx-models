@@ -4,12 +4,10 @@ for the first release:
 - proofread/document example_abs/h16.v 
 
 for the next release:
-
 - more examples / more doc in examples.v
 - choice of interval implementation when calling the tactic (by types and canonical structures ?)
 - further improve syntax/reification (degrees, eval)
-- support model comparisons in the synatx/tactic 
-- parameterised bounds (tests de positivité par oracle)
+- better support for model comparisons in the syntax/tactic 
 - side-conditions left to the user (mcontinuous)
 - more functions on reals from coq-interval
 - interpolation oracle for Taylor basis
