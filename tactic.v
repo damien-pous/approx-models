@@ -5,9 +5,6 @@ Require Export interfaces.
 Require Import intervals syntax rescale errors.
 Require taylor chebyshev approx.
 
-(* TODO: 
-   - choice of interval implementation
- *)
 
 Section s.
  Context {N: NBH}.
@@ -29,87 +26,137 @@ Section s.
 
 End s.
 
+(** tactic parameters *)
+Inductive params :=
+| i_deg of Z                                             (** interpolation degree *)
+| i_float53 | i_bigint53  | i_z53 | i_bigint128 | i_z128 (** floating point implementation *)
+| i_nbh of NBH                                           (** or direct choice of neighborhood implementation *)
+| i_vm | i_native                                        (** native or vm computations *)
+| i_dynamic | i_static(a b: Q) | i_static11.             (** dynamic/static semantics *)
+
+Ltac get_deg x y :=
+  lazymatch x with
+  | tt => constr:(10%Z)
+  | i_deg ?z => constr:(z)
+  | (?p,?q) => get_deg p constr:((q,y))
+  | _ => get_deg y tt
+  end.
+
+Ltac get_native x y :=
+  lazymatch x with
+  | i_native => constr:(true)
+  | i_vm => constr:(false)
+  | tt => constr:(false)
+  | (?p,?q) => get_native p constr:((q,y))
+  | _ => get_native y tt
+  end.
+Ltac get_nbh x y :=
+  lazymatch x with
+  | tt => constr:(Ifloat53.nbh)
+  | i_float53 => constr:(Ifloat53.nbh)
+  | i_bigint53 => constr:(IBigInt53.nbh)
+  | i_z53 => constr:(IZ53.nbh)
+  | i_bigint128 => constr:(IBigInt128.nbh)
+  | i_z128 => constr:(IZ128.nbh)
+  | i_nbh ?N => constr:(N)
+  | (?p,?q) => get_nbh p constr:((q,y))
+  | _ => get_nbh y tt
+  end.
+
+Ltac get_check nbh x y :=
+  lazymatch x with
+  | tt => constr:(Dynamic.check (N:=nbh) chebyshev_model)
+  | i_dynamic => constr:(Dynamic.check (N:=nbh) chebyshev_model)
+  | i_static ?a ?b => constr:(Static.check (N:=nbh) (chebyshev_model (DQ2 a b)))
+  | i_static11 => constr:(Static.check (N:=nbh) chebyshev11_model)
+  | (?p,?q) => get_check nbh p constr:((q,y))
+  | _ => get_check nbh y tt
+  end.
+
+Ltac get_Sem nbh x y :=
+  lazymatch x with
+  | tt => constr:(Dynamic.Sem' (N:=nbh) chebyshev_model_ops)
+  | i_dynamic => constr:(Dynamic.Sem' (N:=nbh) chebyshev_model_ops)
+  | i_static ?a ?b => constr:(Static.Sem' (N:=nbh) (chebyshev_model_ops (fromQ a) (fromQ b)))
+  | i_static11 => constr:(Static.Sem' (N:=nbh) chebyshev11_model_ops)
+  | (?p,?q) => get_Sem nbh p constr:((q,y))
+  | _ => get_Sem nbh y tt
+  end.
+
+(*
+Goal True.
+  let d := get_deg (i_float,i_deg 6, i_native) tt in pose d.
+  let d := get_native (i_deg 6, i_native, i_prec 5) tt in pose d.
+  let d := get_kind (i_deg 6, i_bigint, i_prec 5) tt in pose d.
+ *)
+
+(** helpers for the tactics below *)
+Ltac ecomp native X :=
+  match native with true => eval native_compute in X | false => eval vm_compute in X end.
+Ltac comp native X :=
+  match native with true => native_compute in X | false => vm_compute in X end.
+Ltac cast native b :=
+  match native with true => native_cast_no_check b | false => vm_cast_no_check b end.
+
 (** ** tactic to prove bounds on concrete expressions *)
-Tactic Notation "gen_check" uconstr(check) constr(d) :=
+Tactic Notation "approx" constr(params) :=
+  let deg := get_deg params tt in
+  let native := get_native params tt in
+  let nbh := get_nbh params tt in
+  let check := get_check nbh params tt in
   lazymatch goal with |- ?p =>
   let p := reify_prop p in
-  let t := constr:(check d p) in
+  let t := constr:(check deg p) in
   (apply t || fail 100 "bug in reification? (please report)");
   [ repeat (constructor; auto) |
   let X := fresh "X" in
-  intro X; vm_compute in X;
+  intro X; comp native X;
   lazymatch eval hnf in X with
   | err ?s => fail 100 s
-  | ret true => vm_cast_no_check (eq_refl true)
+  | ret true => cast native (eq_refl true)
   | ret false => fail 100 "could not validate this, try increase degree"
   end ]
   end.
-
-(** by default: chebyshev, with primitive floats by default *)
-Tactic Notation "static" uconstr(D) constr(d) :=
-  gen_check (Static.check (chebyshev_model D)) d.
-
-(** interpolation degree: 10 by default *)
-Tactic Notation "static" uconstr(D) :=
-  static D (10%Z).
-
-(** specific case: on [-1;1] *)
-Tactic Notation "static11" constr(d) :=
-  gen_check (Static.check chebyshev11_model) d .
-Tactic Notation "static11" := static11 (10%Z).
+Tactic Notation "approx" := approx tt.
 
 
-(** by default: chebyshev, with primitive floats by default *)
-Tactic Notation "dynamic" constr(d) :=
-  gen_check (Dynamic.check chebyshev_model) d.
-Tactic Notation "dynamic" :=
-  dynamic (10%Z).
-
-
-(** tactics to estimate certain real valued expressions 
+(** tactic to estimate certain real valued expressions 
     (do not change the goal -> turn these into commands?) *)
-Tactic Notation "gen_estimate" uconstr(Sem) constr(d) constr(e) :=
+Tactic Notation "estimate" constr(e) constr(params) :=
+  let deg := get_deg params tt in
+  let native := get_native params tt in
+  let nbh := get_nbh params tt in
+  let Sem := get_Sem nbh params tt in
   let e := reify_real e in
-  let t := constr:(Sem d REAL e) in
-  let i := eval vm_compute in t in
+  let t := constr:(Sem deg REAL e) in
+  let i := ecomp native t in
   idtac i.
-Tactic Notation "static_est" uconstr(lo) uconstr(hi) constr(d) constr(e) :=
-  gen_estimate (Static.Sem' (chebyshev_model_ops lo hi)) d e.
-Tactic Notation "static_est" uconstr(lo) uconstr(hi) constr(e) :=
-  static_est lo hi 10%Z e.
-
-Tactic Notation "static11_est" constr(d) constr(e) :=
-  gen_estimate (Static.Sem' chebyshev11_model_ops) d e.
-Tactic Notation "static11_est" constr(e) :=
-  static11_est 10%Z e.
-
-Tactic Notation "dynamic_est" constr(d) constr(e) :=
-  gen_estimate (Dynamic.Sem' chebyshev_model_ops) d e.
-Tactic Notation "dynamic_est" constr(e) :=
-  dynamic_est 10%Z e.
+Tactic Notation "estimate" constr(e) := estimate e tt.
 
 (* simple tests for the above tactics *)
 (*
 Goal 1.4 <= sqrt 2 <= 1.5.
 Proof.
-  dynamic.
+  approx. 
   Restart.
-  dynamic 15%Z.
+  approx (i_deg 15).
   Restart.
-  static11.
+  approx (i_static11).
   Restart.
-  static11 15%Z.
+  approx (i_static11, i_deg 15).
   Restart.
-  static (DQ2 0.5 2).
+  approx (i_static 0.5 2, i_z53).
   Restart.
-  static (DF2 0.5%float 2%float) 15%Z.
+  approx (i_static 0.5 2, i_nbh IZ128.nbh).
+  (* static (DF2 0.5%float 2%float) (i_deg 15). *)
 
   Restart.
-  dynamic_est (sqrt 2).
-  dynamic_est (sqrt (-2)).
-  dynamic_est (RInt (@sqrt _) 1 2).
-  static11_est (RInt id 0 1).
-  static_est (fromZ 0) (fromZ 3) (RInt id 0 2).
-  dynamic_est (RInt (@sqrt _) (-1) 1).
+  estimate (sqrt 2).
+  estimate (sqrt (-2)).
+  estimate (RInt (@sqrt _) 1 2).
+  estimate (RInt (@sqrt _) 1 2) (i_deg 3, i_bigint128, i_native).
+  estimate (RInt id 0 1) (i_static11).
+  estimate (RInt id 0 2) (i_static (-1) 3).
+  estimate (RInt (@sqrt _) (-1) 1).
 Abort.
 *)

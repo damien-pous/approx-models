@@ -435,29 +435,44 @@ Import BigZ.
 
 (** encoded floating points, using Z for integers 
    (axiom-free slow) *)
-Module FZ <: FloatOpsP.
+Module FZ53 <: FloatOpsP.
   Include SpecificFloat StdZRadix2.
-  Definition p := 64%Z.
-End FZ.
+  Definition p := 53%Z.
+End FZ53.
+Module FZ128 <: FloatOpsP.
+  Include SpecificFloat StdZRadix2.
+  Definition p := 128%Z.
+End FZ128.
  
 (** half-encoded floating points, using primitive integers (int63) 
    (some axioms, intermediate) *)
-Module FBigInt <: FloatOpsP.
+Module FBigInt53 <: FloatOpsP.
   Include SpecificFloat BigIntRadix2.
-  Definition p := 64%bigZ.
-End FBigInt. 
+  Definition p := 53%bigZ.
+End FBigInt53. 
+Module FBigInt128 <: FloatOpsP.
+  Include SpecificFloat BigIntRadix2.
+  Definition p := 128%bigZ.
+End FBigInt128. 
+Module FBigInt300 <: FloatOpsP.
+  Include SpecificFloat BigIntRadix2.
+  Definition p := 300%bigZ.
+End FBigInt300. 
 
 (** primitive (machine) floating points 
    (more axioms, fast) *)
-Module Fprimitive <: FloatOpsP.
+Module Ffloat53 <: FloatOpsP.
   Include PrimitiveFloat.
-  Definition p := 64%Z.
-End Fprimitive. 
+  Definition p := 53%Z.
+End Ffloat53. 
 
 (** corresponding implementations of intervals *)
-Module IBigInt := Make FBigInt.
-Module IZ := Make FZ.
-Module Iprimitive := Make Fprimitive.
+Module IBigInt53 := Make FBigInt53.
+Module IBigInt128 := Make FBigInt128.
+Module IBigInt300 := Make FBigInt300.
+Module IZ53 := Make FZ53.
+Module IZ128 := Make FZ128.
+Module Ifloat53 := Make Ffloat53.
 
 
 (** canonical structures for floating point operations *)
@@ -476,8 +491,8 @@ Canonical Structure FOps1 :=
      sqrt := PrimFloat.sqrt;
      abs := PrimFloat.abs;
      fromZ := PrimitiveFloat.fromZ;
-     cos := @cos Iprimitive.FOps1;
-     pi := @pi Iprimitive.FOps1;
+     cos := @cos Ifloat53.FOps1;
+     pi := @pi Ifloat53.FOps1;
   |}.
 
 (** nice notation for intervals *)

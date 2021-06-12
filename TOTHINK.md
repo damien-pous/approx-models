@@ -1,21 +1,13 @@
 ## TODO list
 
-for the next release:
 - more examples / more doc in examples.v
-- choice of interval implementation when calling the tactic (by types and canonical structures ?)
 - further improve syntax/reification (degrees, eval)
 - better support for model comparisons in the syntax/tactic 
 - side-conditions left to the user (mcontinuous)
 - more functions on reals from coq-interval
 - interpolation oracle for Taylor basis
-
-
-tactic parameters:
-- basis (chebyshev/taylor)
-- domain (dynamic/static D)
-- degree
-- floats (primitive, bigint, bigZ)
-- native vs vm
+- choice of basis in the tactic
+- subdivision?
 
 
 
@@ -23,8 +15,6 @@ tactic parameters:
 ## questions for Guillaume:
 - 1+1<>2 in primitive floats
 - check functor applications in intervals.v
-
-
 
 
 ## usages of certain functions

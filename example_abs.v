@@ -74,13 +74,13 @@ Goal let eps := 1/10 in
      forall x, 0 <= x <= 1 -> g eps x - x < eps+eps/10.
 Proof.
   intros eps; unfold eps, g.
-  dynamic.        
+  approx.        
 Qed.
 
 (* since we construct a single Chebyshev model, integration works smoothly, without subdivision *)
 Goal let eps := 1/10 in 1/2+eps/10 <= RInt (g eps) 0 1 <= 1/2+eps+eps/10.
   intro eps. unfold g, eps.
-  dynamic. 
+  approx. 
 Qed.
 
 Goal let eps := 1/100 in
@@ -88,16 +88,16 @@ Goal let eps := 1/100 in
 Proof.
   intros eps; unfold eps, g.
   (** default degree (10) does not make it possible to construct a model for the square root  *)
-  Fail dynamic.        
+  Fail approx.        
   (** degree 15 makes it possible to construct a model, but this model is not precise enough *)
-  Fail dynamic 15%Z.
+  Fail approx (i_deg 15).
   (** at degree 32, we get a proof *)
-  dynamic 32%Z. 
+  approx (i_deg 32). 
 Qed.
 
 Goal let eps := 1/100 in 1/2+eps/100 <= RInt (g eps) 0 1 <= 1/2+eps+eps/10.
   intro eps. unfold g, eps.
-  dynamic 32%Z. 
+  approx (i_deg 32). 
 Qed.
 
 (** for smaller values of epsilon, we need more precision for the floating points themselves *)
@@ -106,36 +106,23 @@ Goal let eps := 1/1000 in
 Proof.
   intros eps; unfold eps, g.
   (** model constructed at degree 81, but not precise enough *)
-  Fail dynamic 81%Z.            
+  Fail approx (i_deg 81).            
   (** and not precise enough, even with pretty big degrees (e.g., 500) *)
-  (* Fail dynamic 300%Z.            *)
-  (* Fail dynamic 400%Z.            *)
-  (* Fail dynamic 500%Z.            *)
+  (* Fail approx (i_deg 300).            *)
+  (* Fail approx (i_deg 400).            *)
+  (* Fail approx (i_deg 500).            *)
 Abort.
 
-(** thus we select a different implementation of floating points, with bigger precision
-    this requires some boilerplate for now; should be easier in subsequent releases...
-  *)
-From Interval Require Import Specific_bigint Specific_ops.
-Import BigZ.
-Module FBigInt128 <: FloatOpsP.
-  Include SpecificFloat BigIntRadix2.
-  Definition p := 128%bigZ.     (* 128 bits for the precision *)
-End FBigInt128. 
-Module IBigInt128 := Make FBigInt128.
-
+(** thus we select a different implementation of floating points, with bigger precision *)
 Goal let eps := 1/1000 in
      forall x, 0 <= x <= 1 -> g eps x - x < eps+eps/10.
 Proof.
   intros eps; unfold eps, g.
   (** at degree 81 the model is constructed but not precise enough *)
-  (* Fail gen_check (Dynamic.check (N:=IBigInt128.nbh) chebyshev_model) 81%Z. *)
+  (* Fail approx (i_deg 81, i_bigint128).  *)
   (** at degree 102 we get a proof (commented out: takes long) *)
-  (* gen_check (Dynamic.check (N:=IBigInt128.nbh) chebyshev_model) 102%Z. *)
+  (* approx (i_deg 102, i_bigint128). *)
 Abort.
-
-(* removing this hint so that machine floating points are used by default, again *)
-Local Remove Hints IBigInt128.nbh: typeclass_instances.
 
 
 (** * Direct computations *)

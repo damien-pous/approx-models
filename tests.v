@@ -5,90 +5,90 @@ Require taylor chebyshev approx.
 
 Goal 1.4 <= sqrt 2 <= 1.5.
 Proof.
-  dynamic.
+  approx.
   Restart.
-  dynamic 15%Z.
+  approx (i_deg 15).
   Restart.
-  static11.
+  approx (i_static11).
   Restart.
-  static11 15%Z.
+  approx (i_static11, i_deg 15).
   Restart.
-  static (DQ2 0.5 2).
+  approx (i_static 0.5 2).
   Restart.
-  static (DQ2 0.5 2) 15%Z.
+  approx (i_static 0.5 2, i_deg 15).
 Qed.
 
 Goal 1.5 <= sqrt 2 <= 1.6.
 Proof.
-  Fail dynamic.
+  Fail approx.
 Abort.
 
 Goal 1 <= 2.
-Proof. dynamic. Qed.
+Proof. approx. Qed.
 Goal 1 < 2.
-Proof. dynamic. Qed.
+Proof. approx. Qed.
 Goal 2 > 1.
-Proof. dynamic. Qed.
+Proof. approx. Qed.
 Goal 2 >= 1.
-Proof. dynamic. Qed.
+Proof. approx. Qed.
 
 Lemma ex1: 0.3333 <= RInt (fun x => x*x) 0 1 <= 0.3334.
 Proof.
-  dynamic.
+  approx.
 Qed.
 
 Lemma ex2: 0.9999 <= RInt (fun x => x*x*3.0) 0 1 <= 1.00001.
 Proof.
-  dynamic.
+  approx.
 Qed.
 
 Lemma ex4: 2.08670 <= RInt (fun x => (1+x)/((1-x)*(1-x)+1/4)) 0 (pi/4)  <= 2.08672.
-  dynamic 11%Z.
+  approx (i_deg 11).
 Abort.
 
 Lemma ex5: -0.1 <= RInt (fun x => x) (-2) 2 <= 0.1.
 Proof.
   (* here we go beyond the default domain [-1;1] *)
-  Fail static11.
+  Fail approx (i_static11).
   (* with a rescaled chebyshev basis *)
-  dynamic 5%Z.
+  approx (i_deg 5).
 Qed.
 
 Lemma ex5': 0 <= RInt (fun x => x) (-2) 2 <= 0.
 Proof.
   (* we cannot be that precise! *)
-  Fail dynamic 5%Z.
+  Fail approx (i_deg 5).
 Abort.
 
 Lemma ex6: -0.1 <= RInt (fun x => 0%R) (-1/3) (1/3) <= 0.1.
 Proof.
-  dynamic.
+  approx.
 Qed.
 
 Lemma ex6': -0.1 <= RInt (fun x => 0%R) (-3) (3) <= 0.1.
 Proof.
-  Fail static11.
-  dynamic. 
+  Fail approx (i_static11).
+  approx. 
 Qed.
 
 Goal RInt (fun x => RInt id 1 x) 0 1 <= 5.
-  Fail dynamic.
+  Fail approx.
 Abort.
 
 Goal forall x, 0<=x<=1 -> 1<2.
-  dynamic.
+  approx.
 Qed.
 Goal forall x, 0<=x<=1 -> x<2.
-  dynamic.
+  approx.
 Qed.
 Goal forall x, 0.1<=x<=0.9 -> x*x<x.
-  dynamic.
+  approx.
 Qed.
 Goal forall x, 0.1<=x<=0.9 -> x < sqrt x.
-  dynamic.
+  approx.
 Qed.
 Goal forall x, 0.1<=x<=0.9 -> x <> sqrt x.
-  dynamic.
+  approx.
 Qed.
 
 
@@ -118,34 +118,34 @@ Eval vm_compute in
 
 Eval vm_compute in
     let e := EXPR (integrate' ((1+id') / ((1-id')*(1-id')+1/fromZ' 4)) 0 (pi'/fromZ' 4)) in
-    e_map width (Static.Sem' (N:=IZ.nbh) chebyshev11_model_ops 10 e).
+    e_map width (Static.Sem' (N:=IZ53.nbh) chebyshev11_model_ops 10 e).
 (* above: need 1sec *)
 (* below: also need 1sec thanks to sharing *)
 Eval vm_compute in
     let e := EXPR (let_ee x := integrate' ((1+id') / ((1-id')*(1-id')+1/fromZ' 4)) 0 (pi'/fromZ' 4)
                        in x + x)
     in
-    e_map width (Static.Sem' (N:=IZ.nbh) chebyshev11_model_ops 10 e).
+    e_map width (Static.Sem' (N:=IZ53.nbh) chebyshev11_model_ops 10 e).
 
 Time Eval vm_compute in
     let e := FXPR ((1+id') / ((1-id')*(1-id')+1/fromZ' 4)) in
-    Static.Sem' (N:=IZ.nbh) chebyshev11_model_ops 12 e.
+    Static.Sem' (N:=IZ53.nbh) chebyshev11_model_ops 12 e.
 (* above: need 1sec *)
 (* below: also need 1sec thanks to sharing *)
 Time Eval vm_compute in
     let e := FXPR (let_ff x := (1+id') / ((1-id')*(1-id')+1/fromZ' 4)
                        in x + x)
     in
-    Static.Sem' (N:=IZ.nbh) chebyshev11_model_ops 12 e.
+    Static.Sem' (N:=IZ53.nbh) chebyshev11_model_ops 12 e.
 
 
 
 (* TOCHECK: why is 1+1 not a singleton with primitive floats? *)
-Eval vm_compute in (fromZ 2: Iprimitive.nbh).
-Eval vm_compute in (1-1: Iprimitive.nbh). (* arg *)
-Eval vm_compute in (1+1: Iprimitive.nbh). (* arg *)
-Eval vm_compute in (1+1: IZ.nbh).         (* ok *)
-Eval vm_compute in (1+1: IBigInt.nbh).    (* ok *)
+Eval vm_compute in (fromZ 2: Ifloat53.nbh).
+Eval vm_compute in (1-1: Ifloat53.nbh).     (* arg *)
+Eval vm_compute in (1+1: Ifloat53.nbh).     (* arg *)
+Eval vm_compute in (1+1: IZ53.nbh).         (* ok *)
+Eval vm_compute in (1+1: IBigInt53.nbh).    (* ok *)
 
 
 (** About neighborhood instances: *)

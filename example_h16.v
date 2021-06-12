@@ -96,27 +96,11 @@ Time Eval native_compute in calcul       _       0.78 15.
     by specifying the first argument, we may chose other options *)
 (** here with emulated floating point numbers, based on BigInts (big numbers based on 63bit native integers) 
     -> quite slower *)
-Time Eval native_compute in @calcul IBigInt.nbh  0.5 8.
+Time Eval native_compute in @calcul IBigInt53.nbh  0.5 8.
 (** or with emulated floating point numbers, based on emulated relative numbers 
     -> even slower *)
-Time Eval native_compute in @calcul IZ.nbh  0.5 8.
+Time Eval native_compute in @calcul IZ53.nbh  0.5 8.
 
-
-(** instances of neighborhoods with higher precision (128 and 300 bits, respectively) *)
-From Interval Require Import Specific_bigint Specific_ops.
-Import BigZ.
-
-Module FBigInt128 <: FloatOpsP.
-  Include SpecificFloat BigIntRadix2.
-  Definition p := 128%bigZ.
-End FBigInt128. 
-Module IBigInt128 := Make FBigInt128.
-
-Module FBigInt300 <: FloatOpsP.
-  Include SpecificFloat BigIntRadix2.
-  Definition p := 300%bigZ.
-End FBigInt300. 
-Module IBigInt300 := Make FBigInt300.
 
 (** allow for much more precise computations, but pretty slow and thus commented out *)
 (*
