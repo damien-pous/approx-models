@@ -434,6 +434,15 @@ Proof.
   rewrite !Nat.double_twice.  lia.
   rewrite !Nat.double_twice. lia.
 Qed.
+
+(** Range of Fourier vectors *)
+
+Lemma F_range n x :  -1 <= F n x <= 1.
+Proof.
+  rewrite /F ; destruct (even n).
+  rewrite /CC. apply COS_bound.
+  rewrite /SS. apply SIN_bound.
+Qed.
   
   
 (** Fourier vectors are continuous at every point *)
@@ -759,10 +768,29 @@ Section ops.
 
   (** Primitive 
    /!\ No periodic primitive for a trigonometric polynom with a non-zero mean value /*\ *)
-  
+
+
+  (** Evaluation *)
+
+  Fixpoint fast_eval_ a b (P: list C) cost sint :=
+    match P with
+    | [] => a 
+    | [_] => 0
+    | a'::b'::Q => fast_eval_ ( (a' + a )* cost + (b' + b) * sint) ((b'+b) * cost - (a' + a) * sint ) Q cost sint
+    end.
+
+  Definition fast_eval (P: list C) (x:C) :=
+    match P with
+    | [] => 0
+    | h::Q => h + let (cost , sint ) := (cos x , sin x) in
+                  fast_eval_ 0 0
+                             (if (even (length Q)) then (rev P) else (cons0 (rev P)))
+                             cost sint
+    end.
+    
   (** domain *)
-  Definition lo: C := 0.
-  (* Definition hi: C := 2*pi.*)
+  Definition lo: C := 0. Check pi.
+  Definition hi: C := (fromZ 2)*pi.
   
   (** range on C
     since the [F n] have their range in [-1;1], it suffices to take the sum of the absolute values of   the coefficients. for the constant coefficient, we don't even have to take the absolute value.
@@ -978,4 +1006,27 @@ Proof. intros.
        rewrite /= eval_merge eval_add eval_add_ eval_mulCC eval_mulSS 2!eval_mulSC /=. ring.
 Qed.
 
+
+
+Lemma lohi: lo < hi.
+Proof. rewrite /lo /hi /=.  move : PI_RGT_0; lra. Qed.
+
+Lemma eval_range_ x : forall p n, Rabs (eval_ n p x) <= range_ p.
+Proof.
+  elim => [ | a q IH] n /=.
+  + rewrite Rabs_R0; lra.
+  + setoid_rewrite Rabs_triang. apply Rplus_le_compat.
+    rewrite Rabs_mult. transitivity (Rabs a * 1). 2: simpl; lra.
+    apply Rmult_le_compat_l. apply Rabs_pos. 
+    generalize (@F_range n x). 
+    clear IH; split_Rabs; simpl in *; lra.
+    apply IH. 
+Qed.
+
+Lemma eval_range (p: list R) (x: R) (Hx: lo<=x<=hi): (range p).1 <= eval p x <= (range p).2.
+Proof.
+  rewrite /range/eval. destruct p as [|a q]=>/=.
+  - lra.
+  - rewrite F0. move :  (eval_range_ x q 1). simpl. split_Rabs;  lra. 
+Qed.
 
