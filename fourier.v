@@ -1,10 +1,10 @@
 (** * Fourier arithmetic of Fourier basis *)
 
-Require Import vectorspace rescale.
+
 Require Import FSets.FMapPositive Reals.
+Require Import vectorspace rescale.
 Require Import Nat ZArith.Zdiv.
-Require Import Coq.Program.Wf.
-Require Import FunInd Recdef.
+
 Set Implicit Arguments.
 Unset Strict Implicit.
 Unset Printing Implicit Defensive.
@@ -257,7 +257,13 @@ Proof. by rewrite /CC /= Rmult_0_l cos_0. Qed.
 
 Lemma S0 x : SS 0 x = 0.
 Proof. by rewrite /SS /= Rmult_0_l sin_0. Qed.
-  
+
+Lemma C1 x : CC 1 x = cos x.
+Proof. by rewrite /CC /= Rmult_1_l. Qed.
+
+Lemma S1 x : SS 1 x = sin x.
+Proof. by rewrite /SS /= Rmult_1_l. Qed. 
+
 Lemma F0 x : F 0 x = 1.
 Proof. by rewrite /F /= /order /= C0. Qed.        
 
@@ -292,7 +298,7 @@ Proof.
 Qed.  
 
 
-Lemma form_prod_sin : forall a b, sin a * sin b = (cos (a-b) - cos(a+b))/2.
+Lemma form_prod_sin : forall (a b : R), sin a * sin b = (cos (a-b) - cos(a+b))/2.
 Proof.
   intros.
   rewrite /= form2.
@@ -300,10 +306,10 @@ Proof.
   replace ((a - b + (a + b))/2)%R with (a)%R.
  
   rewrite sin_antisym /= Rmult_opp_opp Rmult_assoc Rmult_comm (Rmult_comm (IPR 2) _) Rmult_div => //. rewrite -INR_IPR /=. replace (1 + 1)%R with 2%R. by []. by [].
-  field. field. 
+   field. field. 
 Qed.
 
-Lemma form_prod_sin_cos : forall a b, sin a * cos b = (sin (a+b) + sin (a-b))/2.
+Lemma form_prod_sin_cos : forall (a b : R), sin a * cos b = (sin (a+b) + sin (a-b))/2.
 Proof.
   intros.
   rewrite /= form3.
@@ -320,7 +326,8 @@ Lemma CCprod : forall n m (x : R),
 Proof.
   intros.
   rewrite /CC plus_INR minus_INR => //=.
-  rewrite Rmult_plus_distr_r Rmult_minus_distr_r form_prod_cos. by rewrite (cos_sym (INR n * x - INR m * x)) opp_diff Rplus_comm /=. 
+  rewrite Rmult_plus_distr_r Rmult_minus_distr_r form_prod_cos. simpl. rewrite (cos_sym (INR n * x - INR m * x)).
+  by rewrite opp_diff (Rplus_comm (_ * _))/=.
 Qed.
 
 Corollary CCsqr : forall n (x: R),
@@ -333,7 +340,7 @@ Lemma SSprod : forall n m (x: R),
 Proof.
   intros.
   rewrite /SS /CC plus_INR minus_INR => //.
-  rewrite Rmult_plus_distr_r Rmult_minus_distr_r form_prod_sin. by rewrite (cos_sym (INR n * x - INR m * x)) opp_diff Rplus_comm /=. 
+ simpl.  rewrite Rmult_plus_distr_r Rmult_minus_distr_r form_prod_sin.  simpl. rewrite (cos_sym (INR n * x - INR m * x)) opp_diff Rplus_comm /=. ring. 
 Qed.
 
 Corollary SSsqr : forall n (x: R),
@@ -346,9 +353,9 @@ Lemma SCprod : forall n m (x: R),
 Proof.
   intros.
   rewrite /SS /CC plus_INR minus_INR => //.
-  rewrite Rmult_plus_distr_r Rmult_minus_distr_r form_prod_sin_cos. 
+  simpl. rewrite Rmult_plus_distr_r Rmult_minus_distr_r form_prod_sin_cos. 
   replace (INR m * x - INR n * x)%R with (- (INR n * x - INR m * x)%R).
-  by rewrite sin_antisym opp_opp (Rplus_comm (INR n * x)%R (INR m * x)%R). 
+  simpl. by  rewrite sin_antisym opp_opp (Rplus_comm (INR n * x)%R (INR m * x)%R). 
   ring.
 Qed.
 
@@ -478,7 +485,7 @@ Definition dephase (n:nat) :nat :=
 Lemma CC_ex_derive n x : ex_derive (CC n) x.
 Proof.
   rewrite /CC.
-  apply (ex_derive_comp  (fun t => cos t) (fun t => INR n * t )).
+  apply (ex_derive_comp  (fun t:R => cos t) (fun t => INR n * t )).
     exists (- (sin( INR  n * x))).  
     apply is_derive_cos.
     apply ex_derive_mult. apply ex_derive_const. apply ex_derive_id.
@@ -487,7 +494,7 @@ Qed.
 Lemma SS_ex_derive n x : ex_derive (SS n) x.
 Proof.
   rewrite /SS.
-  apply (ex_derive_comp  (fun t => sin t) (fun t => INR n * t )).
+  apply (ex_derive_comp  (fun t:R => sin t) (fun t => INR n * t )).
     exists (cos( INR  n * x)).  
     apply is_derive_sin.
     apply ex_derive_mult. apply ex_derive_const. apply ex_derive_id.
@@ -521,7 +528,7 @@ Proof. intros => /=. ring. Qed.
 Lemma CC_is_derive n x :  is_derive (CC n) x (- INR n * (SS n x)).
 Proof.
   rewrite /CC /SS -Rmult_opp Rmult_comm_assoc Rmult_opp.
-  apply (is_derive_comp (fun t => cos t) (fun t => INR n * t )). 
+  apply (is_derive_comp (fun t:R => cos t) (fun t => INR n * t )). 
   apply is_derive_cos. apply (is_derive_ext (fun t:R => scal t%R (INR  n))). 
   intros. apply Rmult_comm. apply is_derive_scal'. 
 Qed.
@@ -529,7 +536,7 @@ Qed.
 Lemma SS_is_derive n x : is_derive (SS n) x (INR n * (CC n x)).
 Proof.
   rewrite /SS /CC.
-  apply (is_derive_comp (fun t => sin t) (fun t => INR n * t )).
+  apply (is_derive_comp (fun t:R => sin t) (fun t => INR n * t )).
   apply is_derive_sin. 
   apply (is_derive_ext (fun t:R => scal t%R (INR n))). 
   intros. apply Rmult_comm. apply is_derive_scal'. 
@@ -776,7 +783,7 @@ Section ops.
     match P with
     | [] => a 
     | [_] => 0
-    | a'::b'::Q => fast_eval_ ( (a' + a )* cost + (b' + b) * sint) ((b'+b) * cost - (a' + a) * sint ) Q cost sint
+    | a'::b'::Q => let (a'',b'') := (a + a', b + b') in fast_eval_ ( a''* cost + b'' * sint) (b'' * cost - a'' * sint ) Q cost sint
     end.
 
   Definition fast_eval (P: list C) (x:C) :=
@@ -784,7 +791,7 @@ Section ops.
     | [] => 0
     | h::Q => h + let (cost , sint ) := (cos x , sin x) in
                   fast_eval_ 0 0
-                             (if (even (length Q)) then (rev P) else (cons0 (rev P)))
+                             (if (even (length Q)) then (rev Q) else (cons0 (rev Q)))
                              cost sint
     end.
     
@@ -1007,8 +1014,61 @@ Proof. intros.
 Qed.
 
 
+(* Correctness of fast_eval *)
 
-Lemma lohi: lo < hi.
+Lemma eval_app_: forall P Q (x: R) n, eval_ n (P ++ Q) x = eval_ n P x + eval_ (length P + n) Q x.
+Proof.
+  intros P; induction P as [|a P IH]; intros Q x n.
+  - simpl; ring.
+  - rewrite /=IH/= plus_n_Sm. ring.
+Qed.
+Lemma eval_app: forall P Q (x: R), eval (P ++ Q) x = eval P x + eval_ (length P) Q x.
+Proof. intros; rewrite /eval eval_app_ -plus_n_O //. Qed.
+
+Lemma cons0_nonempty (P:list R) : length P <> 0%nat -> cons0 P = 0::P.
+Proof. move : P => [ // | a p H /= //]. Qed.
+
+Lemma eval_app_0 n P x : eval_ n (P++[0]) x = eval_ n P x. 
+Proof.
+  elim :  P n => [ n /= | a p IHp n /=]. ring.
+    by rewrite IHp.
+Qed.
+  
+Lemma equiv_eval_fast_eval_ (n:nat) a b P t :
+  length P = (2*n)%nat ->
+  fast_eval_ a b P (CC 1 t) (SS 1 t) = eval_ 1 (rev P) t + a * CC n t + b * SS n t.  
+Proof.
+  move : a b P.
+  induction n.
+  + intros a b;move => [ _ /= |  // ]; rewrite C0 S0 /=; lra. 
+  + intros a b;move => [ // | x [ /= | y q Hq]]. 
+    lia.
+    have Hlq : length q = (2*n)%nat.
+    move : Hq; simpl; lia.    
+    rewrite /= app_assoc_reverse /= eval_app_ /=.
+    rewrite IHn => //.
+    rewrite /F Nat.add_1_r Nat.even_succ Nat.even_succ_succ -Nat.negb_even  rev_length Hlq -Nat.double_twice even_double_ /=  -Div2.double_S order_double_S order_double Rmult_plus_distr_r Rmult_minus_distr_r !Rmult_assoc.
+    destruct n. rewrite S0 C0 /=; ring.
+    have HS : (1 <= n.+1)%nat. lia.
+    rewrite CCprod => //; rewrite SSprod => //; rewrite SCprod => //; rewrite CSprod => //.
+    rewrite /= Nat.add_1_r; field.
+Qed.
+
+Lemma equiv_eval_fast_eval P x: fast_eval P x = eval P x.
+Proof.
+  move : P => [ // | a p ]. move : equiv_eval_fast_eval_ => He.
+  simpl. rewrite -C1 -S1 /eval /= F0.
+  case_eq (even (length p)) => H; rewrite H.
+  + apply even_double in H; move: H => [k H]; rewrite Nat.double_twice -rev_length in H.
+    rewrite (He k) => //. rewrite rev_involutive /=. ring.
+  + apply odd_double in H; move: H => [ k H]. rewrite Nat.double_twice in H.
+    rewrite cons0_nonempty. rewrite (He k .+1) /=.
+    rewrite rev_involutive /= eval_app_0; ring.
+    rewrite rev_length H; lia.
+    rewrite rev_length H; lia.
+Qed.
+    
+ Lemma lohi: lo < hi.
 Proof. rewrite /lo /hi /=.  move : PI_RGT_0; lra. Qed.
 
 Lemma eval_range_ x : forall p n, Rabs (eval_ n p x) <= range_ p.
@@ -1029,4 +1089,5 @@ Proof.
   - lra.
   - rewrite F0. move :  (eval_range_ x q 1). simpl. split_Rabs;  lra. 
 Qed.
+
 
