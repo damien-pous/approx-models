@@ -1056,7 +1056,7 @@ Qed.
 
 Lemma equiv_eval_fast_eval P x: fast_eval P x = eval P x.
 Proof.
-  move : P => [ // | a p ]. move : equiv_eval_fast_eval_ => He.
+  move : P => [ // | a p ]. move : equiv_eval_fast_eval_ => He. 
   simpl. rewrite -C1 -S1 /eval /= F0.
   case_eq (even (length p)) => H; rewrite H.
   + apply even_double in H; move: H => [k H]; rewrite Nat.double_twice -rev_length in H.
