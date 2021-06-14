@@ -773,9 +773,6 @@ Section ops.
     let (qCC,qSS) := split_ q in
     merge (sadd (pmulCC pCC qCC) (pmulSS pSS qSS)) (sadd (pmulSC pSS qCC) (pmulSC qSS pCC)).
 
-  (** Primitive 
-   /!\ No periodic primitive for a trigonometric polynom with a non-zero mean value /*\ *)
-
 
   (** Evaluation *)
 
@@ -794,7 +791,24 @@ Section ops.
                              (if (even (length Q)) then (rev Q) else (cons0 (rev Q)))
                              cost sint
     end.
-    
+
+  (** Integration *)
+
+  (* primitive of a Fourier polynom without constant coefficient *)
+  Fixpoint prim_ (order : nat) (p : list C) : list C :=
+    match p with
+    | [] => []
+    | [b] => [0;(0 - b // order)]
+    | b::a::q => a//order::(0-b//order)::(prim_ (order .+1) q)
+    end.
+
+  Definition integrate (p : list C ) a b :=
+    match p with
+    | [] => 0
+    | h::q => h*(b-a) + let Q := prim_ 1 q in fast_eval Q b - fast_eval Q a
+    end.
+  
+
   (** domain *)
   Definition lo: C := 0. Check pi.
   Definition hi: C := (fromZ 2)*pi.
@@ -1068,7 +1082,13 @@ Proof.
     rewrite rev_length H; lia.
 Qed.
     
- Lemma lohi: lo < hi.
+(** Integration *)
+
+Lemma eval_prim_ o p x : Derive (eval_ (2*o-1) (prim_ o p)) x = eval_ (2*o-1) p x.
+Proof.
+
+  
+Lemma lohi: lo < hi.
 Proof. rewrite /lo /hi /=.  move : PI_RGT_0; lra. Qed.
 
 Lemma eval_range_ x : forall p n, Rabs (eval_ n p x) <= range_ p.
