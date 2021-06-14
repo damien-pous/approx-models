@@ -10,13 +10,6 @@
 - subdivision?
 
 
-
-
-## questions for Guillaume:
-- 1+1<>2 in primitive floats
-- check functor applications in intervals.v
-
-
 ## usages of certain functions
 
 range:

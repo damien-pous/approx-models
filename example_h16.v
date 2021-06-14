@@ -87,7 +87,7 @@ Arguments calcul: clear implicits.
 Time Eval vm_compute in     calcul       _       0.5  13.
 
 (** computations with native runtime
-   first call with is always slow: native_compute must initialise *)
+   first call is always slow: native_compute must initialise *)
 Time Eval native_compute in calcul       _       0.5  13.
 Time Eval native_compute in calcul       _       0.5  13.
 Time Eval native_compute in calcul       _       0.78 15.
@@ -96,15 +96,15 @@ Time Eval native_compute in calcul       _       0.78 15.
     by specifying the first argument, we may chose other options *)
 (** here with emulated floating point numbers, based on BigInts (big numbers based on 63bit native integers) 
     -> quite slower *)
-Time Eval native_compute in @calcul IBigInt53.nbh  0.5 8.
+Time Eval native_compute in @calcul IBigInt60.nbh  0.5 8.
 (** or with emulated floating point numbers, based on emulated relative numbers 
     -> even slower *)
-Time Eval native_compute in @calcul IZ53.nbh  0.5 8.
+Time Eval native_compute in @calcul IStdZ60.nbh  0.5 8.
 
 
 (** allow for much more precise computations, but pretty slow and thus commented out *)
 (*
-Time Eval native_compute in calcul IBigInt128.nbh 0.88   65.
-Time Eval native_compute in calcul IBigInt128.nbh 0.89   95.
+Time Eval native_compute in calcul IBigInt120.nbh 0.88   65.
+Time Eval native_compute in calcul IBigInt120.nbh 0.89   95.
 Time Eval native_compute in calcul IBigInt300.nbh 0.895 135.
 *)

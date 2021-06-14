@@ -8,14 +8,24 @@ Set Implicit Arguments.
 Unset Strict Implicit.
 Unset Printing Implicit Defensive.
 
-Module Type FloatOpsP.
-  Include Sig.FloatOps with Definition sensible_format := true.
+(** slight extension of Sig.FloatOps from Coq Interval *)
+Module Type FloatOps'.
+  (** the main signature *)
+  Include Sig.FloatOps.
+  (** fixed precision *)
   Parameter p: precision.
-End FloatOpsP. 
+  (** unspecified operations on floating points *)
+  Parameter Eadd: type -> type -> type.
+  Parameter Esub: type -> type -> type.
+  Parameter Emul: type -> type -> type.
+  Parameter Ediv: type -> type -> type.
+  Parameter Esqrt: type -> type.
+  Parameter Eone: type.
+End FloatOps'. 
 
 
-(** floating points *)
-Module Make(F : FloatOpsP). 
+(** building a neighborhood instance out of the above interface *)
+Module Make(F : FloatOps' with Definition sensible_format := true). 
 Notation F := F.type.
 Notation prec := F.p.
 
@@ -90,26 +100,25 @@ Canonical Structure IOps1 :=
      pi := I.pi prec;
   |}.
 
-Canonical Structure FOps0 := Eval hnf in 
+Canonical Structure FOps0 :=
   {| car := F;
-     add := F.add_UP prec;
-     mul := F.mul_UP prec;
-     sub := F.sub_UP prec;
+     add := F.Eadd;
+     mul := F.Emul;
+     sub := F.Esub;
      zer := F.zero;
-     one := F.fromZ 1 |}.
+     one := F.Eone; |}.
 
-Definition Fcos x := I.midpoint (I.cos prec (I.bnd x x)). 
-Definition Fpi := I.midpoint pi. 
-
-Canonical Structure FOps1 := Eval hnf in
-  {| ops0 := FOps0;
-     div := F.div_UP prec;
-     sqrt := F.sqrt_UP prec;
-     abs := F.abs;
+(* TOTHINK: we do not need certified cos/pi, is there a faster way to get these values? *)
+Definition Fcos x := I.midpoint (I.cos prec (I.bnd x x)).
+Definition Fpi := I.midpoint pi.
+Canonical Structure FOps1 :=
+  {| ops0  := FOps0;
+     div   := F.Ediv;
+     sqrt  := F.Esqrt;
+     abs   := F.abs;
      fromZ := F.fromZ;
-     cos := Fcos;
-     pi := Fpi;
-  |}.
+     cos   := Fcos;
+     pi    := Fpi; |}.
 
 Definition Icontains i x := contains (I.convert i) (Xreal x).
 Local Notation Imem x i := (Icontains i x).
@@ -433,47 +442,89 @@ End Make.
 From Interval Require Import Specific_bigint Specific_ops Primitive_ops Generic_ops Specific_stdz.
 Import BigZ.
 
+Module Type FloatCarrierP.
+  Include Specific_sig.FloatCarrier.
+  Parameter p: exponent_type.
+End FloatCarrierP. 
+
+Module SpecificFloat(Carrier: FloatCarrierP) <: FloatOps'.
+  Include Specific_ops.SpecificFloat Carrier.
+  Definition p := Carrier.p. 
+  Definition Eadd := add_slow Basic.rnd_NE p.
+  Definition Esub x y := Eadd x (neg y).
+  Definition Emul := mul Basic.rnd_NE p.
+  Definition Ediv := div Basic.rnd_NE p.
+  Definition Esqrt := sqrt Basic.rnd_NE p.
+  Definition Eone := fromZ 1.
+End SpecificFloat.
+
+Module PrimitiveFloat <: FloatOps'.
+  Include Primitive_ops.PrimitiveFloat.
+  Definition p := 53%Z.
+  (* TOREPORT: strange bug, 
+     if the following definitions are not eta-expanded, 
+     then vm_compute refuses to unfold them once packed in [FOps0/1] above (see below) *)
+  Definition Eadd x y := PrimFloat.add x y.
+  Definition Esub x y := PrimFloat.sub x y.
+  Definition Emul x y := PrimFloat.mul x y.
+  Definition Ediv x y := PrimFloat.div x y.
+  Definition Esqrt x := PrimFloat.sqrt x.
+  Definition Eone := PrimFloat.one.
+End PrimitiveFloat.
+
 (** encoded floating points, using Z for integers 
    (axiom-free slow) *)
-Module FZ53 <: FloatOpsP.
-  Include SpecificFloat StdZRadix2.
-  Definition p := 53%Z.
-End FZ53.
-Module FZ128 <: FloatOpsP.
-  Include SpecificFloat StdZRadix2.
-  Definition p := 128%Z.
-End FZ128.
- 
+Module StdZRadix2_60 <: FloatCarrierP.
+  Include StdZRadix2.
+  Definition p := 60%Z.
+End StdZRadix2_60.
+Module FStdZ60 := SpecificFloat StdZRadix2_60.
+Module IStdZ60 := Make FStdZ60.
+
+Module StdZRadix2_120 <: FloatCarrierP.
+  Include StdZRadix2.
+  Definition p := 120%Z.
+End StdZRadix2_120.
+Module FStdZ120 := SpecificFloat StdZRadix2_120.
+Module IStdZ120 := Make FStdZ120.
+
 (** half-encoded floating points, using primitive integers (int63) 
    (some axioms, intermediate) *)
-Module FBigInt53 <: FloatOpsP.
-  Include SpecificFloat BigIntRadix2.
-  Definition p := 53%bigZ.
-End FBigInt53. 
-Module FBigInt128 <: FloatOpsP.
-  Include SpecificFloat BigIntRadix2.
-  Definition p := 128%bigZ.
-End FBigInt128. 
-Module FBigInt300 <: FloatOpsP.
-  Include SpecificFloat BigIntRadix2.
+Module BigInt60 <: FloatCarrierP.
+  Include BigIntRadix2.
+  Definition p := 60%bigZ.
+End BigInt60. 
+Module FBigInt60 := SpecificFloat BigInt60.
+Module IBigInt60 := Make FBigInt60.
+
+Module BigInt120 <: FloatCarrierP.
+  Include BigIntRadix2.
+  Definition p := 120%bigZ.
+End BigInt120. 
+Module FBigInt120 := SpecificFloat BigInt120.
+Module IBigInt120 := Make FBigInt120.
+
+Module BigInt300 <: FloatCarrierP.
+  Include BigIntRadix2.
   Definition p := 300%bigZ.
-End FBigInt300. 
+End BigInt300. 
+Module FBigInt300 := SpecificFloat BigInt300.
+Module IBigInt300 := Make FBigInt300.
 
 (** primitive (machine) floating points 
    (more axioms, fast) *)
-Module Ffloat53 <: FloatOpsP.
-  Include PrimitiveFloat.
-  Definition p := 53%Z.
-End Ffloat53. 
+Module IPrimFloat := Make PrimitiveFloat.
 
-(** corresponding implementations of intervals *)
-Module IBigInt53 := Make FBigInt53.
-Module IBigInt128 := Make FBigInt128.
-Module IBigInt300 := Make FBigInt300.
-Module IZ53 := Make FZ53.
-Module IZ128 := Make FZ128.
-Module Ifloat53 := Make Ffloat53.
 
+(* tests for the aformentioned bug to report *)
+(*
+Eval vm_compute in (PrimitiveFloat.Eadd 1 1).     (* reduces *)
+Eval vm_compute in (@add IPrimFloat.FOps0 1 1).   (* blocked unless eta-expanded *)
+Eval vm_compute in (@add IPrimFloat.FOps0).       (* reduces to [PrimFloat.add] *)
+Eval vm_compute in (PrimFloat.add 1 1).           (* reduces *)
+Eval cbv in (@add IPrimFloat.FOps0 1 1).          (* reduces *)
+Eval hnf in (@add IPrimFloat.FOps0 1 1).          (* anomaly, please report (with eta-expansion or not) *)
+*)  
 
 (** canonical structures for floating point operations *)
 Canonical Structure FOps0 :=
@@ -491,9 +542,17 @@ Canonical Structure FOps1 :=
      sqrt := PrimFloat.sqrt;
      abs := PrimFloat.abs;
      fromZ := PrimitiveFloat.fromZ;
-     cos := @cos Ifloat53.FOps1;
-     pi := @pi Ifloat53.FOps1;
+     cos := @cos IPrimFloat.FOps1;
+     pi := @pi IPrimFloat.FOps1;
   |}.
 
-(** nice notation for intervals *)
+(* tests continued: if we simply use the above structures (not the ones generated by the functor Make),
+   then it just works *)
+(*
+Set Printing All.
+Check (sqrt (1+1): float).
+Eval vm_compute in (sqrt (1+1): float). (* reduces *)
+ *)
+
+(** nice notation for intervals with primitive floating points endpoints *)
 Notation "[[ a ; b ]]" := (Float.Ibnd a%float b%float). 
