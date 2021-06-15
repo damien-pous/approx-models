@@ -20,3 +20,4 @@ Makefile.coq.conf
 .Makefile.coq.d
 .???.cache
 .coq-native
+html/
