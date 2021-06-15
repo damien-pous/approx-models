@@ -1,4 +1,4 @@
-(** Example 1: on approximations of the absolute value function *)
+(** * Example 1: on approximations of the absolute value function *)
 
 Require Import Reals.
 Require Import Coquelicot.Coquelicot.
@@ -16,7 +16,7 @@ Unset Printing Implicit Defensive.
 Definition g eps x := sqrt (eps*eps + x*x).
 
 
-(** * with CoqApprox.interval  *)
+(** ** with CoqApprox.interval  *)
 From Interval Require Import Tactic.
 
 Goal let eps := 1/10 in
@@ -66,7 +66,7 @@ Goal let eps := 1/1000 in 1/2+eps/1000 <= RInt (g eps) 0 1 <= 1/2+eps+eps/10.
   integral with (i_fuel 13).     
 Qed.
 
-(** * with Chebyshev models (present library) *)
+(** ** with Chebyshev models (present library) *)
 Require Import approx rescale intervals errors syntax tactic.
 Require chebyshev.
 
@@ -125,13 +125,13 @@ Proof.
 Abort.
 
 
-(** * Direct computations *)
+(** ** direct computations *)
 
-(** two domains: [-1;0] and [0;1]  *)
+(** two domains: [[-1;0]] and [[0;1]]  *)
 Definition D10: Domain := DZ2 (-1) 0.
 Definition D01: Domain := DZ2 0 1.
 
-(** associated model operations, plus operations on [-1;1]
+(** associated model operations, plus operations on [[-1;1]]
     note the implicit use of [Iprimitive.nbh] *)
 Definition F11 := approx.model_ops chebyshev.basis11_ops.
 Definition F10 := approx.model_ops (chebyshev.basis_ops (fromZ (-1)) 0).
@@ -149,8 +149,8 @@ Definition NearAbs (MM: ModelOps) (deg: Z) (eps: Q): E MM :=
 
 
 
-(** below we compute rigorous approximations over [-1,1] or [0;1], and we check their remainders.
-    it is always much easier to get approximations on [0;1] *)
+(** below we compute rigorous approximations over [[-1;1]] or [[0;1]], and we check their remainders.
+    it is always much easier to get approximations on [[0;1]] *)
 
 (** eps = 1/10 *)
 Eval native_compute in (wrem (NearAbs F11  10 0.1)).
@@ -163,7 +163,7 @@ Eval native_compute in (wrem (NearAbs F11  70 0.1)).
 Eval native_compute in (wrem (NearAbs F11  80 0.1)).
 Eval native_compute in (wrem (NearAbs F11  90 0.1)). (* 2e-6 *)
 Eval native_compute in (wrem (NearAbs F11 100 0.1)). (* 4e-7  *)
-(* easier on [0;1] *)
+(* easier on [[0;1]] *)
 Eval native_compute in (wrem (NearAbs F01  50 0.1)). (* 7e-13 *)
 
 (** eps^2 ~ 1/1000 *)
@@ -178,29 +178,29 @@ Eval native_compute in (wrem (NearAbs F11  70 0.032)). (* 0.004  *)
 Eval native_compute in (wrem (NearAbs F11  80 0.032)). (* 0.002  *)
 Eval native_compute in (wrem (NearAbs F11  90 0.032)). (* 0.001  *)
 Eval native_compute in (wrem (NearAbs F11 100 0.032)). (* 0.0007 *)
-(* easier on [0;1] *)
+(* easier on [[0;1]] *)
 Eval native_compute in (wrem (NearAbs F01  20 0.032)). (* 9e-5 *)
 
 (** eps = 1/100 *)
 Eval native_compute in (wrem (NearAbs F11 100 0.01)). (* err *)
 Eval native_compute in (wrem (NearAbs F11 200 0.01)). (* 0.004 *)
 (** above: this means we could use (NearAbs F11 200 0.01) as a 
-    model for the absolute value function on [-1;1], 
+    model for the absolute value function on [[-1;1]], 
     with error around 0.004+0.01=0.014 *)
-(* easier on [0;1] *)
+(* easier on [[0;1]] *)
 Eval native_compute in (wrem (NearAbs F01  50 0.01)). (* 2e-6 *)
 Eval native_compute in (wrem (NearAbs F01 100 0.01)). (* 7e-10 *)
 
 (** eps = 1/1000 *)
 Eval native_compute in (wrem (NearAbs F11 100 0.001)). (* err *)
 Eval native_compute in (wrem (NearAbs F11 500 0.001)). (* not even with degree 1000 *)
-(* easier on [0;1] *)
+(* easier on [[0;1]] *)
 Eval native_compute in (wrem (NearAbs F01  81 0.001)). (* 7e-5 *)
 
 
 
-(** * comparing timings for constructing models *)
-(** Chebyshev models on [-1;1], with a posteriori validation for square root *)
+(** ** comparing timings for constructing models *)
+(** Chebyshev models on [[-1;1]], with a posteriori validation for square root *)
 Time Eval native_compute in (wrem (NearAbs F11  10 2)).
 Time Eval native_compute in (wrem (NearAbs F11  10 2)).
 Time Eval native_compute in (wrem (NearAbs F11  20 2)).
@@ -254,7 +254,7 @@ Proof.
 Abort.
 
 
-(** * computing the error between [NearAbs deg eps] and [abs] on [0;1], directly *)
+(** ** computing the error between [NearAbs deg eps] and [abs] on [[0;1]], directly *)
 Definition NearAbsErr01 (deg : Z) (eps: Q) :=
   LET G ::= @NearAbs F01 deg eps IN
   ret (width (mrange (G - mid))).

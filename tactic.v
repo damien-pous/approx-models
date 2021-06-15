@@ -26,7 +26,8 @@ Section s.
 
 End s.
 
-(** tactic parameters, in each group, default value comes first *)
+(** ** tactic parameters *)
+(** in each group, default value comes first *)
 Inductive param :=
 (** interpolation degree (default: 10) *)
 | i_deg of Z
@@ -131,7 +132,8 @@ Ltac comp native X :=
 Ltac cast native b :=
   match native with true => native_cast_no_check b | false => vm_cast_no_check b end.
 
-(** ** tactic to prove bounds on concrete expressions, see type [param] above for tactic parameters *)
+(** ** tactic to prove bounds on concrete expressions *)
+(** see type [param] above for tactic parameters *)
 Tactic Notation "approx" constr(params) :=
   all_params params;
   let deg := get_deg params tt in
@@ -154,7 +156,8 @@ Tactic Notation "approx" constr(params) :=
 Tactic Notation "approx" := approx tt.
 
 
-(** ** tactic to estimate certain real valued expressions, see type [param] above for tactic parameters *)
+(** ** tactic to estimate certain real valued expressions *)
+(** see type [param] above for tactic parameters *)
 (* TOTHINK: do not change the goal -> turn these into commands? *)
 Tactic Notation "estimate" constr(e) constr(params) :=
   all_params params;

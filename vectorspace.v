@@ -208,7 +208,7 @@ End s.
 Global Hint Resolve rsadd rsscal rsopp rssub rszer rcons0 rcons00: rel.
 
 
-(** ** Basis: requirements for generating pseudo-polynomial models (in approx.v) *)
+(** ** [Basis]: requirements for generating pseudo-polynomial models (in approx.v) *)
 
 Class BasisOps_on (C: Type) := {
   lo: C;
@@ -238,9 +238,11 @@ Class BasisOps {N: NBH} := {
   BF:> BasisOps_on FF;
 }.
 
+(** derived operations *)
 Definition dom {BO: BasisOps_on R} (x: R) := lo <= x <= hi.
 Definition Dom `{BO: BasisOps} (X: II) := is_le lo X && is_le X hi.
 
+(** requirements on basis operations *)
 Class Basis {N: NBH} (B: BasisOps) := {
 
   (** the mathematical basis itself *)
@@ -289,6 +291,7 @@ Class Basis {N: NBH} (B: BasisOps) := {
 Global Hint Resolve rbmul rbone rbid rbintegrate rbeval rlo rhi: rel.
 
 
+(** ** simple derived properties of bases *)
 Section s.
 Context `{Basis}.
 

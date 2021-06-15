@@ -1,4 +1,4 @@
-(** * Rescaling operation on bases *)
+(** * Rescaling bases *)
 
 Require Import vectorspace.
 

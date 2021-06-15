@@ -1,8 +1,9 @@
-(** * a monad for raising runtime errors *)
+(** * Monad for raising runtime errors *)
 
 Require Export String.
 Set Implicit Arguments.
 
+(** monadic values *)
 Inductive E A := ret(a: A) | err(e: string).
 Arguments err {_} _.
 
@@ -10,6 +11,7 @@ Declare Scope error_scope.
 Bind Scope error_scope with E.
 Open Scope error_scope.
 
+(** standard monadic operations *)
 Definition e_bind {A B} (x: E A) (f: A -> E B): E B :=
   match x with ret a => f a | err e => err e end.
 Infix ">>=" := e_bind (at level 30): error_scope.
@@ -29,6 +31,7 @@ Definition trycatch {A} (x: E A) (y: unit -> E A) :=
 Notation "'TRY' x 'CATCH' g" := (trycatch x (fun _ => g)) (at level 200, right associativity): error_scope.  
 
 
+(** lifting predicates to monadic values: errors are left unspecified *)
 Inductive EP {A} (P: A -> Prop): E A -> Prop :=
 | ep_ret: forall a, P a -> EP P (ret a)
 | ep_err: forall s, EP P (err s).
@@ -37,8 +40,10 @@ Global Hint Resolve ep_err: core.
 Definition EP' {A B} (P: A -> B -> Prop): E A -> B -> Prop :=
   fun x b => EP (fun a => P a b) x.
 
+(** special case for Boolean monadic values, to be read as implication *)
 Definition EPimpl (b: E bool) (P: Prop) := EP (fun b => is_true b -> P) b.
-  
+
+(** helpers for proving lifted predicates *)
 Lemma ep_bind {A B} (f: A -> E B) (P: A -> Prop) (Q: B -> Prop)
       (F: forall a, P a -> EP Q (f a)): forall a, EP P a -> EP Q (a >>= f).
 Proof. intros ? [??|]; cbn; auto. Qed.

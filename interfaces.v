@@ -43,10 +43,10 @@ Proof. by []. Qed.
 
 
 
-(** ** Operations on scalars *)
+(** ** operations on scalars *)
 
 (** basic operations *)
-(** (will be instantiated on R, I, F, list C, Model C) *)
+(** (will be instantiated on R, I, F, list C, Tube C) *)
 Record Ops0 := {
   car:> Type;
   add: car -> car -> car;
@@ -61,7 +61,7 @@ Record Ops0 := {
 Record Ops1 := {
   ops0:> Ops0;
   fromZ: Z -> ops0;
-  div: ops0 -> ops0 -> ops0;  (** also on Model C, but with parameters *)
+  div: ops0 -> ops0 -> ops0;  (** also on Tube C, but with parameters *)
   sqrt: ops0 -> ops0;         (** idem *)
   cos: ops0 -> ops0;
   abs: ops0 -> ops0;
@@ -109,7 +109,7 @@ Canonical Structure f_Ops0 (A: Type) (C: Ops0): Ops0 := {|
   one := f_cst (@one C);
 |}.
 
-(** ** instances on Reals *)
+(** ** instances on real numbers *)
 Canonical Structure ROps0 := {|
   car := R;
   add := Rplus;
@@ -172,7 +172,7 @@ Proof. rewrite /dvn; rel. Qed.
 Global Hint Resolve rdvn: rel.
 
 
-(** ** Neighborhoods (effective abstractions for real numbers) *)
+(** ** neighborhoods (effective abstractions for real numbers) *)
 
 (** utilities for specifications  *)
 Inductive minmax_spec A le (contains: A -> R -> Prop) (a: A): option A -> Prop :=
@@ -200,7 +200,7 @@ Class NBH := {
   bnd: II -> II -> II;
   max: II -> option II;    
   min: II -> option II;    
-  bot: II;                   (** [-oo;+oo] *)
+  bot: II;                   (** [[-oo;+oo]] *)
   is_lt: II -> II -> bool; 
   is_le: II -> II -> bool;
   (** specification of the above operations *)
@@ -257,7 +257,7 @@ Inductive ocontains{N: NBH} x: option II -> R -> Prop :=
 Global Hint Constructors ocontains: rel.
   
 
-(** ** Models: abstraction for functions on real numbers *)
+(** ** [Model]: abstraction for functions on real numbers *)
 
 (** operations on models *)
 Class ModelOps {N: NBH} := {
@@ -290,7 +290,7 @@ Coercion MM: ModelOps >-> Ops0.
 Definition mlt `{ModelOps} z f g := mgt0 z (g-f).
 Definition mne `{ModelOps} z f g := mne0 z (f-g).
 
-(** specification of the above operations, on the domain [lo;hi] *)
+(** specification of the above operations, on the domain [[lo;hi]] *)
 Class Model {N: NBH} (MO: ModelOps) (lo hi: R) := {
   mcontains: Rel0 MM (f_Ops0 R ROps0);
   rmid: mcontains mid id;

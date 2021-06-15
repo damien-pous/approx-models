@@ -65,7 +65,7 @@ Definition Term S := forall X, @term X S.
     [forall X, X S -> @term X T]) *)
 
 
-(** real number semantics of expressions  *)
+(** ** real number semantics of expressions  *)
 Definition rval S: Type := match S with REAL => R | FUN => (R -> R) | BOOL => Prop end.
 Fixpoint sem S (t: @term rval S): rval S :=
   match t in term S return rval S with
@@ -106,7 +106,7 @@ Definition sem' S (u: Term S): rval S := sem (u rval).
 
 
 
-(** reification for the above syntax *)
+(** ** reification for the above syntax *)
 
 (* TODO: 
    - maximal sharing using let-ins? [need OCaml?]
@@ -234,8 +234,8 @@ r (forall x: R, x=x).
 Abort.
 *)
 
-(** parametricity relation for terms.
-    This inductive relation is required because of our PHOAS encoding of the syntax.
+(** ** parametricity relation for terms. *)
+(** This inductive relation is required because of our PHOAS encoding of the syntax.
     We use it to be able to proceed by induction on terms when proving correctness of the interval/model semantics below. *)
 Inductive trel X Y (R: forall S, X S -> Y S -> Prop): forall S, @term X S -> @term Y S -> Prop :=
 | re_add: forall x y, trel R x y -> forall x' y', trel R x' y' -> trel R (e_add x x') (e_add y y')
@@ -282,7 +282,8 @@ Definition parametric S (u: Term S) :=
 
 
 
-(** ** static evaluation strategy, where we fix a basis once and for all  *)
+(** ** static evaluation function *)
+(** where we fix a basis once and for all  *)
 Module Static.
 Section s.
 
@@ -419,7 +420,8 @@ Arguments Sem {_} _ _ [_] _.
 End Static.
 
 
-(** ** dynamic evaluation strategy, where we choose the basis according to integral bounds *)
+(** ** dynamic evaluation function *)
+(** where we choose the basis according to integral bounds *)
 Module Dynamic.
 Section s.
 
@@ -589,8 +591,8 @@ Arguments check {_ _} _ _ _.
 End Dynamic.
 
 
-(** below: notations for expressions
-    mostly used for tests in tests.v for now 
+(** ** notations for expressions *)
+(** mostly used for tests in tests.v for now 
     sadly, trying to declare canonical structures of Ops0, Ops1, raises universe inconsistencies
  *)
 
@@ -668,7 +670,7 @@ Notation EXPR t := ((fun X => (t%expr: expr X)): Term REAL).
 Notation FXPR t := ((fun X => (t%fxpr: fxpr X)): Term FUN).
 Notation BXPR t := ((fun X => (t%bxpr: bxpr X)): Term BOOL).
 
-(*
+(**
 Check EXPR (1+e_pi).
 Check EXPR (1+integrate' id' 0 1).
 Check FXPR (id'/id').

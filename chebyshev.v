@@ -80,7 +80,7 @@ Proof.
   by exists t. 
 Qed.
 
-(** as a corollary, their range is [-1;1] on [-1;1] *)
+(** as a corollary, their range is [[-1;1]] on [[-1;1]] *)
 Corollary T_range n x : -1 <= x <= 1 -> -1 <= T n x <= 1.
 Proof.
   intro Hx; destruct (cos_range Hx) as [t [_ Ht]].
@@ -171,7 +171,7 @@ Lemma eval_ex_derive P x: ex_derive (eval P) x.
 Proof. apply eval_ex_derive_. Qed. 
 
 
-(** ** Operations on polynomials
+(** ** operations on polynomials
     This time parametrised by a abstract set C of operations.
     Later, C will be instanciated with reals, floating points, and intervals.
  *)
@@ -243,8 +243,8 @@ Section ops.
  Definition lo: C := fromZ (-1).
  Definition hi: C := 1.
 
- (** range on [-1;1]
-    since the [T n] have their range in [-1;1], it suffices to take the sum of the absolute values of   the coefficients. for the constant coefficient, we don't even have to take the absolute value.
+ (** range on [[-1;1]]
+    since the [T n] have their range in [[-1;1]], it suffices to take the sum of the absolute values of   the coefficients. for the constant coefficient, we don't even have to take the absolute value.
   *)
  Definition range_: list C -> C := List.fold_right (fun a x => abs a + x) 0.
  Definition range p: C*C :=
@@ -256,7 +256,7 @@ Section ops.
 End ops.
 
 
-(** ** Correctness of the above polynomial operations, on R *)
+(** ** correctness of the above operations, on R *)
 
 Lemma eval_cst a (x: R): eval (pcst a) x = a.
 Proof. compute. rewrite T0/=. ring. Qed.
@@ -538,7 +538,7 @@ Definition basis11_ops {N: NBH}: BasisOps := {|
   BF := basis11_ops_on FF;
 |}.
 
-(* TOTHINK: avoid the rescaling when [lo,hi] = [-1;1]? *)
+(* TOTHINK: avoid the rescaling when [[lo;hi]] = [[-1;1]]? *)
 Definition basis_ops {N: NBH} (lo hi: II): BasisOps :=
   rescale_ops basis11_ops lo hi.
 

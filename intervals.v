@@ -1,4 +1,4 @@
-(** * Implementation of neighborhoods based on floating point intervals *)
+(** * Implementation of neighborhoods based on floating point intervals from the Coq Interval library *)
 
 Require Export Floats.
 Require Export interfaces.
@@ -14,7 +14,7 @@ Module Type FloatOps'.
   Include Sig.FloatOps.
   (** fixed precision *)
   Parameter p: precision.
-  (** unspecified operations on floating points *)
+  (** unspecified operations on floating points (used for oracles) *)
   Parameter Eadd: type -> type -> type.
   Parameter Esub: type -> type -> type.
   Parameter Emul: type -> type -> type.

@@ -13,7 +13,7 @@ Notation eval_ := (eval_ M).
 Notation eval := (eval M).
 
 
-(** ** continuity/derivability properties *)
+(** continuity/derivability properties *)
 
 Lemma M_cont n x : continuity_pt (M n) x.
 Proof.
@@ -41,7 +41,7 @@ Lemma eval_ex_derive P x: ex_derive (eval P) x.
 Proof. apply eval_ex_derive_. Qed. 
 
 
-(** ** definition of the operations *)
+(** ** operations on polynomials *)
 
 (** linear time evaluation (Hörner) *)
 
@@ -114,7 +114,7 @@ End r'.
 Parameter interpolate: forall {C: Ops1}, Z -> (C -> C) -> list C.
 
 
-(** ** correctness of the operations on reals  *)
+(** ** correctness of the above operations, on R *)
 
 Lemma eval_cst a (x: R): eval (scst a) x = a.
 Proof. compute. ring. Qed.

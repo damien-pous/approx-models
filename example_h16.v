@@ -29,7 +29,7 @@ Section s.
  Let ymin: II := sqrt (y0 - r_sqrt2).
  Let ymax: II := sqrt (y0 + r_sqrt2).
 
- (** we use two instances of the Chebyshev basis: on [xmin;xmax], and on [ymin;ymax] *)
+ (** we use two instances of the Chebyshev basis: on [[xmin;xmax]], and on [[ymin;ymax]] *)
  Let Fx := approx.model_ops (chebyshev.basis_ops xmin xmax).
  Let Fy := approx.model_ops (chebyshev.basis_ops ymin ymax).
  
@@ -102,8 +102,8 @@ Time Eval native_compute in @calcul IBigInt60.nbh  0.5 8.
 Time Eval native_compute in @calcul IStdZ60.nbh  0.5 8.
 
 
-(** allow for much more precise computations, but pretty slow and thus commented out *)
-(*
+(** more precise computations, but pretty slow and thus commented out *)
+(**
 Time Eval native_compute in calcul IBigInt120.nbh 0.88   65.
 Time Eval native_compute in calcul IBigInt120.nbh 0.89   95.
 Time Eval native_compute in calcul IBigInt300.nbh 0.895 135.

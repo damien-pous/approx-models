@@ -1,4 +1,4 @@
-(** * Rigorous approximations (models) in a generic basis *)
+(** * Rigorous approximations in a generic basis *)
 
 Require Export vectorspace.
 Require Import errors.
@@ -8,10 +8,16 @@ Set Implicit Arguments.
 Unset Strict Implicit.
 Unset Printing Implicit Defensive.  
 
-(** tubes: polynomials with a remainder, and a bit indicating whether the approximated function is continuous *)
+(** ** tubes: polynomials with a remainder (rigorous approximations) *)
+
+(** in this file we provide an instance of [Model] on tubes, given a generic basis ([Basis]) **)
+
+(** we use an extra bit indicating whether the approximated function is continuous
+    this makes it possible to prove continuity of some functions, by computation *)
 Record Tube C := { pol: list C; rem: C; cont: bool }.
 
-(** ** operations on rigorous approximations *)
+
+(** ** operations on tubes *)
 Section n.
  Context {N: NBH} {BO: BasisOps}.
  Notation Tube := (Tube (car (ops0 (@II N)))).
