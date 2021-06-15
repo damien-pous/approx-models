@@ -8,6 +8,8 @@
 - interpolation oracle for Taylor basis
 - choice of basis in the tactic
 - subdivision?
+- uncertified but efficient F.cos and F.pi ?
+- continuity (from Coquelicot) vs continuity_pt (from Reals.Ranalysis1)
 
 
 ## usages of certain functions

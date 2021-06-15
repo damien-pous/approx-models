@@ -169,9 +169,10 @@ Section n.
    let q := interpolate n (fun x: FF => 1 / beval p x) in
    is_ne 0 (mrange (M * mfc q)).
  
- (** testing positivity *) 
+ (** testing positivity *)
  Definition mgt0 n (M: Tube): E bool :=
    if ~~ cont M then err "mgt0: need a continuous model" else
+     (* TOTHINK: in orthogonal bases, sufficient to look at the constant coefficient rather than evaluating at some point (here [lo]) *)
    if ~~ is_lt 0 (meval_unsafe M lo) then ret false
    else ret (mne0 n M).
  
