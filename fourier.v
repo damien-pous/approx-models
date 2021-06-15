@@ -561,8 +561,33 @@ Proof.
     apply SS_is_derive.
 Qed.
 
+Corollary F_is_derive_2n n x : (n>=1)%nat -> is_derive (F (2*n)) x (- INR n * F (2*n - 1) x)%R.
+Proof. intro Hn.
+  move : (F_is_derive (2* n) x). rewrite /pow_minus_one /order /dephase. rewrite Nat.add_1_r Nat.even_succ -Nat.negb_even -Nat.double_twice even_double_ /=.
+      replace (div2 (double n)) with n.
+      replace (Nat.double n) with ((2*n) .-1) .+1.  
+      replace (((2 * n) .-1) .+1 - 1)%nat with (((2 * n) .-1) .+1) .-1.
+      by rewrite /= Rmult_opp. 
+      lia. rewrite Nat.double_twice. lia. by rewrite div2_double.
+Qed.
 
-
+Corollary F_is_derive_2nm1 n x :  (n>=1)%nat -> is_derive (F (2*n - 1)) x ( INR n * F (2*n) x)%R.
+Proof. intro Hn.
+       move : (F_is_derive (2* n - 1) x). rewrite /pow_minus_one /order /dephase.
+       rewrite Nat.add_1_r. 
+       have He : ( even (2*n-1) = false).
+       rewrite -Nat.odd_succ.
+       replace ((2*n - 1) .+1)%nat with (2*n)%nat.
+         by rewrite  -Nat.negb_even -Nat.double_twice even_double_. lia.
+       rewrite Nat.even_succ -Nat.negb_even He.
+       replace (div2 (2 * n - 1)) .+1 with n.
+       replace (2*n - 1)%nat with ((2*(n-1)) .+1)%nat.
+       simpl.
+       replace (n - 1 + (n - 1 + 0)) .+2 with (n + (n + 0))%nat.
+         by rewrite Rmult_1_l. lia. lia.
+       replace (2*n - 1)%nat with ((2*(n-1)) .+1)%nat.
+       rewrite -Nat.double_twice div2_double_S. lia. lia.
+Qed.    
 (** naive evaluation (defined in vectorspace) 
     eval [a b c] x = a * F 0 x + b * F 1 x + c * F 2 x + 0
  *)
@@ -805,7 +830,7 @@ Section ops.
   Definition integrate (p : list C ) a b :=
     match p with
     | [] => 0
-    | h::q => h*(b-a) + let Q := prim_ 1 q in fast_eval Q b - fast_eval Q a
+    | h::q => h*(b-a) + let Q := prim_ 1 q in fast_eval (0::Q) b - fast_eval (0::Q) a
     end.
   
 
@@ -1084,11 +1109,47 @@ Qed.
     
 (** Integration *)
 
-Lemma eval_prim_ o p x : Derive (eval_ (2*o-1) (prim_ o p)) x = eval_ (2*o-1) p x.
+Lemma eval_prim_ o m p x : (length p <= m)%nat -> (o >= 1)%nat -> Derive (eval_ (2*o-1) (prim_ o p)) x = eval_ (2*o-1) p x.
 Proof.
+  move : o p. elim: m => [ n p H Hn | m  IHm n [ /= | a [ | b q ]] Hlp Hn ].
+  + have H0 : length p = 0%nat. by inversion H.
+    apply length_zero_iff_nil in H0. rewrite H0 /=.
+    apply Derive_const.
 
-  
-Lemma lohi: lo < hi.
+  + apply Derive_const. 
+
+  + rewrite (@Derive_ext _ (fun x => - a // n * F (2* n) x)).  
+    rewrite Derive_scal.
+    rewrite (@is_derive_unique _ _ (- INR n * F (2*n - 1)%nat x)). 2: apply F_is_derive_2n => //.
+    rewrite /= -INR_IZR_INZ. field. apply not_0_INR; lia.
+    simpl; replace ((n + (n + 0) - 1) .+1) with (n+(n+0))%nat. intro t; field.
+    rewrite -INR_IZR_INZ. apply not_0_INR; lia. lia.  
+
+  + simpl. rewrite !Derive_plus. rewrite  !Derive_scal.
+    rewrite (@is_derive_unique _ _ ( INR n * F (2*n) x) ) /=.
+    rewrite (@is_derive_unique _ _ (- INR n * F ((2*n - 1)) x) ) /=.
+    replace ((n+(n+0)-1) .+2)%nat with (2* (n .+1) - 1)%nat.
+    replace (n+(n+0)-1) .+1 with (n+(n+0))%nat.   
+    rewrite -INR_IZR_INZ IHm. field. apply not_0_INR; lia.
+    move : Hlp => /=. lia. lia. lia. lia.
+    replace (n+(n+0)-1) .+1 with (n+(n+0))%nat. 2:lia.
+    apply F_is_derive_2n => //. apply F_is_derive_2nm1 => //.
+   
+    apply ex_derive_scal. apply F_ex_derive. apply eval_ex_derive_.
+    apply ex_derive_scal. apply F_ex_derive.
+    apply @ex_derive_plus. apply ex_derive_scal. apply F_ex_derive. apply eval_ex_derive_.
+Qed.
+    
+Lemma eval_prim_Derive_ p x : Derive (eval_ 1 (prim_ 1 p)) x = eval_ 1 p x.
+Proof. apply (@eval_prim_ 1 (length p)). lia. lia. Qed.
+
+Lemma eval_integrate p a b : integrate p a b = RInt (eval p) a b.
+Proof.
+  move : p => [ | x q]. 
+  rewrite /eval /= RInt_const scal_zero_r => //.
+  rewrite /integrate. rewrite 2!equiv_eval_fast_eval /eval /=. Check integrate_prim. rewrite F0.
+
+  Lemma lohi: lo < hi.
 Proof. rewrite /lo /hi /=.  move : PI_RGT_0; lra. Qed.
 
 Lemma eval_range_ x : forall p n, Rabs (eval_ n p x) <= range_ p.
