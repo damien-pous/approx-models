@@ -18,13 +18,13 @@ Implicit Types (x y z : posreal).
 
 (** Hints which insert canonical structures based automation in trivial, now, by and // *)
 Lemma posreal_lt_0 x : 0 < x. Proof.  apply x. Qed.
-Hint Resolve posreal_lt_0.
+Hint Resolve posreal_lt_0: core.
 
 Lemma posreal_le_0 x : 0 <= x. Proof. exact: Rlt_le. Qed.
-Hint Resolve posreal_le_0.
+Hint Resolve posreal_le_0: core.
 
 Lemma posreal_not_0 x : pos x <> 0. Proof. by move: (cond_pos x); lra. Qed.
-Hint Resolve posreal_not_0.
+Hint Resolve posreal_not_0: core.
 
 
 (** Sign-preserving operations *)
@@ -68,9 +68,9 @@ End Posreal.
 (** A notation to retrieve a canonical posreal. Useful at places where no unification problem can trigger the inference. *)
 Notation "x %:posreal" := (posreal_from_R (Phantom _ x))
   (at level 0, format "x %:posreal") : R_scope.
-Hint Resolve posreal_lt_0.
-Hint Resolve posreal_le_0.
-Hint Resolve posreal_not_0.
+Global Hint Resolve posreal_lt_0: core.
+Global Hint Resolve posreal_le_0: core.
+Global Hint Resolve posreal_not_0: core.
 
 (** ** For manifestly nonnegative reals *)
 
@@ -81,7 +81,7 @@ Implicit Types (x y z : nonnegreal).
 (** Hints which insert canonical structures based automation in 
        trivial, now, by and // *)
 Lemma nonnegreal_le_0 x : 0 <= x. Proof. apply x. Qed.
-Hint Resolve nonnegreal_le_0.
+Hint Resolve nonnegreal_le_0: core.
 
 (** Sign-preserving operations *)
 
@@ -137,4 +137,4 @@ End Nonnegreal.
 
 Notation "x %:nonnegreal" := (nonnegreal_from_R (Phantom _ x))
   (at level 0, format "x %:nonnegreal") : R_scope.
-Hint Resolve nonnegreal_le_0.
+Global Hint Resolve nonnegreal_le_0: core.
