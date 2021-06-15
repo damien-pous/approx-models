@@ -1146,10 +1146,30 @@ Proof. apply (@eval_prim_ 1 (length p)). lia. lia. Qed.
 Lemma eval_integrate p a b : integrate p a b = RInt (eval p) a b.
 Proof.
   move : p => [ | x q]. 
-  rewrite /eval /= RInt_const scal_zero_r => //.
-  rewrite /integrate. rewrite 2!equiv_eval_fast_eval /eval /=. Check integrate_prim. rewrite F0.
+  + rewrite /eval /= RInt_const scal_zero_r => //.
+  + rewrite /integrate. rewrite 2!equiv_eval_fast_eval /eval /=.
+    rewrite RInt_plus. 
+  
+    erewrite RInt_ext with (f := eval_ 1 q).
+    all: swap 1 2. by intros; rewrite -eval_prim_Derive_. 
+    rewrite RInt_Derive.
+    erewrite RInt_ext. 
+    erewrite RInt_const.   
+    instantiate ( 1 := x).
+    simpl. rewrite /plus /scal /= /mult /=. ring.
+    intros. rewrite F0 /=; ring.
+    intros; apply eval_ex_derive_. 
+    intros.  eapply continuous_ext.
+    intro x1. by rewrite eval_prim_Derive_.
+    apply continuity_pt_filterlim, eval_cont_.
+    apply @ex_RInt_scal. apply ex_RInt_continuous.
+    intros. apply continuity_pt_filterlim, F_cont.
+    apply ex_RInt_continuous.
+    intros. apply continuity_pt_filterlim, eval_cont_.
+Qed.    
+    
 
-  Lemma lohi: lo < hi.
+Lemma lohi: lo < hi.
 Proof. rewrite /lo /hi /=.  move : PI_RGT_0; lra. Qed.
 
 Lemma eval_range_ x : forall p n, Rabs (eval_ n p x) <= range_ p.
@@ -1172,3 +1192,70 @@ Proof.
 Qed.
 
 
+(** ** parametricity of the operations 
+    above, we have only specified the instance of the operations on R
+    by proving the following parametricity results, we intuitively obtain that they are valid for all instances which are coherent with R (this will be the case with intervals, I).
+ *)
+
+Section s.
+  Context {R S: Ops1}.
+  Variable T: Rel1 R S.
+  Notation pT := (list_rel T).
+  
+  Lemma rcons0: forall x y, pT x y -> pT (cons0 x) (cons0 y).
+  Proof. intros ??[|]=>/=; rel. Qed.
+  Lemma rcons00: forall x y, pT x y -> pT (cons00 x) (cons00 y).
+  Proof. intros ??[|]=>/=; rel. Qed.
+  Hint Resolve rcons0 rcons00: rel.
+  Lemma rmul_minus: forall x y, pT x y -> forall x' y', pT x' y' -> pT (mul_minus x x') (mul_minus y y').
+  Proof. intros ?? H; induction H; intros ?? [|???]; simpl; rel. Qed.
+  Lemma rmul_plus: forall x y, pT x y -> forall x' y', pT x' y' -> pT (mul_plus x x') (mul_plus y y').
+  Proof. intros ?? H; induction H; intros ?? [|???]; simpl; rel. Qed.
+  Lemma rmul_minusSC: forall x y, pT x y -> forall x' y', pT x' y' -> pT (mul_minusSC x x') (mul_minusSC y y').
+  Proof. intros ?? H; induction H; intros ?? [|???]; simpl; rel. Qed.
+  Lemma rtl : forall x y, pT x y -> pT (tl x) (tl y).
+  Proof. intros ?? [|] => /=; rel. Qed.
+  Local Hint Resolve rmul_minus rmul_plus rmul_minusSC rtl : rel.
+  Lemma rpmulCC : forall x y, pT x y -> forall x' y', pT x' y' -> pT (pmulCC x x') (pmulCC y y').
+  Proof. simpl. unfold pmulCC. rel. Qed.
+  Lemma rpmulSS : forall x y, pT x y -> forall x' y', pT x' y' -> pT (pmulSS x x') (pmulSS y y').
+  Proof. simpl. unfold pmulSS. rel. Qed.
+  Lemma rpmulSC' : forall x y, pT x y -> forall x' y', pT x' y' -> pT (pmulSC' x x') (pmulSC' y y').
+  Proof. simpl. unfold pmulSC'. rel. Qed.
+  Local Hint Resolve rpmulSC': rel.
+  Lemma rpmulSC : forall x y, pT x y -> forall x' y', pT x' y' -> pT (pmulSC x x') (pmulSC y y').
+  Proof. simpl. unfold pmulSC. rel. Qed.
+  Lemma rsplit_fst_ : forall x y, pT x y ->  pT (split_left x).1 (split_left y).1 /\ pT (split_right x).1 (split_right y).1.
+  Proof. intros ?? H. induction H. simpl. rel. 
+         inversion IHlist_rel. split. simpl; constructor => //. by [].
+  Qed.
+  Lemma rsplit_snd_ : forall x y, pT x y ->  pT (split_left x).2 (split_left y).2 /\ pT (split_right x).2 (split_right y).2.
+  Proof. intros ?? H. induction H. simpl. rel. 
+         inversion IHlist_rel. split. simpl => //. constructor => //. 
+  Qed.
+  Lemma rsplit_fst : forall x y, pT x y ->  pT (split_ x).1 (split_ y).1.
+  Proof. unfold split_. apply rsplit_fst_. Qed.
+  Lemma rsplit_snd : forall x y, pT x y ->  pT (split_ x).2 (split_ y).2.
+  Proof. unfold split_. apply rsplit_snd_. Qed.
+  Lemma rmerge : forall x y, pT x y -> forall x' y' , pT x' y' -> pT (merge x x') (merge y y').
+
+
+
+
+
+
+
+
+    (*Proof. intros ?? [|] ?? [|] => /=. rel. constructor => //. rel. constructor => //. admit.
+         constructor => //. admit.
+         constructor => //. constructor => //. induction H. simpl. admit. destruct H0.
+         simpl. constructor => //. admit.*)
+         
+         Local Hint Resolve rpmulCC rpmulSS rpmulSC : rel.
+         
+  
+  Lemma rpmul: forall x y, pT x y -> forall x' y', pT x' y' -> pT (pmul x x') (pmul y y').
+  Proof. simpl. unfold pmul.
+
+
+      
