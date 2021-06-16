@@ -67,7 +67,7 @@ Goal let eps := 1/1000 in 1/2+eps/1000 <= RInt (g eps) 0 1 <= 1/2+eps+eps/10.
 Qed.
 
 (** ** with Chebyshev models (present library) *)
-Require Import approx rescale intervals errors syntax tactic.
+Require Import approx rescale intervals syntax tactic.
 Require chebyshev.
 
 Goal let eps := 1/10 in
@@ -145,6 +145,7 @@ Definition wrem (x: E (Tube II)) := x >>= fun x => ret (width (rem x)).
     - [deg]: the interpolation degree for square root
     - [eps]: the smaller the better *)
 Definition NearAbs (MM: ModelOps) (deg: Z) (eps: Q): E MM :=
+  LET mid ::= mid IN
   msqrt deg (mcst (fromQ (eps*eps)) + mid * mid). 
 
 
@@ -256,6 +257,7 @@ Abort.
 
 (** ** computing the error between [NearAbs deg eps] and [abs] on [[0;1]], directly *)
 Definition NearAbsErr01 (deg : Z) (eps: Q) :=
+  LET mid ::= mid IN
   LET G ::= @NearAbs F01 deg eps IN
   ret (width (mrange (G - mid))).
 

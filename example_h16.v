@@ -1,6 +1,6 @@
 (** * Example 2: evaluation of Abelian integrals related to Hilbert's 16th problem  *)
 
-Require Import approx rescale intervals errors.
+Require Import approx rescale intervals.
 Require chebyshev.
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -42,8 +42,10 @@ Section s.
  
  (** the considered integrals, in monadic style for dealing with potential runtime errors *)
  Definition calcul :=
-   LET deltay ::= msqrt N' (mcst r2 - sqrx (sqrx mid - mcst x0)) IN
-   LET deltax ::= msqrt N' (mcst r2 - sqry (sqry mid - mcst y0)) IN
+   LET midx ::= mid IN
+   LET midy ::= mid IN
+   LET deltay ::= msqrt N' (mcst r2 - sqrx (sqrx midx - mcst x0)) IN
+   LET deltax ::= msqrt N' (mcst r2 - sqry (sqry midy - mcst y0)) IN
    LET ydown ::= msqrt N' (mcst y0 - deltay) IN
    LET yup ::= msqrt N' (mcst y0 + deltay) IN
    LET yupdown ::= 
@@ -60,14 +62,14 @@ Section s.
    IN
    let integrand1 (i j : nat) :=
        match j with
-       | 0 => mid ^x i * yupdown
-       | S j' => mid ^x i * (yup ^x j' - ydown ^x j')
+       | 0 => midx ^x i * yupdown
+       | S j' => midx ^x i * (yup ^x j' - ydown ^x j')
        end
    in
    let integrand2 (i j : nat) :=
        match i with
-       | 0 => ret (xleftright * (mid ^y j * (mid ^y 2 - mcst y0)))
-       | S i' => mdiv N' ((xleft ^y i' + xright ^y i') * mid ^y j * (mid ^y 2 - mcst y0)) deltax
+       | 0 => ret (xleftright * (midy ^y j * (midy ^y 2 - mcst y0)))
+       | S i' => mdiv N' ((xleft ^y i' + xright ^y i') * midy ^y j * (midy ^y 2 - mcst y0)) deltax
        end
    in
    let Integral1 (i j : nat) := mintegrate (integrand1 i j) None None in

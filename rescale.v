@@ -1,5 +1,6 @@
 (** * Rescaling bases *)
 
+Require Import String.
 Require Import vectorspace.
 
 Set Implicit Arguments.
@@ -16,7 +17,8 @@ Section r.
  Let cahilo := ca / hilo.
  Let f (x: C) := a + (x-lo) * cahilo. (* f: [lo;hi] -> [a;b] *)
  Let g (y: C) := lo + (y-a) * hiloca. (* g: [a;b]   -> [lo;hi] *)
- Let r_id: list C := sscal cahilo bid + sscal (a-lo*cahilo) bone.
+ Let r_id: E (list C) := e_map (fun bid => sscal cahilo bid + sscal (a-lo*cahilo) bone) bid.
+ Let r_cos: E (list C) := bcos >>= (fun _ => err "cannot rescale cos").
  Let r_eval (p: list C) (y: C) := beval p (g y).
  Let r_interpolate n h := interpolate n (fun x => h (f x)).
  Let r_integrate (p: list C) (a b: C): C := cahilo * bintegrate p (g a) (g b).
@@ -27,6 +29,7 @@ Section r.
      bmul := bmul;
      bone := bone;
      bid := r_id;
+     bcos := r_cos;
      bintegrate := r_integrate;
      beval := r_eval;
      brange := brange;
@@ -98,8 +101,13 @@ Section s.
  Next Obligation. intros. rewrite 3!r_eval. apply eval_mul. Qed.
  Next Obligation. intros. rewrite r_eval. apply eval_one. Qed.
  Next Obligation.
-   intros. rewrite r_eval /= eval_add 2!eval_scal eval_id eval_one /g/hiloca /=.
+   eapply ep_map. 2: apply eval_id. intros bid eval_id x.
+   rewrite r_eval /= eval_add 2!eval_scal eval_id eval_one /g/hiloca /=.
    field. lra.
+ Qed.
+ Next Obligation.
+   eapply ep_bind. 2: apply eval_cos. intros bcos eval_cos. 
+   by [].
  Qed.
  Next Obligation.
    generalize eval_range. rewrite /dom/=.
@@ -129,10 +137,13 @@ Section s.
  Next Obligation. apply rdhi. Qed.
  Next Obligation. intros=>/=. by apply rbmul. Qed.
  Next Obligation. intros=>/=. by apply rbone. Qed.
- Next Obligation. 
+ Next Obligation.
+   eapply er_map. 2: apply rbid. intros.  
    apply rsadd; apply rsscal; try rel.
-   apply rbid.
    apply rbone.
+ Qed.
+ Next Obligation.
+   eapply er_bind. 2: apply rbcos. by [].
  Qed.
  Next Obligation. cbn. rel. Qed.
  Next Obligation. cbn. rel. Qed.

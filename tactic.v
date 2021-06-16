@@ -2,7 +2,7 @@
 
 Require Export String.
 Require Export interfaces.
-Require Import intervals syntax rescale errors.
+Require Import intervals syntax rescale.
 Require taylor chebyshev approx.
 
 

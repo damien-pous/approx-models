@@ -1,6 +1,6 @@
 (** * Monad for raising runtime errors *)
 
-Require Export String.
+Require Import String.
 Set Implicit Arguments.
 
 (** monadic values *)
@@ -35,10 +35,19 @@ Notation "'TRY' x 'CATCH' g" := (trycatch x (fun _ => g)) (at level 200, right a
 Inductive EP {A} (P: A -> Prop): E A -> Prop :=
 | ep_ret: forall a, P a -> EP P (ret a)
 | ep_err: forall s, EP P (err s).
-Global Hint Resolve ep_err: core.
+Global Hint Constructors EP: core.
+Arguments ep_ret {_ _ _}.
+Arguments ep_err {_ _ _}.
 
 Definition EP' {A B} (P: A -> B -> Prop): E A -> B -> Prop :=
   fun x b => EP (fun a => P a b) x.
+
+Inductive ER {A B} (R: A -> B -> Prop): E A -> E B -> Prop :=
+| er_ret a b: R a b -> ER R (ret a) (ret b)
+| er_err s: ER R (err s) (err s).
+Global Hint Constructors ER: core.
+Arguments er_ret {_ _ _ _ _}.
+Arguments er_err {_ _ _ _}.
 
 (** special case for Boolean monadic values, to be read as implication *)
 Definition EPimpl (b: E bool) (P: Prop) := EP (fun b => is_true b -> P) b.
@@ -55,3 +64,11 @@ Proof. apply ep_bind; constructor; auto. Qed.
 Lemma ep_map2 {A B C} (f: A -> B -> C) (P: A -> Prop) (Q: B -> Prop) (R: C -> Prop)
       (F: forall a b, P a -> Q b -> R (f a b)): forall a b, EP P a -> EP Q b -> EP R (e_map2 f a b).
 Proof. intros ?? [??|] [??|]; cbn; constructor; auto. Qed.
+
+Lemma er_bind {A B C D} (f: A -> E B) (g: C -> E D) (R: A -> C -> Prop) (S: B -> D -> Prop)
+      (F: forall a c, R a c -> ER S (f a) (g c)): forall a c, ER R a c -> ER S (a>>=f) (c>>=g).
+Proof. destruct 1. now apply F. constructor. Qed.
+
+Lemma er_map {A B C D} (f: A -> B) (g: C -> D) (R: A -> C -> Prop) (S: B -> D -> Prop)
+      (F: forall a c, R a c -> S (f a) (g c)): forall a c, ER R a c -> ER S (e_map f a) (e_map g c).
+Proof. apply er_bind; auto. Qed.

@@ -5,7 +5,7 @@ Require Export Coquelicot.Coquelicot.
 Require Export Setoid Morphisms.
 Require Export List. Export ListNotations.
 Require Export ssreflect ssrbool ssrfun.
-Require Import errors.
+Require Export errors.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -78,6 +78,9 @@ Infix "/" := div: RO_scope.
 Notation "0" := (zer _): RO_scope.
 Notation "1" := (one _): RO_scope.
 Arguments fromZ {_}. 
+Arguments sqrt {_}. 
+Arguments cos {_}. 
+Arguments abs {_}. 
 Arguments pi {_}. 
 Open Scope RO_scope.
 
@@ -263,8 +266,10 @@ Global Hint Constructors ocontains: rel.
 Class ModelOps {N: NBH} := {
   (** pointwise operations *)
   MM: Ops0;
-  (** identity function *)
-  mid: MM;
+  (** identity *)
+  mid: E MM;
+  (** cosine *)
+  mcos: E MM;
   (** constant function *)
   mcst: II -> MM;
   (** evaluation may raise errors, when the argument does not belong to the considered domain *)
@@ -294,7 +299,8 @@ Definition mne `{ModelOps} z f g := mne0 z (f-g).
 (** specification of the above operations, on the domain [[lo;hi]] *)
 Class Model {N: NBH} (MO: ModelOps) (lo hi: R) := {
   mcontains: Rel0 MM (f_Ops0 R ROps0);
-  rmid: mcontains mid id;
+  rmid: EP' mcontains mid id;
+  rmcos: EP' mcontains mcos cos;
   rmcst: forall C c, contains C c -> mcontains (mcst C) (fun _ => c);
   rmeval: forall F f, mcontains F f ->
           forall X x, contains X x -> 

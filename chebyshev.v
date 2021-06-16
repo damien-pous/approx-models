@@ -1,5 +1,6 @@
 (** * Chebyshev polynomials and arithmetic of Chebyshev basis *)
 
+Require Import String.
 Require Import vectorspace rescale.
 Require Import FSets.FMapPositive Reals.
 
@@ -526,7 +527,8 @@ Definition basis11_ops_on (C: Ops1): BasisOps_on C := {|
   vectorspace.hi := 1;
   vectorspace.bmul := pmul;
   vectorspace.bone := pone;
-  vectorspace.bid := pid;
+  vectorspace.bid := ret pid;
+  vectorspace.bcos := err "cos not available in Chebyshev basis";
   vectorspace.bintegrate := integrate;
   vectorspace.beval := @eval' C;
   vectorspace.brange := Some range;
@@ -550,14 +552,14 @@ Program Definition basis11 {N: NBH}: Basis basis11_ops := {|
   vectorspace.basis_cont := T_cont;
   vectorspace.eval_mul := eval_mul;
   vectorspace.eval_one := eval_one;
-  vectorspace.eval_id := eval_id;
+  vectorspace.eval_id := ep_ret eval_id;
   vectorspace.integrateE := integrateE;
   vectorspace.eval_range := eval_range;
   vectorspace.rlo := rfromZ _ (-1);
   vectorspace.rhi := @rone _ _ _;
   vectorspace.rbmul := @rpmul _ _ (contains (NBH:=N));
   vectorspace.rbone := @rpone _ _ _;
-  vectorspace.rbid := @rpid _ _ _;
+  vectorspace.rbid := er_ret (@rpid _ _ _);
   vectorspace.rbintegrate := @rintegrate _ _ _;
   vectorspace.rbeval := @reval _ _ _;
   vectorspace.rbrange := @rrange _ _ _;

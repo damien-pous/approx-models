@@ -1,6 +1,7 @@
 (** * Syntax for approximable expressions *)
 
-Require Import interfaces errors.
+Require Import String.
+Require Import interfaces.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -40,6 +41,7 @@ Inductive term {X: sort -> Type}: sort -> Type :=
 | f_div: term FUN -> term FUN -> term FUN
 | f_sqrt: term FUN -> term FUN
 | f_id: term FUN
+| f_cos: term FUN
 | f_cst: term REAL -> term FUN
 | f_trunc: term FUN -> term FUN         (* the identity, simply truncates the model *)
 (* boolean expressions *)
@@ -89,6 +91,7 @@ Fixpoint sem S (t: @term rval S): rval S :=
   | f_div e f => (fun x => sem e x / sem f x)
   | f_sqrt e => (fun x => sqrt (sem e x))
   | f_id => id
+  | f_cos => cos
   | f_cst e => (fun _ => sem e)
   | f_trunc f => sem f
   | b_le e f => sem e <= sem f
@@ -150,6 +153,7 @@ Ltac ereify e :=
   | Rmult ?e ?f => let e:=freify e in let f:=freify f in uconstr:(f_mul e f)
   | Rdiv ?e ?f => let e:=freify e in let f:=freify f in uconstr:(f_div e f)
   | R_sqrt.sqrt ?e => let e:=freify e in uconstr:(f_sqrt e)
+  | Rtrigo_def.cos VAR => uconstr:(f_cos)
   | VAR => uconstr:(f_id)
   | ?e => let e:=ereify e in uconstr:(f_cst e)
     end.
@@ -258,6 +262,7 @@ Inductive trel X Y (R: forall S, X S -> Y S -> Prop): forall S, @term X S -> @te
 | rf_div: forall x y, trel R x y -> forall x' y', trel R x' y' -> trel R (f_div x x') (f_div y y')
 | rf_sqrt: forall x y, trel R x y -> trel R (f_sqrt x) (f_sqrt y)
 | rf_id: trel R f_id f_id
+| rf_cos: trel R f_cos f_cos
 | rf_cst: forall x y, trel R x y -> trel R (f_cst x) (f_cst y)
 | rf_trunc: forall x y, trel R x y -> trel R (f_trunc x) (f_trunc y)
 | rb_le: forall x y, trel R x y -> forall x' y', trel R x' y' -> trel R (b_le x x') (b_le y y')
@@ -328,7 +333,8 @@ Fixpoint Sem S (t: @term sval S): sval S :=
   | f_mul e f => e_map2 (@mul _) (Sem e) (Sem f)
   | f_div e f => LET e ::= Sem e IN LET f ::= Sem f IN mdiv deg e f
   | f_sqrt e => LET e ::= Sem e IN msqrt deg e
-  | f_id => ret mid
+  | f_id => mid
+  | f_cos => mcos
   | f_cst e => e_map mcst (Sem e)
   | f_trunc e => e_map (mtruncate (Z.to_nat deg)) (Sem e)
   | b_le e f => e_map2 is_le (Sem e) (Sem f)
@@ -382,7 +388,8 @@ Proof.
     by apply rmdiv.
   - eapply ep_bind=>[F Ff|]; eauto.
     by apply rmsqrt.
-  - constructor. apply rmid.          
+  - apply rmid.          
+  - apply rmcos.          
   - eapply ep_map; eauto. intros. by apply rmcst.          
   - eapply ep_map; eauto. intros. by apply rmtruncate.
   - eapply ep_map2; eauto. intros ??. case is_leE=>//. auto.  
@@ -466,7 +473,8 @@ Fixpoint Sem S (t: @term sval S): sval S :=
   | f_mul e f => fun MO => e_map2 (@mul _) (Sem e MO) (Sem f MO)
   | f_div e f => fun MO => LET e ::= Sem e MO IN LET f ::= Sem f MO IN mdiv deg e f
   | f_sqrt e => fun MO => LET e ::= Sem e MO IN msqrt deg e
-  | f_id => fun MO => ret mid
+  | f_id => fun MO => mid
+  | f_cos => fun MO => mcos
   | f_cst e => fun MO => e_map mcst (Sem e)
   | f_trunc e => fun MO => e_map (mtruncate (Z.to_nat deg)) (Sem e MO)
   | b_le e f => e_map2 is_le (Sem e) (Sem f)
@@ -540,7 +548,8 @@ Proof.
     by apply rmdiv.
   - eapply ep_bind=>[F Ff|]; eauto.
     by apply rmsqrt.
-  - constructor. apply rmid.          
+  - apply rmid.          
+  - apply rmcos.          
   - eapply ep_map; eauto. intros. by apply rmcst.          
   - eapply ep_map; eauto. intros. by apply rmtruncate.          
   - eapply ep_map2; eauto. intros ??. case is_leE=>//. auto.  
@@ -643,6 +652,7 @@ Definition eval' X: fxpr X -> expr X -> expr X := e_eval.
 Definition id' {X}: fxpr X := f_id.
 Definition truncate' X: fxpr X -> fxpr X := f_trunc.
 Definition fsqrt X: fxpr X -> fxpr X := f_sqrt.
+Definition fcos X: fxpr X := f_cos.
 
 Declare Scope bxpr_scope.
 Bind Scope bxpr_scope with bxpr.

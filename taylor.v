@@ -1,5 +1,6 @@
 (** * Operations on monomial basis (to obtain Taylor models) *)
 
+Require Import String.
 Require Import vectorspace.
 
 Set Implicit Arguments.
@@ -212,7 +213,8 @@ Definition basis_ops_on (C: Ops1) (lo hi: C): BasisOps_on C := {|
   vectorspace.hi := hi;
   vectorspace.bmul := smul;
   vectorspace.bone := sone;
-  vectorspace.bid := sid;
+  vectorspace.bid := ret sid;
+  vectorspace.bcos := err "cos not available in Taylor basis";
   vectorspace.bintegrate := integrate;
   vectorspace.beval := @eval' C;
   vectorspace.brange := None;
@@ -233,14 +235,14 @@ Program Definition basis {N: NBH} (D: Domain):
   vectorspace.basis_cont := M_cont;
   vectorspace.eval_mul := eval_mul;
   vectorspace.eval_one := eval_one;
-  vectorspace.eval_id := eval_id;
+  vectorspace.eval_id := ep_ret eval_id;
   vectorspace.integrateE := integrateE;
   vectorspace.eval_range := I;
   vectorspace.rlo := rdlo;
   vectorspace.rhi := rdhi;
   vectorspace.rbmul := @rsmul _ _ (contains (NBH:=N));
   vectorspace.rbone := @rsone _ _ _;
-  vectorspace.rbid := @rsid _ _ _;
+  vectorspace.rbid := er_ret (@rsid _ _ _);
   vectorspace.rbintegrate := @rintegrate _ _ _;
   vectorspace.rbeval := @reval _ _ _;
   vectorspace.rbrange := I;

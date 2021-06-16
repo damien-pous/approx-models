@@ -1,7 +1,7 @@
 (** * Rigorous approximations in a generic basis *)
 
-Require Export vectorspace.
-Require Import errors.
+Require Import String.
+Require Import vectorspace.
 Require div sqrt.
 
 Set Implicit Arguments.
@@ -70,7 +70,10 @@ Section n.
  Definition mnth n: Tube := msingle (snth n).
  
  (** identity *)
- Definition mid: Tube := msingle bid.
+ Definition mid: E Tube := e_map msingle bid.
+
+ (** cosine *)
+ Definition mcos: E Tube := e_map msingle bcos.
 
  (** constant *)
  Definition mcst c: Tube := mscal c mone.
@@ -310,8 +313,19 @@ Section n.
  Lemma rmone: mcontains mone 1.
  Proof. eapply rmsingle'. apply rbone. apply eval_one. Qed.
  
- Lemma rmid: mcontains mid ssrfun.id.
- Proof. eapply rmsingle'. apply rbid. apply eval_id. Qed.
+ Lemma rmid: EP' mcontains mid ssrfun.id.
+ Proof.
+   unfold mid. generalize eval_id. case rbid. 2: constructor.    
+   intros bid bid' rbid H. inversion_clear H. constructor.
+   eapply rmsingle'; eauto.
+ Qed.
+ 
+ Lemma rmcos: EP' mcontains mcos (@cos _).
+ Proof.
+   unfold mcos. generalize eval_cos. case rbcos. 2: constructor.    
+   intros bcos bcos' rbcos H. inversion_clear H. constructor.
+   eapply rmsingle'; eauto.
+ Qed.
  
  Lemma rmnth n: mcontains (mnth n) (TT n).
  Proof. eapply rmsingle'. apply rsnth. apply eval_nth. Qed.
@@ -362,6 +376,7 @@ Section n.
  Definition model_ops: ModelOps := {|
    MM := MOps0;
    interfaces.mid := mid;
+   interfaces.mcos := mcos;
    interfaces.mcst := mcst;
    interfaces.meval := meval;
    interfaces.mintegrate := mintegrate;
@@ -630,6 +645,7 @@ Section n.
  Program Definition model: Model model_ops lo hi := {|
    interfaces.mcontains := mcontains_Rel0;
    interfaces.rmid := rmid;
+   interfaces.rmcos := rmcos;
    interfaces.rmcst := rmcst;
    interfaces.rmeval := rmeval;
    interfaces.rmintegrate := rmintegrate;

@@ -228,7 +228,10 @@ Class BasisOps_on (C: Type) := {
   beval: list C -> C -> C;
   bmul: list C -> list C -> list C;
   bone: list C;
-  bid: list C;
+  (* identity (if present in the basis) *)
+  bid: E (list C);
+  (* identity (if present in the basis) *)
+  bcos: E (list C);
   bintegrate: list C -> C -> C -> C;
   (* range is an optional operation (implemented locally if absent, e.g., for Taylor models) *)
   brange: option (list C -> C*C); 
@@ -271,7 +274,8 @@ Class Basis {N: NBH} (B: BasisOps) := {
   basis_cont: forall n x, continuity_pt (TT n) x; (* would make sense to require this only on the domain *)
   eval_mul: forall p q x, eval TT (bmul p q) x = eval TT p x * eval TT q x;
   eval_one: forall x, eval TT bone x = 1;
-  eval_id: forall x, eval TT bid x = x;
+  eval_id: EP (fun bid => forall x, eval TT bid x = x) bid;
+  eval_cos: EP (fun bcos => forall x, eval TT bcos x = cos x) bcos;
   eval_range: match brange with
                | Some range => (forall p x, dom x -> (range p).1 <= eval TT p x <= (range p).2)
                | None => True end;
@@ -284,7 +288,8 @@ Class Basis {N: NBH} (B: BasisOps) := {
          forall p' q', scontains p' q' ->
                          scontains (bmul p p') (bmul q q');
   rbone: scontains bone bone;
-  rbid: scontains bid bid;
+  rbid: ER scontains bid bid;
+  rbcos: ER scontains bcos bcos;
   rbintegrate: forall P p, scontains P p ->
                forall A a, contains A a ->
                forall B b, contains B b ->
@@ -300,7 +305,7 @@ Class Basis {N: NBH} (B: BasisOps) := {
            | _,_ => False
            end;
 }.
-Global Hint Resolve rbmul rbone rbid rbintegrate rbeval rlo rhi: rel.
+Global Hint Resolve rbmul rbone rbid rbcos rbintegrate rbeval rlo rhi: rel.
 
 
 (** ** simple derived properties of bases *)

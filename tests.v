@@ -1,6 +1,6 @@
 (** * Tests for the library *)
 
-Require Import intervals rescale errors tactic syntax.
+Require Import intervals rescale tactic syntax.
 Require taylor chebyshev approx.
 
 (** ** testing the tactics  *)
@@ -74,6 +74,27 @@ Goal RInt (fun x => RInt id 1 x) 0 1 <= 5.
   (* variable x occurs in bad position *)
   Fail approx.
 Abort.
+
+Goal 0 <= RInt (fun x => cos x + 1) 0 1 <= 1.
+Proof.
+  Fail approx.                  (* need Fourier basis *)
+Abort.
+
+Goal RInt (fun x => cos 1 + x) 0 1 <= cos 1+0.6.
+Proof.
+  approx.
+Qed.
+
+Goal RInt (fun x => cos (x*x)) 0 1 <= 100.
+Proof.
+  Fail approx.                  (* only [cos x] would be allowed in Fourier basis *)
+Abort.
+
+Goal RInt (fun x => x * cos x) 0 1 <= 100.
+Proof.
+  Fail approx.                  (* would need a basis supporting both [id] and [cos] *)
+Abort.
+
 
 Goal forall x, 0<=x<=1 -> 1<2.
   approx.
