@@ -156,7 +156,7 @@ Record Rel1 (R S: Ops1) := {
   rcos: forall x y, rel0 x y -> rel0 (cos x) (cos y);
   rsin: forall x y, rel0 x y -> rel0 (sin x) (sin y);
   rpi: rel0 pi pi;
-                          }.
+}.
 Create HintDb rel discriminated.
 Global Hint Resolve radd rsub rmul rfromZ rzer rone rdiv rsqrt rabs rcos rsin rpi: rel.
 Ltac rel := by eauto 100 with rel.

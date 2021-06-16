@@ -811,7 +811,8 @@ Section ops.
   Definition fast_eval (P: list C) (x:C) :=
     match P with
     | [] => 0
-    | h::Q => h + let (cost , sint ) := (cos x , sin x) in
+    | h::Q => h + let cost  := cos x in
+                  let sint := sin x in
                   fast_eval_ 0 0
                              (if (even (length Q)) then (rev Q) else (cons0 (rev Q)))
                              cost sint
@@ -839,7 +840,9 @@ Section ops.
   Definition hi: C := (fromZ 2)*pi.
   
   (** range on C
-    since the [F n] have their range in [-1;1], it suffices to take the sum of the absolute values of   the coefficients. for the constant coefficient, we don't even have to take the absolute value.
+    since the [F n] have their range in [-1;1], we chose to take the sum of the absolute values of the coefficients. for the constant coefficient, we don't even have to take the absolute value.
+    
+    TO THINK ... | a cos(nt) + b sin(nt) | <= sqrt ( a^2 + b^2 ) could give a better range, but it would be more expansive to compute...
    *)
   Definition range_: list C -> C := List.fold_right (fun a x => abs a + x) 0.
   Definition range p: C*C :=
@@ -1064,7 +1067,7 @@ Qed.
 Lemma eval_app: forall P Q (x: R), eval (P ++ Q) x = eval P x + eval_ (length P) Q x.
 Proof. intros; rewrite /eval eval_app_ -plus_n_O //. Qed.
 
-Lemma cons0_nonempty (P:list R) : length P <> 0%nat -> cons0 P = 0::P.
+Lemma cons0_nonempty  (P: list R) : length P <> 0%nat -> cons0 P = 0::P.
 Proof. move : P => [ // | a p H /= //]. Qed.
 
 Lemma eval_app_0 n P x : eval_ n (P++[0]) x = eval_ n P x. 
@@ -1153,9 +1156,8 @@ Proof.
     erewrite RInt_ext with (f := eval_ 1 q).
     all: swap 1 2. by intros; rewrite -eval_prim_Derive_. 
     rewrite RInt_Derive.
-    erewrite RInt_ext. 
-    erewrite RInt_const.   
-    instantiate ( 1 := x).
+    erewrite RInt_ext with  (g := fun t => x). 
+    rewrite RInt_const.   
     simpl. rewrite /plus /scal /= /mult /=. ring.
     intros. rewrite F0 /=; ring.
     intros; apply eval_ex_derive_. 
@@ -1164,7 +1166,7 @@ Proof.
     apply continuity_pt_filterlim, eval_cont_.
     apply @ex_RInt_scal. apply ex_RInt_continuous.
     intros. apply continuity_pt_filterlim, F_cont.
-    apply ex_RInt_continuous.
+    apply ex_RInt_continuous. 
     intros. apply continuity_pt_filterlim, eval_cont_.
 Qed.    
     
@@ -1225,8 +1227,8 @@ Section s.
   Local Hint Resolve rpmulSC': rel.
   Lemma rpmulSC : forall x y, pT x y -> forall x' y', pT x' y' -> pT (pmulSC x x') (pmulSC y y').
   Proof. simpl. unfold pmulSC. rel. Qed.
-  Lemma rsplit_fst_ : forall x y, pT x y ->  pT (split_left x).1 (split_left y).1 /\ pT (split_right x).1 (split_right y).1.
-  Proof. intros ?? H. induction H. simpl. rel. 
+  Lemma rsplit_fst_ : forall x y, pT x y -> pT (split_left x).1 (split_left y).1 /\  pT (split_right x).1 (split_right y).1.
+  Proof. intros ?? H. induction H. simpl. rel.  
          inversion IHlist_rel. split. simpl; constructor => //. by [].
   Qed.
   Lemma rsplit_snd_ : forall x y, pT x y ->  pT (split_left x).2 (split_left y).2 /\ pT (split_right x).2 (split_right y).2.
@@ -1237,25 +1239,92 @@ Section s.
   Proof. unfold split_. apply rsplit_fst_. Qed.
   Lemma rsplit_snd : forall x y, pT x y ->  pT (split_ x).2 (split_ y).2.
   Proof. unfold split_. apply rsplit_snd_. Qed.
+  Lemma rinject_inF : forall x y, pT x y -> pT (inject_inF x) (inject_inF y).
+  Proof. intros x y H. elim : H => [ | a b].
+         + simpl. rel.
+         + intros. simpl. rel.
+  Qed.
+  Local Hint Resolve rinject_inF : rel.
   Lemma rmerge : forall x y, pT x y -> forall x' y' , pT x' y' -> pT (merge x x') (merge y y').
-
-
-
-
-
-
-
-
-    (*Proof. intros ?? [|] ?? [|] => /=. rel. constructor => //. rel. constructor => //. admit.
-         constructor => //. admit.
-         constructor => //. constructor => //. induction H. simpl. admit. destruct H0.
-         simpl. constructor => //. admit.*)
-         
-         Local Hint Resolve rpmulCC rpmulSS rpmulSC : rel.
-         
-  
+  Proof. intro x; elim : x => [ y H x' y' H0 /= | a x Hx [ H | b y H [ | a' x' ] [ | b' y'] H0]   ].
+         + inversion H; simpl; rel. 
+         + inversion H.
+         + inversion H. simpl. rel. 
+         + inversion H0.
+         + inversion H0.
+         + inversion H; inversion H0;simpl; constructor => //; constructor => //; apply Hx => //.
+  Qed.        
+  Local Hint Resolve rpmulCC rpmulSS rpmulSC rmerge rsplit_fst rsplit_snd : rel.
   Lemma rpmul: forall x y, pT x y -> forall x' y', pT x' y' -> pT (pmul x x') (pmul y y').
-  Proof. simpl. unfold pmul.
-
-
-      
+  Proof. simpl. unfold pmul. intros x y H x' y' H'.
+         move : (rsplit_fst H) (rsplit_fst H') (rsplit_snd H) (rsplit_snd H'). 
+         destruct (split_ x) as [ pCCx pSSx]; destruct (split_ x') as [ pCCx' pSSx']; destruct (split_ y) as [ pCCy pSSy]; destruct (split_ y') as [ pCCy' pSSy'] => /=.
+         rel.
+  Qed.
+  Lemma rpone: pT pone pone.
+  Proof. simpl. unfold pone. rel. Qed.
+  Lemma rpcst: forall a b, rel T a b -> pT (pcst a) (pcst b).
+  Proof. unfold pcst. rel. Qed.
+  Lemma rfast_eval_ : forall n P Q, length P = (2*n)%nat -> pT P Q ->
+                                   forall a b , T a b -> forall c d, T c d ->
+                                   forall c1 c2, T c1 c2 -> forall s1 s2, T s1 s2 ->
+                                   rel T (fast_eval_ a c P c1 s1) (fast_eval_ b d Q c2 s2).       
+  Proof.  intros n; elim : n  => [ [ | x p ] Q H HPQ   | n IHn [ | x [ | y p ]] Q H HPQ].
+         + inversion HPQ. by [].
+         + inversion H. 
+         + inversion H.
+         + inversion H. move : H1. lia.
+         + inversion HPQ; inversion H4. simpl. intros. apply IHn => //.
+           move : H. simpl. lia. rel. rel.
+  Qed.
+  Lemma rlength_even : forall P Q , pT P Q -> even (length P) = even (length Q).
+  Proof. intro P; elim : P => [ Q H | a p Hp Q H].
+         + inversion H. by [].
+         + inversion H. apply Hp in H4.
+           replace (length (a :: p)) with ((length p) .+1).
+           replace (length (y :: k)) with ((length k) .+1).
+           by rewrite !Nat.even_succ -!Nat.negb_even H4. by []. by []. 
+  Qed.
+  Lemma cons0_length : forall (P:list R) , (length P >= 1)%nat -> length (cons0 P) = (length P) .+1.
+  Proof. destruct P; simpl;lia. Qed.
+ Lemma rfast_eval : forall P Q, pT P Q -> forall x y, rel T x y -> rel T (fast_eval P x) (fast_eval Q y).
+  Proof. intro P;move : P => [ Q H | a P Q H].
+         + inversion H. simpl. rel.
+         + inversion H. simpl.
+           move : (rlength_even H4) => H5.
+           intros. rewrite -H5.  apply radd => //.
+           case_eq (even (length P)) => He.
+           - apply even_double in He. inversion He. rewrite Nat.double_twice -rev_length in H7.
+             apply (rfast_eval_ H7). rel. rel. rel. rel. rel.
+           - apply odd_double in He. inversion He. rewrite Nat.double_twice -rev_length in H7.
+             eapply rfast_eval_.
+             instantiate ( 1 := x1 .+1); rewrite cons0_length; lia.            
+             rel. rel. rel. rel. rel.
+  Qed.
+  Lemma rprim_ m : forall P Q , (length P <= m)%nat -> pT P Q -> forall n , pT (prim_ n P) (prim_ n Q).
+  Proof. elim : m => [ P Q H | m Hm [ | a [ | b p ] ] Q H HPQ n ].
+         + inversion H; apply length_zero_iff_nil in H1; rewrite H1; intro HPQ; inversion HPQ; simpl; rel.
+         + inversion HPQ; simpl; rel.
+         + inversion HPQ; inversion H4; simpl; rel.
+         + inversion HPQ; inversion H4; simpl. constructor. rel. constructor. rel.
+           apply Hm => //; move : H => /=; lia.
+  Qed.
+  Lemma rprim : forall P Q , pT P Q -> forall n , pT (prim_ n P) (prim_ n Q).
+  Proof. intros. apply rprim_ with (length P) => //. Qed.
+  Local Hint Resolve rfast_eval rprim : rel.
+  Lemma rintegrate : forall P Q, pT P Q -> forall a b, rel T a b -> forall c d , rel T c d ->
+                     rel T (integrate P a c) (integrate Q b d).
+  Proof. intro P; move : P => [ Q H | x p Q H ]; inversion H; unfold integrate; rel. Qed.
+  Lemma rlo: T lo lo.
+  Proof. unfold lo; rel. Qed. 
+  Lemma rhi: T hi hi.
+  Proof. unfold hi; rel. Qed. 
+  Lemma rrange_ p q: pT p q -> T (range_ p) (range_ q).
+  Proof. induction 1; simpl; rel. Qed.
+  Lemma rrange p q: pT p q -> pair_rel T (range p) (range q).
+  Proof.
+    pose proof rrange_. 
+    rewrite /range. intros [|a b AB p' q' p'q']; rel.
+  Qed.
+End s.
+Global Hint Resolve rcons0 rcons00 rpmul rpone rpcst rfast_eval rprim rintegrate rrange_ rrange: rel.
