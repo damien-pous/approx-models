@@ -215,6 +215,7 @@ Definition basis_ops_on (C: Ops1) (lo hi: C): BasisOps_on C := {|
   vectorspace.bone := sone;
   vectorspace.bid := ret sid;
   vectorspace.bcos := err "cos not available in Taylor basis";
+  vectorspace.bsin := err "sin not available in Taylor basis";
   vectorspace.bintegrate := integrate;
   vectorspace.beval := @eval' C;
   vectorspace.brange := None;

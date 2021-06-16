@@ -529,6 +529,7 @@ Definition basis11_ops_on (C: Ops1): BasisOps_on C := {|
   vectorspace.bone := pone;
   vectorspace.bid := ret pid;
   vectorspace.bcos := err "cos not available in Chebyshev basis";
+  vectorspace.bsin := err "cos not available in Chebyshev basis";
   vectorspace.bintegrate := integrate;
   vectorspace.beval := @eval' C;
   vectorspace.brange := Some range;

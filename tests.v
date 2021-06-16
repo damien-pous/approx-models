@@ -80,6 +80,11 @@ Proof.
   Fail approx.                  (* need Fourier basis *)
 Abort.
 
+Goal 0 <= RInt (fun x => cos x * sin x) 0 1 <= 1.
+Proof.
+  Fail approx.                  (* need Fourier basis *)
+Abort.
+
 Goal RInt (fun x => cos 1 + x) 0 1 <= cos 1+0.6.
 Proof.
   approx.

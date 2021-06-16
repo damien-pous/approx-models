@@ -97,6 +97,7 @@ Canonical Structure IOps1 :=
      abs := I.abs;
      fromZ := I.fromZ prec;
      cos := I.cos prec;
+     sin := I.sin prec;
      pi := I.pi prec;
   |}.
 
@@ -108,8 +109,9 @@ Canonical Structure FOps0 :=
      zer := F.zero;
      one := F.Eone; |}.
 
-(* TOTHINK: we do not need certified cos/pi, is there a faster way to get these values? *)
+(* TOTHINK: we do not need certified cos/sin/pi, is there a faster way to get these values? *)
 Definition Fcos x := I.midpoint (I.cos prec (I.bnd x x)).
+Definition Fsin x := I.midpoint (I.sin prec (I.bnd x x)).
 Definition Fpi := I.midpoint pi.
 Canonical Structure FOps1 :=
   {| ops0  := FOps0;
@@ -118,6 +120,7 @@ Canonical Structure FOps1 :=
      abs   := F.abs;
      fromZ := F.fromZ;
      cos   := Fcos;
+     sin   := Fsin;
      pi    := Fpi; |}.
 
 Definition Icontains i x := contains (I.convert i) (Xreal x).
@@ -174,6 +177,9 @@ Proof. apply (I.abs_correct _ _ H). Qed.
 Lemma Ircos i x (H: Imem x i): Imem (cos x) (cos i).
 Proof. apply (I.cos_correct prec _ _ H). Qed.
 
+Lemma Irsin i x (H: Imem x i): Imem (sin x) (sin i).
+Proof. apply (I.sin_correct prec _ _ H). Qed.
+
 Lemma IrfromZ n: Imem (fromZ n) (fromZ n).
 Proof. by apply I.fromZ_correct. Qed.
 
@@ -183,6 +189,7 @@ Canonical Structure IRel1 :=
      rsqrt := Irsqrt;
      rabs := Irabs;
      rcos := Ircos;
+     rsin := Irsin;
      rpi := I.pi_correct prec;
      rfromZ := IrfromZ |}.
 
@@ -543,6 +550,7 @@ Canonical Structure FOps1 :=
      abs := PrimFloat.abs;
      fromZ := PrimitiveFloat.fromZ;
      cos := @cos IPrimFloat.FOps1;
+     sin := @sin IPrimFloat.FOps1;
      pi := @pi IPrimFloat.FOps1;
   |}.
 

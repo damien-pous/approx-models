@@ -19,6 +19,7 @@ Section r.
  Let g (y: C) := lo + (y-a) * hiloca. (* g: [a;b]   -> [lo;hi] *)
  Let r_id: E (list C) := e_map (fun bid => sscal cahilo bid + sscal (a-lo*cahilo) bone) bid.
  Let r_cos: E (list C) := bcos >>= (fun _ => err "cannot rescale cos").
+ Let r_sin: E (list C) := bsin >>= (fun _ => err "cannot rescale sin").
  Let r_eval (p: list C) (y: C) := beval p (g y).
  Let r_interpolate n h := interpolate n (fun x => h (f x)).
  Let r_integrate (p: list C) (a b: C): C := cahilo * bintegrate p (g a) (g b).
@@ -30,6 +31,7 @@ Section r.
      bone := bone;
      bid := r_id;
      bcos := r_cos;
+     bsin := r_sin;
      bintegrate := r_integrate;
      beval := r_eval;
      brange := brange;
@@ -110,6 +112,10 @@ Section s.
    by [].
  Qed.
  Next Obligation.
+   eapply ep_bind. 2: apply eval_sin. intros bsin eval_sin. 
+   by [].
+ Qed.
+ Next Obligation.
    generalize eval_range. rewrite /dom/=.
    case brange=>[mM H p x Hx|_]//.
    rewrite r_eval. apply H. split; rewrite /g/=.
@@ -144,6 +150,9 @@ Section s.
  Qed.
  Next Obligation.
    eapply er_bind. 2: apply rbcos. by [].
+ Qed.
+ Next Obligation.
+   eapply er_bind. 2: apply rbsin. by [].
  Qed.
  Next Obligation. cbn. rel. Qed.
  Next Obligation. cbn. rel. Qed.

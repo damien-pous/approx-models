@@ -230,8 +230,9 @@ Class BasisOps_on (C: Type) := {
   bone: list C;
   (* identity (if present in the basis) *)
   bid: E (list C);
-  (* identity (if present in the basis) *)
+  (* sine/cosine (if present in the basis) *)
   bcos: E (list C);
+  bsin: E (list C);
   bintegrate: list C -> C -> C -> C;
   (* range is an optional operation (implemented locally if absent, e.g., for Taylor models) *)
   brange: option (list C -> C*C); 
@@ -276,6 +277,7 @@ Class Basis {N: NBH} (B: BasisOps) := {
   eval_one: forall x, eval TT bone x = 1;
   eval_id: EP (fun bid => forall x, eval TT bid x = x) bid;
   eval_cos: EP (fun bcos => forall x, eval TT bcos x = cos x) bcos;
+  eval_sin: EP (fun bsin => forall x, eval TT bsin x = sin x) bsin;
   eval_range: match brange with
                | Some range => (forall p x, dom x -> (range p).1 <= eval TT p x <= (range p).2)
                | None => True end;
@@ -290,6 +292,7 @@ Class Basis {N: NBH} (B: BasisOps) := {
   rbone: scontains bone bone;
   rbid: ER scontains bid bid;
   rbcos: ER scontains bcos bcos;
+  rbsin: ER scontains bsin bsin;
   rbintegrate: forall P p, scontains P p ->
                forall A a, contains A a ->
                forall B b, contains B b ->
@@ -305,7 +308,7 @@ Class Basis {N: NBH} (B: BasisOps) := {
            | _,_ => False
            end;
 }.
-Global Hint Resolve rbmul rbone rbid rbcos rbintegrate rbeval rlo rhi: rel.
+Global Hint Resolve rbmul rbone rbid rbcos rbsin rbintegrate rbeval rlo rhi: rel.
 
 
 (** ** simple derived properties of bases *)

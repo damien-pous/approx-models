@@ -64,6 +64,7 @@ Record Ops1 := {
   div: ops0 -> ops0 -> ops0;  (** also on Tube C, but with parameters *)
   sqrt: ops0 -> ops0;         (** idem *)
   cos: ops0 -> ops0;
+  sin: ops0 -> ops0;
   abs: ops0 -> ops0;
   pi: ops0;
 }.
@@ -80,6 +81,7 @@ Notation "1" := (one _): RO_scope.
 Arguments fromZ {_}. 
 Arguments sqrt {_}. 
 Arguments cos {_}. 
+Arguments sin {_}. 
 Arguments abs {_}. 
 Arguments pi {_}. 
 Open Scope RO_scope.
@@ -127,6 +129,7 @@ Canonical Structure ROps1 := {|
   div := Rdiv;
   sqrt := R_sqrt.sqrt;
   cos := Rtrigo_def.cos;
+  sin := Rtrigo_def.sin;
   abs := Rabs;
   pi := Rtrigo1.PI;
 |}.
@@ -151,10 +154,11 @@ Record Rel1 (R S: Ops1) := {
   rsqrt: forall x y, rel0 x y -> rel0 (sqrt x) (sqrt y);
   rabs: forall x y, rel0 x y -> rel0 (abs x) (abs y);
   rcos: forall x y, rel0 x y -> rel0 (cos x) (cos y);
+  rsin: forall x y, rel0 x y -> rel0 (sin x) (sin y);
   rpi: rel0 pi pi;
                           }.
 Create HintDb rel discriminated.
-Global Hint Resolve radd rsub rmul rfromZ rzer rone rdiv rsqrt rabs rcos rpi: rel.
+Global Hint Resolve radd rsub rmul rfromZ rzer rone rdiv rsqrt rabs rcos rsin rpi: rel.
 Ltac rel := by eauto 100 with rel.
 
 (** parametricity of derived operations *)
@@ -266,10 +270,11 @@ Global Hint Constructors ocontains: rel.
 Class ModelOps {N: NBH} := {
   (** pointwise operations *)
   MM: Ops0;
-  (** identity *)
+  (** identity (maybe an error, since the identity may not belong to the considered base)*)
   mid: E MM;
-  (** cosine *)
+  (** sine,cosine (idem) *)
   mcos: E MM;
+  msin: E MM;
   (** constant function *)
   mcst: II -> MM;
   (** evaluation may raise errors, when the argument does not belong to the considered domain *)
@@ -301,6 +306,7 @@ Class Model {N: NBH} (MO: ModelOps) (lo hi: R) := {
   mcontains: Rel0 MM (f_Ops0 R ROps0);
   rmid: EP' mcontains mid id;
   rmcos: EP' mcontains mcos cos;
+  rmsin: EP' mcontains msin sin;
   rmcst: forall C c, contains C c -> mcontains (mcst C) (fun _ => c);
   rmeval: forall F f, mcontains F f ->
           forall X x, contains X x -> 
@@ -322,7 +328,7 @@ Class Model {N: NBH} (MO: ModelOps) (lo hi: R) := {
   rmgt0: forall n F f, mcontains F f -> EPimpl (mgt0 n F) (forall x, lo<=x<=hi -> 0 < f x);
 }.
 Coercion mcontains: Model >-> Rel0.
-Global Hint Resolve rmid rmcst (* rmeval rmintegrate rmdiv rmsqrt *): rel.
+Global Hint Resolve rmcst (* rmeval rmintegrate rmdiv rmsqrt *): rel.
 
 Lemma rmne `{Model} n F f G g: mcontains F f -> mcontains G g -> mne n F G ->
                                forall x, lo<=x<=hi -> f x <> g x.

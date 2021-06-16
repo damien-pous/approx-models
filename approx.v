@@ -72,8 +72,9 @@ Section n.
  (** identity *)
  Definition mid: E Tube := e_map msingle bid.
 
- (** cosine *)
+ (** sine/cosine *)
  Definition mcos: E Tube := e_map msingle bcos.
+ Definition msin: E Tube := e_map msingle bsin.
 
  (** constant *)
  Definition mcst c: Tube := mscal c mone.
@@ -327,6 +328,13 @@ Section n.
    eapply rmsingle'; eauto.
  Qed.
  
+ Lemma rmsin: EP' mcontains msin (@sin _).
+ Proof.
+   unfold msin. generalize eval_sin. case rbsin. 2: constructor.    
+   intros bsin bsin' rbsin H. inversion_clear H. constructor.
+   eapply rmsingle'; eauto.
+ Qed.
+ 
  Lemma rmnth n: mcontains (mnth n) (TT n).
  Proof. eapply rmsingle'. apply rsnth. apply eval_nth. Qed.
  
@@ -377,6 +385,7 @@ Section n.
    MM := MOps0;
    interfaces.mid := mid;
    interfaces.mcos := mcos;
+   interfaces.msin := msin;
    interfaces.mcst := mcst;
    interfaces.meval := meval;
    interfaces.mintegrate := mintegrate;
@@ -646,6 +655,7 @@ Section n.
    interfaces.mcontains := mcontains_Rel0;
    interfaces.rmid := rmid;
    interfaces.rmcos := rmcos;
+   interfaces.rmsin := rmsin;
    interfaces.rmcst := rmcst;
    interfaces.rmeval := rmeval;
    interfaces.rmintegrate := rmintegrate;

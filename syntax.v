@@ -31,6 +31,7 @@ Inductive term {X: sort -> Type}: sort -> Type :=
 | e_div: term REAL -> term REAL -> term REAL
 | e_sqrt: term REAL -> term REAL
 | e_cos: term REAL -> term REAL
+| e_sin: term REAL -> term REAL
 | e_abs: term REAL -> term REAL
 | e_eval: term FUN -> term REAL -> term REAL
 | e_integrate: term FUN -> term REAL -> term REAL -> term REAL
@@ -42,6 +43,7 @@ Inductive term {X: sort -> Type}: sort -> Type :=
 | f_sqrt: term FUN -> term FUN
 | f_id: term FUN
 | f_cos: term FUN
+| f_sin: term FUN
 | f_cst: term REAL -> term FUN
 | f_trunc: term FUN -> term FUN         (* the identity, simply truncates the model *)
 (* boolean expressions *)
@@ -77,6 +79,7 @@ Fixpoint sem S (t: @term rval S): rval S :=
   | e_div e f => sem e / sem f
   | e_sqrt e => sqrt (sem e)
   | e_cos e => cos (sem e)
+  | e_sin e => sin (sem e)
   | e_abs e => abs (sem e)
   | e_fromQ q => Q2R q
   | e_fromZ z => fromZ z
@@ -92,6 +95,7 @@ Fixpoint sem S (t: @term rval S): rval S :=
   | f_sqrt e => (fun x => sqrt (sem e x))
   | f_id => id
   | f_cos => cos
+  | f_sin => sin
   | f_cst e => (fun _ => sem e)
   | f_trunc f => sem f
   | b_le e f => sem e <= sem f
@@ -120,7 +124,7 @@ Arguments f_unr [_ _] _ _ _ /.
 Lemma VAR: R. exact R0. Qed.
 Ltac reduce e :=
   eval cbn beta iota delta
-       [ROps0 ROps1 f_Ops0 car ops0 zer one add sub mul div sqrt cos abs pi f_bin f_unr fromZ]
+       [ROps0 ROps1 f_Ops0 car ops0 zer one add sub mul div sqrt cos sin abs pi f_bin f_unr fromZ]
   in e.
 Ltac ereify e :=
   lazymatch e
@@ -133,6 +137,7 @@ Ltac ereify e :=
   | Rdiv ?e ?f => let e:=ereify e in let f:=ereify f in uconstr:(e_div e f)
   | R_sqrt.sqrt ?e => let e:=ereify e in uconstr:(e_sqrt e)
   | Rtrigo_def.cos ?e => let e:=ereify e in uconstr:(e_cos e)
+  | Rtrigo_def.sin ?e => let e:=ereify e in uconstr:(e_sin e)
   | Rabs ?e => let e:=ereify e in uconstr:(e_abs e)
   | Q2R ?q => uconstr:(e_fromQ q)
   | IZR ?z => uconstr:(e_fromZ z)
@@ -154,6 +159,7 @@ Ltac ereify e :=
   | Rdiv ?e ?f => let e:=freify e in let f:=freify f in uconstr:(f_div e f)
   | R_sqrt.sqrt ?e => let e:=freify e in uconstr:(f_sqrt e)
   | Rtrigo_def.cos VAR => uconstr:(f_cos)
+  | Rtrigo_def.sin VAR => uconstr:(f_sin)
   | VAR => uconstr:(f_id)
   | ?e => let e:=ereify e in uconstr:(f_cst e)
     end.
@@ -253,6 +259,7 @@ Inductive trel X Y (R: forall S, X S -> Y S -> Prop): forall S, @term X S -> @te
 | re_div: forall x y, trel R x y -> forall x' y', trel R x' y' -> trel R (e_div x x') (e_div y y')
 | re_sqrt: forall x y, trel R x y -> trel R (e_sqrt x) (e_sqrt y)
 | re_cos: forall x y, trel R x y -> trel R (e_cos x) (e_cos y)
+| re_sin: forall x y, trel R x y -> trel R (e_sin x) (e_sin y)
 | re_abs: forall x y, trel R x y -> trel R (e_abs x) (e_abs y)
 | re_eval: forall x y, trel R x y -> forall x' y', trel R x' y' -> trel R (e_eval x x') (e_eval y y')
 | re_integrate: forall f g, trel R f g -> forall x y, trel R x y -> forall x' y', trel R x' y' -> trel R (e_integrate f x x') (e_integrate g y y')
@@ -263,6 +270,7 @@ Inductive trel X Y (R: forall S, X S -> Y S -> Prop): forall S, @term X S -> @te
 | rf_sqrt: forall x y, trel R x y -> trel R (f_sqrt x) (f_sqrt y)
 | rf_id: trel R f_id f_id
 | rf_cos: trel R f_cos f_cos
+| rf_sin: trel R f_sin f_sin
 | rf_cst: forall x y, trel R x y -> trel R (f_cst x) (f_cst y)
 | rf_trunc: forall x y, trel R x y -> trel R (f_trunc x) (f_trunc y)
 | rb_le: forall x y, trel R x y -> forall x' y', trel R x' y' -> trel R (b_le x x') (b_le y y')
@@ -313,6 +321,7 @@ Fixpoint Sem S (t: @term sval S): sval S :=
   | e_div e f => e_map2 (@div _) (Sem e) (Sem f)
   | e_sqrt e => e_map (@sqrt _) (Sem e)
   | e_cos e => e_map (@cos _) (Sem e)
+  | e_sin e => e_map (@sin _) (Sem e)
   | e_abs e => e_map (@abs _) (Sem e)
   | e_fromQ q => ret (fromQ q)
   | e_fromZ z => ret (fromZ z)
@@ -335,6 +344,7 @@ Fixpoint Sem S (t: @term sval S): sval S :=
   | f_sqrt e => LET e ::= Sem e IN msqrt deg e
   | f_id => mid
   | f_cos => mcos
+  | f_sin => msin
   | f_cst e => e_map mcst (Sem e)
   | f_trunc e => e_map (mtruncate (Z.to_nat deg)) (Sem e)
   | b_le e f => e_map2 is_le (Sem e) (Sem f)
@@ -373,6 +383,7 @@ Proof.
   - eapply ep_map; eauto. rel. 
   - eapply ep_map; eauto. rel. 
   - eapply ep_map; eauto. rel. 
+  - eapply ep_map; eauto. rel. 
   - eapply ep_bind=>[F Ff|]; eauto. 
     eapply ep_bind=>[X Xx|]; eauto.
     by apply rmeval.
@@ -388,8 +399,9 @@ Proof.
     by apply rmdiv.
   - eapply ep_bind=>[F Ff|]; eauto.
     by apply rmsqrt.
-  - apply rmid.          
-  - apply rmcos.          
+  - apply rmid.
+  - apply rmcos.
+  - apply rmsin.
   - eapply ep_map; eauto. intros. by apply rmcst.          
   - eapply ep_map; eauto. intros. by apply rmtruncate.
   - eapply ep_map2; eauto. intros ??. case is_leE=>//. auto.  
@@ -452,6 +464,7 @@ Fixpoint Sem S (t: @term sval S): sval S :=
   | e_div e f => e_map2 (@div _) (Sem e) (Sem f)
   | e_sqrt e => e_map (@sqrt _) (Sem e)
   | e_cos e => e_map (@cos _) (Sem e)
+  | e_sin e => e_map (@sin _) (Sem e)
   | e_abs e => e_map (@abs _) (Sem e)
   | e_fromQ q => ret (fromQ q)
   | e_fromZ z => ret (fromZ z)
@@ -475,6 +488,7 @@ Fixpoint Sem S (t: @term sval S): sval S :=
   | f_sqrt e => fun MO => LET e ::= Sem e MO IN msqrt deg e
   | f_id => fun MO => mid
   | f_cos => fun MO => mcos
+  | f_sin => fun MO => msin
   | f_cst e => fun MO => e_map mcst (Sem e)
   | f_trunc e => fun MO => e_map (mtruncate (Z.to_nat deg)) (Sem e MO)
   | b_le e f => e_map2 is_le (Sem e) (Sem f)
@@ -530,6 +544,7 @@ Proof.
   - eapply ep_map; eauto. rel. 
   - eapply ep_map; eauto. rel. 
   - eapply ep_map; eauto. rel. 
+  - eapply ep_map; eauto. rel. 
   - constructor. 
     (* eapply ep_bind=>[F Ff|]; eauto.  *)
     (* eapply ep_bind=>[X Xx|]; eauto. *)
@@ -548,8 +563,9 @@ Proof.
     by apply rmdiv.
   - eapply ep_bind=>[F Ff|]; eauto.
     by apply rmsqrt.
-  - apply rmid.          
-  - apply rmcos.          
+  - apply rmid.
+  - apply rmcos.
+  - apply rmsin.
   - eapply ep_map; eauto. intros. by apply rmcst.          
   - eapply ep_map; eauto. intros. by apply rmtruncate.          
   - eapply ep_map2; eauto. intros ??. case is_leE=>//. auto.  
@@ -626,6 +642,7 @@ Definition fromQ' {X}: Q -> expr X := e_fromQ.
 Definition fromZ' {X}: Z -> expr X := e_fromZ.
 Definition sqrt' {X}: expr X -> expr X := e_sqrt.
 Definition cos' {X}: expr X -> expr X := e_cos.
+Definition sin' {X}: expr X -> expr X := e_sin.
 Definition abs' {X}: expr X -> expr X:= e_abs.
 Definition pi' {X}: expr X := e_pi.
 
@@ -653,6 +670,7 @@ Definition id' {X}: fxpr X := f_id.
 Definition truncate' X: fxpr X -> fxpr X := f_trunc.
 Definition fsqrt X: fxpr X -> fxpr X := f_sqrt.
 Definition fcos X: fxpr X := f_cos.
+Definition fsin X: fxpr X := f_sin.
 
 Declare Scope bxpr_scope.
 Bind Scope bxpr_scope with bxpr.
