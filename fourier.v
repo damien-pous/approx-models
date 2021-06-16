@@ -5,6 +5,7 @@ Require Import FSets.FMapPositive Reals.
 Require Import vectorspace rescale.
 Require Import Nat ZArith.Zdiv.
 
+
 Set Implicit Arguments.
 Unset Strict Implicit.
 Unset Printing Implicit Defensive.
@@ -1343,8 +1344,6 @@ Definition Fix := powerfix 100.
 End powerfix.
 Definition Zfold A (f: Z -> A -> A): Z -> A -> A :=
   Fix (fun Zfold z a => if Z.eqb z 0 then a else let z:=Z.pred z in Zfold z (f z a)) f.
-Definition Zfold' A (f: Z -> A -> A): Z -> A -> A :=
-  Fix (fun Zfold z a => if Z.eqb z 0 then a else let z':=Z.pred z in Zfold z' (f z a)) f.
 Module Zmap.
   Definition t := PositiveMap.t.
   Definition empty {A} := @PositiveMap.empty A.
@@ -1382,35 +1381,66 @@ Section i.
  Let two:C := fromZ 2.
  Let twopi: C := two * pi.
  
- Let points: Zmap.t C :=
-   Zmap.mk (fun i => fromZ i * twopi /  dn') dn.
+ Definition points: Zmap.t C :=
+   Zmap.mk (fun i => fromZ i * twopi /  (dn'+1)) (dn+1).
 
- Let cosin: Zmap.t C :=
-   Zmap.mk (fun i => cos (fromZ i * twopi / dn')) dn.
-
- Let sinus: Zmap.t C :=
-   Zmap.mk (fun i => sin (fromZ i * twopi / dn')) dn.
+ Definition map_points g : Zmap.t C :=
+    Zmap.mk (fun i => g (Zmap.get 0 points i)) (dn+1).
+    (* Zmap.map_below 2*n f points *)
  
- Let values :=
-   Zmap.mk (fun i => f (Zmap.get 0 points i)) (2*n+1).
-           (* Zmap.map_below 2*n f points *)
+ Definition cosin: Zmap.t C := map_points (@cos C).
+ Definition sinus: Zmap.t C := map_points (@sin C). 
+ Definition values := map_points f.
 
- Let coeff_aux vl (pt : Z -> C) (i j : Z) : C :=
-   Zfold' (fun j acc => acc +  vl j * pt ((i*j) mod dn)%Z)
-          j 0.
+ Definition coeff_aux vl (pt : Z -> C) (i : Z) : C :=
+   Zfold (fun j acc => acc +  vl j * pt ((i*j) mod (dn+1))%Z)
+          (dn+1) 0.
      
       
- Let coeff_cos (i : Z) :=
+ Definition coeff_cos (i : Z) :=
    (if Z.eqb i 0%Z then 1 else two) *
-   (coeff_aux (Zmap.get 0 values) (Zmap.get 0 cosin) i (dn + 1) / (dn' + 1)).
+   (coeff_aux (Zmap.get 0 values) (Zmap.get 0 cosin) i / (dn' + 1)).
 
- Let coeff_sin (i : Z) :=
-   two * (coeff_aux (Zmap.get 0 values) (Zmap.get 0 sinus) (i+1) (dn + 1) / (dn' + 1)).
+ Definition coeff_sin (i : Z) :=
+   two * (coeff_aux (Zmap.get 0 values) (Zmap.get 0 sinus) (i+1) / (dn' + 1)).
  
  Definition interpolate := merge (Zmap.tolist 0 (n+1) (Zmap.mk coeff_cos (n+1)))
-                                 (Zmap.tolist 0 n (Zmap.mk coeff_sin n)).
- 
+                                 (Zmap.tolist 0 n (Zmap.mk coeff_sin n)). 
 End i.
+
+(*
+Require Import interfaces intervals syntax.
+
+Section test.
+
+  Let C := Iprimitive.IOps1.  
+
+  Definition one : C :=  fromZ 1.
+
+  Eval compute in one.
+
+  Definition foo := one / (one + one + one ).
+
+  Eval compute in foo.
+
+  Definition pol : list C := one::one::(one + one)::0::(one + one + one)::[].
+
+  Definition N := 4%Z.
+
+  Check fast_eval pol.
+  Check interpolate. Check points N.
+  Eval compute in Zmap.tolist 0 (2*N +1) (@points C N).
+  Eval compute in Zmap.tolist 0 (2*N +1) (@cosin C N).
+  Eval compute in Zmap.tolist 0 (2*N +1) (@sinus C N).
+  Eval compute in Zmap.tolist 0 (2*N +1) (values N (fast_eval pol)).
+  Eval compute in coeff_aux N (Zmap.get 0 (values N (fast_eval pol))) (Zmap.get 0 (@cosin C N)) 0.
+  Eval compute in @coeff_cos C N (fast_eval pol) 0.
+  Eval compute in interpolate N (fast_eval pol).
+ 
+End test.
+ *)
+
+
 
 (** packing everything together, we get a basis *)
 (*
