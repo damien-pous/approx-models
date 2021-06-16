@@ -1,13 +1,13 @@
 opam-version: "2.0"
 maintainer: "damien.pous@ens-lyon.fr"
-version: "dev"
+version: "dev" # CHECK
 
 homepage: "https://gitlab.inria.fr/amahboub/approx-models"
 dev-repo: "git+https://gitlab.inria.fr/amahboub/approx-models.git"
 bug-reports: "https://gitlab.inria.fr/amahboub/approx-models/issues"
 license: "CECILL-B"
 
-synopsis: "Approximation Models in Coq"
+synopsis: "Rigorous approximations with a posteriori verified operations"
 description: """
 This is a Coq library to verify rigorous approximations of univariate
 functions on real numbers. Based on interval arithmetic, this library
@@ -18,17 +18,18 @@ verified Chebyshev approximations."""
 build: [make "-j%{jobs}%" ]
 install: [make "install"]
 depends: [
-  "coq" {(>= "8.13" & < "8.14~") | (= "dev")}
+  "coq" {(>= "8.13" )}
   "coq-interval"
   "coq-coquelicot" {(= "3.2.0")}
 ]
 
 tags: [
-  "category:Computer Science/Approximation Theory"
+  "category:Mathematics/Approximation Theory"
   "keyword:approximation theory"
   "keyword:chebyshev polynomials"
   "keyword:certificate-based approximation"
   "logpath:ApproxModels"
+  "date:2021-06-15" # CHECK 
 ]
 authors: [
   "Florent Bréhard"
