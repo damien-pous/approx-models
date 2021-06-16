@@ -80,6 +80,9 @@ Section abs.
              end
    end.
 
+ (** [[0;...;0;1]] with [n] zeros: the nth element from the basis *)
+ Fixpoint snth n: list C := match n with O => [1] | S n => 0::snth n end.
+
 End abs.
 Arguments sadd {C} !P !Q / .  
 
@@ -133,6 +136,13 @@ Section e.
    rewrite IH. destruct (split_list n p) as [q q'] =>/=.
    rewrite eval_cons0_. lra.
  Qed.
+ Lemma eval_nth_ n m x: eval_ m (snth n) x = M (n+m) x.
+ Proof.
+   move: m. elim: n=>[|n IH] m; cbn. ring.
+   rewrite IH plus_n_Sm. ring.
+ Qed.
+ Lemma eval_nth n x: eval (snth n) x = M n x.
+ Proof. by rewrite /eval eval_nth_ -plus_n_O. Qed.
 
  (** helpers from constructing bases with additional common properties  *)
  
@@ -204,8 +214,10 @@ Section s.
    generalize (IH _ _ PQ). case (split_list n p). case (split_list n q). 
    intros ???? [? ?]. rel.
  Qed.
+ Lemma rsnth n: sT (snth n) (snth n).
+ Proof. elim: n=>/=; rel. Qed.
 End s.
-Global Hint Resolve rsadd rsscal rsopp rssub rszer rcons0 rcons00: rel.
+Global Hint Resolve rsadd rsscal rsopp rssub rszer rcons0 rcons00 rsnth: rel.
 
 
 (** ** [Basis]: requirements for generating pseudo-polynomial models (in approx.v) *)
@@ -308,7 +320,7 @@ Proof.
   case is_leE=>[Hi|]; constructor=> x Xx.
   split; [apply Lo|apply Hi]=>//. apply rlo. apply rhi.
 Qed.
-
+                       
 Lemma eval_cont p x: continuity_pt (eval TT p) x.
 Proof. apply eval_cont_basis. apply basis_cont. Qed.
 

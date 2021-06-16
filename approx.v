@@ -66,6 +66,9 @@ Section n.
      one:=mone;
    |}.
 
+ (** nth element of the basis *)
+ Definition mnth n: Tube := msingle (snth n).
+ 
  (** identity *)
  Definition mid: Tube := msingle bid.
 
@@ -191,18 +194,17 @@ Section n.
  Lemma mcont M f: cont M -> mcontains M f -> forall x, dom x -> continuity_pt f x.
  Proof. move=>? [C _]. by apply (wreflectE C). Qed. 
 
- (* TOTHINK: is there a way to get this lemma? *)
- (*
- Lemma mcontains_ext M f g : (forall x, dom x -> f x = g x) -> mcontains M f -> mcontains M g.
+ (** extensionality of [mcontains] *)
+ (* TOTHINK: is there a way to assume only pointwise equality on the domain in this lemma? *)
+ Lemma mcontains_ext M f g : (forall x, (* dom x -> *) f x = g x) -> mcontains M f -> mcontains M g.
  Proof.
    move => Hfg [Cf [f0 [Hf0 Hf]]]. split.
    - elim: Cf=>[Cf|]; constructor=>x Dx. 
      eapply continuity_pt_ext_loc. 2: apply Cf. 2: apply Dx.
-     ...                     (* x could be one of the two bounds... *)
+     by exists posreal_one.     (* works because HFg is not constrained to the domain *)
    - exists f0; split => // x Hx.
      rewrite -Hfg; auto.
- Abort.
- *)
+ Qed.
  
  (** *** basic operations *)
  
@@ -244,14 +246,6 @@ Section n.
    move => [_ [p [Hp Hf]]] x Hx.
    rewrite /mrange; replace (f x) with (eval p x + (f x - eval p x)); last by rewrite /=; ring.
    apply radd; auto. by apply eval_srange. 
- Qed.
- 
- Lemma msingle' P p: scontains P p -> mcontains (msingle P) (eval p).
- Proof.
-   intros. split. constructor=>x Dx. apply eval_cont.
-   exists p. split=>// x Hx.
-   replace (_-_) with R0 by (simpl; ring). 
-   apply rzer.
  Qed.
  
  Lemma rmadd: forall M f, mcontains M f -> forall P g, mcontains P g -> mcontains (madd M P) (f+g).
@@ -299,34 +293,33 @@ Section n.
    - rel. 
  Qed.
  
- Lemma rmzer: mcontains mzer 0.
+ Lemma rmsingle P p: scontains P p -> mcontains (msingle P) (eval p).
  Proof.
-   split. constructor=>x Dx. now apply continuity_pt_const.
-   exists 0; split. apply rszer.
-   move=> x Hx. rewrite eval_zer/=/f_cst. replace (_-_) with R0 by (simpl;ring). rel. 
+   intros. split. constructor=>x Dx. apply eval_cont.
+   exists p. split=>// x Hx.
+   replace (_-_) with R0 by (simpl; ring). 
+   apply rzer.
  Qed.
+
+ Lemma rmsingle' P p f: scontains P p -> (forall x, (* dom x -> *) eval p x = f x) -> mcontains (msingle P) f.
+ Proof. intros Pp H. apply (mcontains_ext H). by apply rmsingle. Qed.
+ 
+ Lemma rmzer: mcontains mzer 0.
+ Proof. eapply rmsingle'. constructor. reflexivity. Qed.
  
  Lemma rmone: mcontains mone 1.
- Proof.
-   split. constructor=>x Dx. now apply continuity_pt_const.
-   exists 1; split. apply rbone.
-   move=> x Hx. rewrite eval_one/=/f_cst. replace (_-_) with R0 by (simpl;ring). rel. 
- Qed.
+ Proof. eapply rmsingle'. apply rbone. apply eval_one. Qed.
+ 
+ Lemma rmid: mcontains mid ssrfun.id.
+ Proof. eapply rmsingle'. apply rbid. apply eval_id. Qed.
+ 
+ Lemma rmnth n: mcontains (mnth n) (TT n).
+ Proof. eapply rmsingle'. apply rsnth. apply eval_nth. Qed.
  
  Lemma rmcst C (c : R): contains C c -> mcontains (mcst C) (f_cst c).
  Proof.
-   split. constructor=>x Dx. now apply continuity_pt_const.
-   exists (sscal c 1). split. cbn.
-   eapply list_rel_map'. rel. apply rbone. 
-   move=>x Dx. rewrite eval_scal eval_one /f_cst. 
-   replace (_-_) with (c*R0) by (simpl;ring). apply rmul=>//=. rel. 
- Qed.
- 
- Lemma rmid: mcontains mid ssrfun.id.
- Proof.
-   split. constructor=>x Dx. apply continuity_pt_id.
-   exists bid; split. apply rbid.
-   move=> x Hx. rewrite eval_id/=. replace (_-_) with R0 by (simpl;ring). rel.
+   move=>H. eapply mcontains_ext. 2: apply rmscal. 2: apply H. 2: apply rmone.
+   cbv. move=>_. ring.
  Qed.
  
  Lemma rmbot f: mcontains mbot f.
@@ -485,7 +478,7 @@ Section n.
 
  (** auxiliary lemma for operations involving interpolation *)
  Lemma rmfc p: mcontains (mfc p) (eval (map F2R p)).
- Proof. apply msingle', list_rel_map, F2IE. Qed.
+ Proof. apply rmsingle, list_rel_map, F2IE. Qed.
  
  (** *** division *)
  

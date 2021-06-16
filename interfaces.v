@@ -263,8 +263,9 @@ Global Hint Constructors ocontains: rel.
 Class ModelOps {N: NBH} := {
   (** pointwise operations *)
   MM: Ops0;
-  (** operations specific to functions *)
-  mid: MM;                 
+  (** identity function *)
+  mid: MM;
+  (** constant function *)
   mcst: II -> MM;
   (** evaluation may raise errors, when the argument does not belong to the considered domain *)
   meval: MM -> II -> E II;
