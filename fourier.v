@@ -1328,3 +1328,100 @@ Section s.
   Qed.
 End s.
 Global Hint Resolve rcons0 rcons00 rpmul rpone rpcst rfast_eval rprim rintegrate rrange_ rrange: rel.
+
+
+(** ** interpolation  *)
+
+(** basic utilities: partial fixpoint operator, maps on [Z],   *)
+Section powerfix.
+Variables A B: Type.
+Notation Fun := (A -> B).
+Fixpoint powerfix' n (f: Fun -> Fun) (k: Fun): Fun := 
+  fun a => match n with O => k a | S n => f (powerfix' n f (powerfix' n f k)) a end.
+Definition powerfix n f k a := f (powerfix' n f k) a.
+Definition Fix := powerfix 100.
+End powerfix.
+Definition Zfold A (f: Z -> A -> A): Z -> A -> A :=
+  Fix (fun Zfold z a => if Z.eqb z 0 then a else let z:=Z.pred z in Zfold z (f z a)) f.
+Definition Zfold' A (f: Z -> A -> A): Z -> A -> A :=
+  Fix (fun Zfold z a => if Z.eqb z 0 then a else let z':=Z.pred z in Zfold z' (f z a)) f.
+Module Zmap.
+  Definition t := PositiveMap.t.
+  Definition empty {A} := @PositiveMap.empty A.
+  Definition add {A} i (v: A) m :=
+    match i with
+    | Z0 => PositiveMap.add xH v m
+    | Zpos p => PositiveMap.add (Pos.succ p) v m
+    | _ => m
+    end.
+  Definition find {A} m i: option A :=
+    match i with
+    | Z0 => PositiveMap.find xH m
+    | Zpos p => PositiveMap.find (Pos.succ p) m
+    | _ => None
+    end.
+  Definition map_below {A} n (f: A -> A) :=
+    let n := match n with Zpos p => Pos.succ p | _ => xH end in
+    PositiveMap.mapi (fun i x => if Pos.leb i n then f x else x).
+  Definition get {A} d m i: A := match find m i with Some v => v | None => d end. 
+  Definition mk {A} (f: Z -> A) n := Zfold (fun z => add z (f z)) n empty.
+  Definition tolist {A} d n m: list A := Zfold (fun z s => get d m z :: s) n [].
+End Zmap.
+
+
+(** interpolation *)
+Section i.
+ Import interfaces.
+ Context {C: Ops1}.
+ Variable n: Z.
+ Variable f: C -> C.
+
+ Let dn: Z := (2*n)%Z.
+ Let n': C := fromZ n.
+ Let dn': C := fromZ dn.
+ Let two:C := fromZ 2.
+ Let twopi: C := two * pi.
+ 
+ Let points: Zmap.t C :=
+   Zmap.mk (fun i => fromZ i * twopi /  dn') dn.
+
+ Let cosin: Zmap.t C :=
+   Zmap.mk (fun i => cos (fromZ i * twopi / dn')) dn.
+
+ Let sinus: Zmap.t C :=
+   Zmap.mk (fun i => sin (fromZ i * twopi / dn')) dn.
+ 
+ Let values :=
+   Zmap.mk (fun i => f (Zmap.get 0 points i)) (2*n+1).
+           (* Zmap.map_below 2*n f points *)
+
+ Let coeff_aux vl (pt : Z -> C) (i j : Z) : C :=
+   Zfold' (fun j acc => acc +  vl j * pt ((i*j) mod dn)%Z)
+          j 0.
+     
+      
+ Let coeff_cos (i : Z) :=
+   (if Z.eqb i 0%Z then 1 else two) *
+   (coeff_aux (Zmap.get 0 values) (Zmap.get 0 cosin) i (dn + 1) / (dn' + 1)).
+
+ Let coeff_sin (i : Z) :=
+   two * (coeff_aux (Zmap.get 0 values) (Zmap.get 0 sinus) (i+1) (dn + 1) / (dn' + 1)).
+ 
+ Definition interpolate := merge (Zmap.tolist 0 (n+1) (Zmap.mk coeff_cos (n+1)))
+                                 (Zmap.tolist 0 n (Zmap.mk coeff_sin n)).
+ 
+End i.
+
+(** packing everything together, we get a basis *)
+(*
+Definition basisFourier_02PI_ops_on (C: Ops1): BasisOps_on C := {|
+  vectorspace.lo := fromZ (-1);
+  vectorspace.hi := 1;
+  vectorspace.bmul := pmul;
+  vectorspace.bone := pone;
+  vectorspace.bid := pid;
+  vectorspace.bprim := prim;
+  vectorspace.beval := @eval' C;
+  vectorspace.brange := Some range;
+  vectorspace.interpolate := interpolate
+|}.*)
