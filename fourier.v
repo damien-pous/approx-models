@@ -1126,12 +1126,6 @@ Proof.
   destruct l. apply P1.
   now apply P2, list2_ind. 
 Qed.
-(*Lemma list2_ind {C : Ops1} (P : list C -> Prop) :
-  P [] ->  (forall (x:C), P [x]) ->  (forall (l :list C) (x y :C) , P l -> P (x::y::l)) -> forall l, P l.
-Proof.
-  intros ???. cut (forall l a, P l /\ P (a::l)). firstorder. apply pi.
-  induction l; firstorder.
-Qed.*)
     
 (** Integration *)
 
