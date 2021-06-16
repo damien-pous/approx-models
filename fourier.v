@@ -648,8 +648,10 @@ Section ops.
   (** one *)
   Definition pone: list C := [1].
 
-  (***** /!\ No identity function -> someting to change in BasisOps_on *)
+  (***** /!\ No identity function -> something to change in BasisOps_on *)
+  Definition pid : list C := [0;1]. (* False *)
 
+  
   Definition cons0 (p: list C) := match p with [] => p | _=>0::p end.
   
   Definition cons00 (p: list C) :=
@@ -837,7 +839,7 @@ Section ops.
   
 
   (** domain *)
-  Definition lo: C := 0. Check pi.
+  Definition lo: C := 0. 
   Definition hi: C := (fromZ 2)*pi.
   
   (** range on C
@@ -854,6 +856,10 @@ Section ops.
   
 End ops.
 
+
+
+
+
 (** ** Correctness of the above polynomial operations, on R *)
 
 Lemma eval_cst a (x: R): eval (pcst a) x = a.
@@ -861,6 +867,8 @@ Proof. rewrite /pcst /eval /= F0/=. ring. Qed.
 
 Lemma eval_one (x: R): eval pone x = 1.
 Proof. rewrite /pcst /eval /= F0/=. ring. Qed.
+
+
 
 (* Multiplication of cosinus polynoms *)
 Lemma evalCC_cons00_ n p (x: R): evalCC_ n (cons00 p) x = evalCC_ n.+2 p x.
@@ -1056,7 +1064,6 @@ Proof. intros.
        rewrite /= eval_merge eval_add eval_add_ eval_mulCC eval_mulSS 2!eval_mulSC /=. ring.
 Qed.
 
-
 (* Correctness of fast_eval *)
 
 Lemma eval_app_: forall P Q (x: R) n, eval_ n (P ++ Q) x = eval_ n P x + eval_ (length P + n) Q x.
@@ -1076,7 +1083,7 @@ Proof.
   elim :  P n => [ n /= | a p IHp n /=]. ring.
     by rewrite IHp.
 Qed.
-  
+
 Lemma equiv_eval_fast_eval_ (n:nat) a b P t :
   length P = (2*n)%nat ->
   fast_eval_ a b P (CC 1 t) (SS 1 t) = eval_ 1 (rev P) t + a * CC n t + b * SS n t.  
@@ -1110,42 +1117,52 @@ Proof.
     rewrite rev_length H; lia.
     rewrite rev_length H; lia.
 Qed.
+
+(* Double induction on lists *)
+Fixpoint list2_ind {C : Type} (P : list C -> Prop)
+         (P0: P nil) (P1: forall (x:C), P (x::nil)) (P2: forall (l :list C) (x y :C), P l -> P (x::y::l)) l: P l.
+Proof.
+  destruct l. apply P0.
+  destruct l. apply P1.
+  now apply P2, list2_ind. 
+Qed.
+(*Lemma list2_ind {C : Ops1} (P : list C -> Prop) :
+  P [] ->  (forall (x:C), P [x]) ->  (forall (l :list C) (x y :C) , P l -> P (x::y::l)) -> forall l, P l.
+Proof.
+  intros ???. cut (forall l a, P l /\ P (a::l)). firstorder. apply pi.
+  induction l; firstorder.
+Qed.*)
     
 (** Integration *)
 
-Lemma eval_prim_ o m p x : (length p <= m)%nat -> (o >= 1)%nat -> Derive (eval_ (2*o-1) (prim_ o p)) x = eval_ (2*o-1) p x.
+Lemma eval_prim_ o p x : (o >= 1)%nat -> Derive (eval_ (2*o-1) (prim_ o p)) x = eval_ (2*o-1) p x.
 Proof.
-  move : o p. elim: m => [ n p H Hn | m  IHm n [ /= | a [ | b q ]] Hlp Hn ].
-  + have H0 : length p = 0%nat. by inversion H.
-    apply length_zero_iff_nil in H0. rewrite H0 /=.
-    apply Derive_const.
-
-  + apply Derive_const. 
-
-  + rewrite (@Derive_ext _ (fun x => - a // n * F (2* n) x)).  
-    rewrite Derive_scal.
-    rewrite (@is_derive_unique _ _ (- INR n * F (2*n - 1)%nat x)). 2: apply F_is_derive_2n => //.
+  move : o. elim/(@list2_ind): p => [ o Ho /= | a o Ho /= | a b p IHp n Hn /= ].
+  + apply Derive_const.
+    
+  + rewrite (@Derive_ext _ (fun x => - a // o * F (2* o) x)).  
+    rewrite Derive_scal. rewrite (@is_derive_unique _ _ (- INR o * F (2*o - 1)%nat x)).
+    2: apply F_is_derive_2n => //.
     rewrite /= -INR_IZR_INZ. field. apply not_0_INR; lia.
-    simpl; replace ((n + (n + 0) - 1) .+1) with (n+(n+0))%nat. intro t; field.
+    simpl; replace ((o + (o + 0) - 1) .+1) with (o+(o+0))%nat. intro t; field.
     rewrite -INR_IZR_INZ. apply not_0_INR; lia. lia.  
-
-  + simpl. rewrite !Derive_plus. rewrite  !Derive_scal.
+ 
+  + rewrite !Derive_plus. rewrite  !Derive_scal.
     rewrite (@is_derive_unique _ _ ( INR n * F (2*n) x) ) /=.
     rewrite (@is_derive_unique _ _ (- INR n * F ((2*n - 1)) x) ) /=.
     replace ((n+(n+0)-1) .+2)%nat with (2* (n .+1) - 1)%nat.
     replace (n+(n+0)-1) .+1 with (n+(n+0))%nat.   
-    rewrite -INR_IZR_INZ IHm. field. apply not_0_INR; lia.
-    move : Hlp => /=. lia. lia. lia. lia.
+    rewrite -INR_IZR_INZ IHp. field. apply not_0_INR; lia.
+    move : Hn => /=. lia. lia. lia. 
     replace (n+(n+0)-1) .+1 with (n+(n+0))%nat. 2:lia.
-    apply F_is_derive_2n => //. apply F_is_derive_2nm1 => //.
-   
+    apply F_is_derive_2n => //. apply F_is_derive_2nm1 => //.   
     apply ex_derive_scal. apply F_ex_derive. apply eval_ex_derive_.
     apply ex_derive_scal. apply F_ex_derive.
     apply @ex_derive_plus. apply ex_derive_scal. apply F_ex_derive. apply eval_ex_derive_.
 Qed.
     
 Lemma eval_prim_Derive_ p x : Derive (eval_ 1 (prim_ 1 p)) x = eval_ 1 p x.
-Proof. apply (@eval_prim_ 1 (length p)). lia. lia. Qed.
+Proof. apply (@eval_prim_ 1); lia. Qed.
 
 Lemma eval_integrate p a b : integrate p a b = RInt (eval p) a b.
 Proof.
@@ -1247,7 +1264,7 @@ Section s.
   Qed.
   Local Hint Resolve rinject_inF : rel.
   Lemma rmerge : forall x y, pT x y -> forall x' y' , pT x' y' -> pT (merge x x') (merge y y').
-  Proof. intro x; elim : x => [ y H x' y' H0 /= | a x Hx [ H | b y H [ | a' x' ] [ | b' y'] H0]   ].
+  Proof. intro x; elim : x => [ y H x' y' H0 /= | a x Hx [ H | b y H [ | a' x' ] [ | b' y'] H0] ].
          + inversion H; simpl; rel. 
          + inversion H.
          + inversion H. simpl. rel. 
@@ -1266,53 +1283,34 @@ Section s.
   Proof. simpl. unfold pone. rel. Qed.
   Lemma rpcst: forall a b, rel T a b -> pT (pcst a) (pcst b).
   Proof. unfold pcst. rel. Qed.
-  Lemma rfast_eval_ : forall n P Q, length P = (2*n)%nat -> pT P Q ->
+  Lemma rfast_eval_ : forall P Q,  pT P Q ->
                                    forall a b , T a b -> forall c d, T c d ->
                                    forall c1 c2, T c1 c2 -> forall s1 s2, T s1 s2 ->
                                    rel T (fast_eval_ a c P c1 s1) (fast_eval_ b d Q c2 s2).       
-  Proof.  intros n; elim : n  => [ [ | x p ] Q H HPQ   | n IHn [ | x [ | y p ]] Q H HPQ].
+  Proof.  intro P; elim/@list2_ind : P  => [ | x |  l x y HIP  ] Q HPQ.
          + inversion HPQ. by [].
-         + inversion H. 
-         + inversion H.
-         + inversion H. move : H1. lia.
-         + inversion HPQ; inversion H4. simpl. intros. apply IHn => //.
-           move : H. simpl. lia. rel. rel.
+         + inversion HPQ; inversion H3. simpl. rel.
+         + inversion HPQ; inversion H3. simpl. intros. apply HIP => //. rel. rel.
   Qed.
-  Lemma rlength_even : forall P Q , pT P Q -> even (length P) = even (length Q).
+  Local Hint Resolve rfast_eval_ : rel.
+  Lemma pT_length : forall P Q , pT P Q ->  length P = length Q.
   Proof. intro P; elim : P => [ Q H | a p Hp Q H].
          + inversion H. by [].
-         + inversion H. apply Hp in H4.
-           replace (length (a :: p)) with ((length p) .+1).
-           replace (length (y :: k)) with ((length k) .+1).
-           by rewrite !Nat.even_succ -!Nat.negb_even H4. by []. by []. 
-  Qed.
-  Lemma cons0_length : forall (P:list R) , (length P >= 1)%nat -> length (cons0 P) = (length P) .+1.
-  Proof. destruct P; simpl;lia. Qed.
+         + inversion H. by rewrite /= (Hp k) => //.
+  Qed. 
  Lemma rfast_eval : forall P Q, pT P Q -> forall x y, rel T x y -> rel T (fast_eval P x) (fast_eval Q y).
   Proof. intro P;move : P => [ Q H | a P Q H].
          + inversion H. simpl. rel.
          + inversion H. simpl.
-           move : (rlength_even H4) => H5.
-           intros. rewrite -H5.  apply radd => //.
-           case_eq (even (length P)) => He.
-           - apply even_double in He. inversion He. rewrite Nat.double_twice -rev_length in H7.
-             apply (rfast_eval_ H7). rel. rel. rel. rel. rel.
-           - apply odd_double in He. inversion He. rewrite Nat.double_twice -rev_length in H7.
-             eapply rfast_eval_.
-             instantiate ( 1 := x1 .+1); rewrite cons0_length; lia.            
-             rel. rel. rel. rel. rel.
+           move : (pT_length H4) => H5.
+           intros. rewrite -H5.
+           case_eq (even (length P)) => He; rel.
   Qed.
-  Lemma rprim_ m : forall P Q , (length P <= m)%nat -> pT P Q -> forall n , pT (prim_ n P) (prim_ n Q).
-  Proof. elim : m => [ P Q H | m Hm [ | a [ | b p ] ] Q H HPQ n ].
-         + inversion H; apply length_zero_iff_nil in H1; rewrite H1; intro HPQ; inversion HPQ; simpl; rel.
-         + inversion HPQ; simpl; rel.
-         + inversion HPQ; inversion H4; simpl; rel.
-         + inversion HPQ; inversion H4; simpl. constructor. rel. constructor. rel.
-           apply Hm => //; move : H => /=; lia.
+  Lemma rprim_ : forall P Q , pT P Q -> forall n , pT (prim_ n P) (prim_ n Q).
+  Proof.
+    intro P; elim/@list2_ind : P => [ | x | l x y HIP ] Q HPQ n; inversion HPQ; try inversion H3; simpl; rel.
   Qed.
-  Lemma rprim : forall P Q , pT P Q -> forall n , pT (prim_ n P) (prim_ n Q).
-  Proof. intros. apply rprim_ with (length P) => //. Qed.
-  Local Hint Resolve rfast_eval rprim : rel.
+  Local Hint Resolve rfast_eval rprim_ : rel.
   Lemma rintegrate : forall P Q, pT P Q -> forall a b, rel T a b -> forall c d , rel T c d ->
                      rel T (integrate P a c) (integrate Q b d).
   Proof. intro P; move : P => [ Q H | x p Q H ]; inversion H; unfold integrate; rel. Qed.
@@ -1328,7 +1326,7 @@ Section s.
     rewrite /range. intros [|a b AB p' q' p'q']; rel.
   Qed.
 End s.
-Global Hint Resolve rcons0 rcons00 rpmul rpone rpcst rfast_eval rprim rintegrate rrange_ rrange: rel.
+Global Hint Resolve rcons0 rcons00 rpmul rpone rpcst rfast_eval rprim_ rintegrate rrange_ rrange: rel.
 
 
 (** ** interpolation  *)
@@ -1441,17 +1439,53 @@ End test.
  *)
 
 
-
-(** packing everything together, we get a basis *)
 (*
+(** packing everything together, we get a basis *)
+
 Definition basisFourier_02PI_ops_on (C: Ops1): BasisOps_on C := {|
-  vectorspace.lo := fromZ (-1);
-  vectorspace.hi := 1;
+  vectorspace.lo := lo;
+  vectorspace.hi := hi;
   vectorspace.bmul := pmul;
   vectorspace.bone := pone;
   vectorspace.bid := pid;
-  vectorspace.bprim := prim;
-  vectorspace.beval := @eval' C;
+  (* .
+     .
+     . *)       
+  vectorspace.beval := @fast_eval C;
   vectorspace.brange := Some range;
   vectorspace.interpolate := interpolate
-|}.*)
+|}.
+
+Definition basisFourier_02PI_ops {N: NBH}: BasisOps := {|
+  BI := basis11_ops_on II;
+  BF := basis11_ops_on FF;
+|}.
+
+Definition basisFourier_ops {N: NBH} (lo hi: II): BasisOps :=
+  rescale_ops basis11_ops lo hi.
+
+Program Definition basisFourier_02PI {N: NBH}: Basis basis11_ops := {|
+  TT := F;
+  BR := basisFourier_02PI_ops_on _;
+  vectorspace.lohi := lohi;
+  vectorspace.evalE := equiv_eval_fast_eval;
+  vectorspace.eval_cont := eval_cont;
+  vectorspace.eval_mul := eval_mul;
+  vectorspace.eval_one := eval_one;
+   (* .
+      .
+      . *) 
+  vectorspace.eval_range := eval_range;
+  vectorspace.rlo := rlo ;
+  vectorspace.rhi := rhi;
+  vectorspace.rbmul := @rpmul _ _ (contains (NBH:=N));
+  vectorspace.rbone := @rpone _ _ _;
+  (* .
+     .
+     . *)
+  vectorspace.rbeval := @rfast_eval _ _ _;
+  vectorspace.rbrange := @rrange _ _ _;
+|}.
+
+Definition basisFourier {N: NBH} (D: Domain): Basis (basisFourier_ops dlo dhi) := rescale basisFourier_02PI D.
+*)
