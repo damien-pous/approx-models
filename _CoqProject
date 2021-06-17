@@ -14,6 +14,7 @@ syntax.v
 vectorspace.v
 chebyshev.v
 taylor.v
+fourier.v
 approx.v
 intervals.v
 rescale.v

@@ -34,7 +34,8 @@ For more details, see the corresponding [article](https://hal.laas.fr/hal-020885
 * Instances of approximations
   + `intervals.v` : a simple instance of neighborhoods based on intervals with floating point endpoints
   + `chebyshev.v` : Chebyshev basis, for Chebyshev models
-  + `taylor.v ` : monomial basis, for Taylor models
+  + `taylor.v `   : monomial basis, for Taylor models
+  + `fourier.v `  : Fourier basis, for Fourier models
 
 
 * Instances of certificate based approximations for elementary functions
