@@ -1,6 +1,6 @@
 (** * Fourier arithmetic of Fourier basis *)
 
-
+Require Import String.
 Require Import FSets.FMapPositive Reals.
 Require Import vectorspace rescale.
 Require Import Nat ZArith.Zdiv.
@@ -648,9 +648,11 @@ Section ops.
   (** one *)
   Definition pone: list C := [1].
 
-  (***** /!\ No identity function -> something to change in BasisOps_on *)
-  Definition pid : list C := [0;1]. (* False *)
+  (** cos *)
+  Definition pcos: list C := [0;0;1].
 
+  (** sin *)
+  Definition psin : list C := [0;1].
   
   Definition cons0 (p: list C) := match p with [] => p | _=>0::p end.
   
@@ -868,8 +870,12 @@ Proof. rewrite /pcst /eval /= F0/=. ring. Qed.
 Lemma eval_one (x: R): eval pone x = 1.
 Proof. rewrite /pcst /eval /= F0/=. ring. Qed.
 
+Lemma eval_cos (x: R): eval pcos x = cos x.
+Proof. rewrite /pcos /eval /= F2 /=. ring. Qed.
 
-
+Lemma eval_sin (x : R): eval psin x = sin x.
+Proof. rewrite /psin /eval /= F1 /=. ring. Qed.
+  
 (* Multiplication of cosinus polynoms *)
 Lemma evalCC_cons00_ n p (x: R): evalCC_ n (cons00 p) x = evalCC_ n.+2 p x.
 Proof. destruct p=>//=. ring. Qed.
@@ -1275,6 +1281,10 @@ Section s.
   Qed.
   Lemma rpone: pT pone pone.
   Proof. simpl. unfold pone. rel. Qed.
+  Lemma rpcos : pT pcos pcos.
+  Proof. simpl. unfold pcos. rel. Qed.
+  Lemma rpsin : pT psin psin.
+  Proof. simpl. unfold psin. rel. Qed.
   Lemma rpcst: forall a b, rel T a b -> pT (pcst a) (pcst b).
   Proof. unfold pcst. rel. Qed.
   Lemma rfast_eval_ : forall P Q,  pT P Q ->
@@ -1432,54 +1442,52 @@ Section test.
 End test.
  *)
 
-
-(*
 (** packing everything together, we get a basis *)
 
 Definition basisFourier_02PI_ops_on (C: Ops1): BasisOps_on C := {|
   vectorspace.lo := lo;
   vectorspace.hi := hi;
+  vectorspace.beval := @fast_eval C;
   vectorspace.bmul := pmul;
   vectorspace.bone := pone;
-  vectorspace.bid := pid;
-  (* .
-     .
-     . *)       
-  vectorspace.beval := @fast_eval C;
+  vectorspace.bid := err "id not available in Fourier basis";
+  vectorspace.bcos := ret pcos;
+  vectorspace.bsin := ret psin;
+  vectorspace.bintegrate := integrate;
   vectorspace.brange := Some range;
-  vectorspace.interpolate := interpolate
+  vectorspace.interpolate := interpolate;
 |}.
 
 Definition basisFourier_02PI_ops {N: NBH}: BasisOps := {|
-  BI := basis11_ops_on II;
-  BF := basis11_ops_on FF;
+  BI := basisFourier_02PI_ops_on II;
+  BF := basisFourier_02PI_ops_on FF;
 |}.
 
 Definition basisFourier_ops {N: NBH} (lo hi: II): BasisOps :=
-  rescale_ops basis11_ops lo hi.
+  rescale_ops basisFourier_02PI_ops lo hi.
 
-Program Definition basisFourier_02PI {N: NBH}: Basis basis11_ops := {|
+Program Definition basisFourier_02PI {N: NBH}: Basis basisFourier_02PI_ops := {|
   TT := F;
   BR := basisFourier_02PI_ops_on _;
   vectorspace.lohi := lohi;
   vectorspace.evalE := equiv_eval_fast_eval;
-  vectorspace.eval_cont := eval_cont;
+  vectorspace.basis_cont := F_cont;
   vectorspace.eval_mul := eval_mul;
   vectorspace.eval_one := eval_one;
-   (* .
-      .
-      . *) 
+  vectorspace.eval_cos := ep_ret eval_cos;
+  vectorspace.eval_sin := ep_ret eval_sin;
   vectorspace.eval_range := eval_range;
-  vectorspace.rlo := rlo ;
-  vectorspace.rhi := rhi;
+  vectorspace.integrateE := eval_integrate;
+  vectorspace.rlo := rlo _  ;
+  vectorspace.rhi := rhi _;
   vectorspace.rbmul := @rpmul _ _ (contains (NBH:=N));
   vectorspace.rbone := @rpone _ _ _;
-  (* .
-     .
-     . *)
+  vectorspace.rbcos := er_ret (@rpcos _ _ _);
+  vectorspace.rbsin := er_ret (@rpsin _ _ _);
+  vectorspace.rbintegrate := @rintegrate _ _ _;
   vectorspace.rbeval := @rfast_eval _ _ _;
   vectorspace.rbrange := @rrange _ _ _;
 |}.
 
 Definition basisFourier {N: NBH} (D: Domain): Basis (basisFourier_ops dlo dhi) := rescale basisFourier_02PI D.
-*)
+
