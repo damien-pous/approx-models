@@ -50,7 +50,6 @@ Qed.
 (** the basis for models can be selected with [chebyshev] (default) [taylor], or [fourier]
     [taylor] does not support [sqrt] and [div] (yet)
     [fourier] does not support the identity (x), but is the only one to support [cos] and [sin]
-    TODO: examples with fourier
  *)
 Goal 0 <= RInt (fun x => x * (2+x)) 0 1.
 Proof.
@@ -62,6 +61,19 @@ Proof.
   Fail approx taylor.
   approx.
 Qed.
+
+(** examples using Fourier basis *)
+Goal 0.207 <= RInt (fun x => sin x) (pi/4) (pi/3) <= 0.208.
+  Fail approx.
+  approx fourier.
+Qed.  
+Goal 0.124 <= RInt (fun x => sin x * cos x) (pi/4) (pi/3) <= 0.126.
+  approx fourier.
+Qed.  
+Goal 0.09 <= RInt (fun x => sin x / (2+cos x)) 0 pi <= 1.1.
+  approx fourier.
+Qed.  
+
 
 (** [approx] also makes it possible to compare univariate functions on a given interval
     (the goal show be presented in a rather strict way for now, essentially as in the two examples below; this should be improved in the following release)

@@ -118,6 +118,18 @@ Goal forall x, 0.1<=x<=0.9 -> x <> sqrt x.
 Qed.
 
 
+(** testing Fourier basis *)
+Goal True.
+  estimate (RInt (fun x => sin x / (2+cos x)) 0 pi) fourier.
+  estimate (RInt (fun x => sin x / (2+cos x)) (pi/4) (pi/3)) fourier.
+  estimate (RInt (fun x => sin x / (2+cos x)) (-4) (18*pi/3)) fourier.
+  (* below: although 1+sin x > 0 on [0;pi], the range is estimated on [0;2pi], so this cannot work... *)
+  estimate (RInt (fun x => sqrt (1+sin x)) 0 pi) fourier.
+  estimate (RInt (fun x => sqrt (2+sin x)) 0 pi) fourier.
+  estimate (RInt (fun x => sqrt (2+sin x) / (2+cos x)) (-4) (18*pi/3)) fourier.
+Abort.
+
+
 (** ** testing direct computations  *)
 Eval vm_compute in
     let e := EXPR ((integrate' (1 / (1 + id'))) 0 (pi'/fromZ' 4)) in 
