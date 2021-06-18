@@ -10,9 +10,9 @@ Proof.
   Restart.
   approx (i_deg 15).
   Restart.
-  approx static11.
+  approx chebyshev11.
   Restart.
-  approx (static11, i_deg 15).
+  approx (chebyshev11, i_deg 15).
   Restart.
   approx (static 0.5 2).
   Restart.
@@ -49,7 +49,7 @@ Qed.
 
 Goal -0.1 <= RInt (fun x => x) (-2) 2 <= 0.1.
 Proof.
-  Fail approx (static11).
+  Fail approx (chebyshev11).
   approx (i_deg 5).
 Qed.
 
@@ -66,7 +66,7 @@ Qed.
 
 Goal -0.1 <= RInt (fun x => 0%R) (-3) (3) <= 0.1.
 Proof.
-  Fail approx (static11).
+  Fail approx (chebyshev11).
   approx. 
 Qed.
 
