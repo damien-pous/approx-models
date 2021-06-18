@@ -2,6 +2,7 @@
 -arg -w -arg -undo-batch-mode
 
 -R . ApproxModels
+utils.v
 posreal_complements.v
 cball.v
 domfct.v

@@ -1,8 +1,8 @@
 (** * Chebyshev polynomials and arithmetic of Chebyshev basis *)
 
 Require Import String.
-Require Import vectorspace rescale.
-Require Import FSets.FMapPositive Reals.
+Require Import vectorspace rescale utils.
+Require Import Reals.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -447,76 +447,39 @@ End s.
 
 
 (** ** interpolation  *)
-
-(** basic utilities: partial fixpoint operator, maps on [Z],   *)
-Section powerfix.
-Variables A B: Type.
-Notation Fun := (A -> B).
-Fixpoint powerfix' n (f: Fun -> Fun) (k: Fun): Fun := 
-  fun a => match n with O => k a | S n => f (powerfix' n f (powerfix' n f k)) a end.
-Definition powerfix n f k a := f (powerfix' n f k) a.
-Definition Fix := powerfix 100.
-End powerfix.
-Definition Zfold A (f: Z -> A -> A): Z -> A -> A :=
-  Fix (fun Zfold z a => if Z.eqb z 0 then a else let z:=Z.pred z in Zfold z (f z a)) f.
-Definition Zfold' A (f: Z -> A -> A): Z -> A -> A :=
-  Fix (fun Zfold z a => if Z.eqb z 0 then a else let z':=Z.pred z in Zfold z' (f z a)) f.
-Module Zmap.
-  Definition t := PositiveMap.t.
-  Definition empty {A} := @PositiveMap.empty A.
-  Definition add {A} i (v: A) m :=
-    match i with
-    | Z0 => PositiveMap.add xH v m
-    | Zpos p => PositiveMap.add (Pos.succ p) v m
-    | _ => m
-    end.
-  Definition find {A} m i: option A :=
-    match i with
-    | Z0 => PositiveMap.find xH m
-    | Zpos p => PositiveMap.find (Pos.succ p) m
-    | _ => None
-    end.
-  Definition map_below {A} n (f: A -> A) :=
-    let n := match n with Zpos p => Pos.succ p | _ => xH end in
-    PositiveMap.mapi (fun i x => if Pos.leb i n then f x else x).
-  Definition get {A} d m i: A := match find m i with Some v => v | None => d end. 
-  Definition mk {A} (f: Z -> A) n := Zfold (fun z => add z (f z)) n empty.
-  Definition tolist {A} d n m: list A := Zfold (fun z s => get d m z :: s) n [].
-End Zmap.
-
-
-(** interpolation *)
 Section i.
  Import interfaces.
  Context {C: Ops1}.
  Variable n: Z.
  Variable f: C -> C.
 
- Let dn: Z := (2*n)%Z.
- Let n': C := fromZ n.
+ Let dn: Z := 2*n.
+ Let sn: Z := n+1.
+ Let cn: C := fromZ n.
  Let two:C := fromZ 2.
 
- Let DCTinv_coeff_aux vl (pt: Z -> C) (i j: Z): C :=
+ (** interpolation points *)
+ Let point: Z -> C :=
+   Zmap.get 0 (
+     Zmap.mk (fun i => cos (fromZ i * pi / cn)) dn).
+
+ (** values at interpolation points *)
+ Let value: Z -> C :=
+   Zmap.get 0 (
+     Zmap.mk (fun i => f (point i)) sn).
+
+ Let DCTinv_coeff_aux (i j: Z): C :=
    Zfold' (fun j acc => acc +
-     if Z.ltb j n then 
-       two * vl j * pt ((i*j) mod dn)%Z
-     else
-       vl j * pt ((i*j) mod dn)%Z
-         ) j (vl 0%Z).
-
- Let points: Zmap.t C :=
-   Zmap.mk (fun i => cos (fromZ i * pi / n')) dn.
-
- Let values :=
-   Zmap.mk (fun i => f (Zmap.get 0 points i)) (n+1)
-           (* Zmap.map_below n f points *)
- .
-
- Let DCTinv_coeff (i: Z) :=
-   (if Z.eqb i 0%Z then dvn 2 else ssrfun.id)
-     (DCTinv_coeff_aux (Zmap.get 0 values) (Zmap.get 0 points) i n / n').
-
- Definition interpolate := Zmap.tolist 0 (n+1) (Zmap.mk DCTinv_coeff (n+1)).
+     if Z.ltb j n 
+     then two * value j * point ((i*j) mod dn)
+     else       value j * point ((i*j) mod dn)
+         ) j (value 0).
+ Let DCTinv_coeff (i: Z): C :=
+   (if Z.eqb i 0 then dvn 2 else ssrfun.id)
+     (DCTinv_coeff_aux i n / cn).
+ 
+ Definition interpolate: list C :=
+   Zmap.tolist 0 sn (Zmap.mk DCTinv_coeff sn).
 End i.
 
 

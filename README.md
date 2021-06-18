@@ -23,20 +23,20 @@ For more details, see the corresponding [article](https://hal.laas.fr/hal-020885
   + `posreal_complement.v` : canonical structure based automation for automating manifest positivity (resp. non-negativity) proofs
   + `domfct.v` : instance of uniform space structure for functions restricted to a subtype
   + `banach.v` : proof of the Banach fixedpoint theorem
-
+  
+* Utilities for programming oracles
+  + `utils.v` : pseudo fixpoint operator, pseudo arrays
 
 * Abstractions for approximations
   + `interfaces.v` : hierarchy of abstractions: basic operations, neighborhoods, operations on functions
   + `vectorspace.v` : abstractions for generalized polynomials and linear combinations thereof, used for approximations
-  + `rescale.v` : affine rescaling for a basis of generalized polynomials
-  
+  + `rescale.v` : affine rescaling for a basis of generalized polynomials  
 
 * Instances of approximations
   + `intervals.v` : a simple instance of neighborhoods based on intervals with floating point endpoints
   + `chebyshev.v` : Chebyshev basis, for Chebyshev models
   + `taylor.v `   : monomial basis, for Taylor models
   + `fourier.v `  : Fourier basis, for Fourier models
-
 
 * Instances of certificate based approximations for elementary functions
   + `div.v` : Newton method for division
@@ -57,9 +57,9 @@ For more details, see the corresponding [article](https://hal.laas.fr/hal-020885
 
 We do not introduce any axiom, but we need the ones used for Reals in Coquelicot:
 
-ClassicalDedekindReals.sig_not_dec
-ClassicalDedekindReals.sig_forall_dec
-FunctionalExtensionality.functional_extensionality_dep
-Classical_Prop.classic
+  + ClassicalDedekindReals.sig_not_dec
+  + ClassicalDedekindReals.sig_forall_dec
+  + FunctionalExtensionality.functional_extensionality_dep
+  + Classical_Prop.classic
 
 Additionally, depending on the choice of interval implementation, axioms about machine 63 bits integers or primitive floating point numbers are used.
