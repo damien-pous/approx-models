@@ -1,9 +1,8 @@
 (** * Fourier arithmetic of Fourier basis *)
 
-Require Import String.
-Require Import FSets.FMapPositive Reals.
-Require Import vectorspace rescale.
-Require Import Nat ZArith.Zdiv.
+Require Import String Reals.
+Require Import vectorspace rescale utils.
+Require Import Nat.
 
 
 Set Implicit Arguments.
@@ -1321,88 +1320,55 @@ Global Hint Resolve rcons0 rcons00 rpmul rpone rpcst rfast_eval rprim_ rintegrat
 
 
 (** ** interpolation  *)
-
-(** basic utilities: partial fixpoint operator, maps on [Z],   *)
-Section powerfix.
-Variables A B: Type.
-Notation Fun := (A -> B).
-Fixpoint powerfix' n (f: Fun -> Fun) (k: Fun): Fun := 
-  fun a => match n with O => k a | S n => f (powerfix' n f (powerfix' n f k)) a end.
-Definition powerfix n f k a := f (powerfix' n f k) a.
-Definition Fix := powerfix 100.
-End powerfix.
-Definition Zfold A (f: Z -> A -> A): Z -> A -> A :=
-  Fix (fun Zfold z a => if Z.eqb z 0 then a else let z:=Z.pred z in Zfold z (f z a)) f.
-Module Zmap.
-  Definition t := PositiveMap.t.
-  Definition empty {A} := @PositiveMap.empty A.
-  Definition add {A} i (v: A) m :=
-    match i with
-    | Z0 => PositiveMap.add xH v m
-    | Zpos p => PositiveMap.add (Pos.succ p) v m
-    | _ => m
-    end.
-  Definition find {A} m i: option A :=
-    match i with
-    | Z0 => PositiveMap.find xH m
-    | Zpos p => PositiveMap.find (Pos.succ p) m
-    | _ => None
-    end.
-  Definition map_below {A} n (f: A -> A) :=
-    let n := match n with Zpos p => Pos.succ p | _ => xH end in
-    PositiveMap.mapi (fun i x => if Pos.leb i n then f x else x).
-  Definition get {A} d m i: A := match find m i with Some v => v | None => d end. 
-  Definition mk {A} (f: Z -> A) n := Zfold (fun z => add z (f z)) n empty.
-  Definition tolist {A} d n m: list A := Zfold (fun z s => get d m z :: s) n [].
-End Zmap.
-
-
-(** interpolation *)
 Section i.
  Import interfaces.
  Context {C: Ops1}.
  Variable n: Z.
  Variable f: C -> C.
 
- Let dn: Z := (2*n)%Z.
- Let n': C := fromZ n.
- Let dn': C := fromZ dn.
- Let two:C := fromZ 2.
- Let twopi: C := two * pi.
+ Let sn: Z := n+1.
+ Let sdn: Z := 2*n+1.
+ Let osdn: C := 1 / fromZ sdn.
+ Let two: C := fromZ 2.
+ Let twopisdn: C := two * pi * osdn.
  
- Definition points: Zmap.t C :=
-   Zmap.mk (fun i => fromZ i * twopi /  (dn'+1)) (dn+1).
+ (** interpolation points *)
+ Let point: Z -> C :=
+   Zmap.get 0 (
+     Zmap.mk (fun i => fromZ i * twopisdn) sdn).
 
- Definition map_points g : Zmap.t C :=
-    Zmap.mk (fun i => g (Zmap.get 0 points i)) (dn+1).
-    (* Zmap.map_below 2*n f points *)
- 
- Definition cosin: Zmap.t C := map_points (@cos C).
- Definition sinus: Zmap.t C := map_points (@sin C). 
- Definition values := map_points f.
+ Let map_points g : Z -> C :=
+   Zmap.get 0 (
+     Zmap.mk (fun i => g (point i)) sdn).
 
- Definition coeff_aux vl (pt : Z -> C) (i : Z) : C :=
-   Zfold (fun j acc => acc +  vl j * pt ((i*j) mod (dn+1))%Z)
-          (dn+1) 0.
-     
+ (** cosine, sine, and values at the interpolation points  *)
+ Let cosin := map_points cos.
+ Let sinus := map_points sin. 
+ Let value := map_points f.
+
+ Definition coeff_aux (g: Z -> C) (i : Z) : C :=
+   Zfold (fun j acc => acc +  value j * g ((i*j) mod sdn)%Z) sdn 0.
       
  Definition coeff_cos (i : Z) :=
-   (if Z.eqb i 0%Z then 1 else two) *
-   (coeff_aux (Zmap.get 0 values) (Zmap.get 0 cosin) i / (dn' + 1)).
+   (if Z.eqb i 0%Z then ssrfun.id else mul two)
+   (coeff_aux cosin i * osdn).
 
  Definition coeff_sin (i : Z) :=
-   two * (coeff_aux (Zmap.get 0 values) (Zmap.get 0 sinus) (i+1) / (dn' + 1)).
- 
- Definition interpolate := merge (Zmap.tolist 0 (n+1) (Zmap.mk coeff_cos (n+1)))
-                                 (Zmap.tolist 0 n (Zmap.mk coeff_sin n)). 
+   two * coeff_aux sinus (i+1) * osdn.
+
+ (* TOTHINK: this returns a list of size [2n+1], while interpolation in Chebyshev returns a polynom of degree [n]. We might wante to divide by two in order to be more uniform. On the other hand a list of Fourier coefficients of length [2n+1] should certainly be called 'of degree n'... *)
+ Definition interpolate :=
+   merge (Zmap.tolist 0 sn (Zmap.mk coeff_cos sn))
+         (Zmap.tolist 0  n (Zmap.mk coeff_sin  n)). 
 End i.
 
+(* tests for the above interpolation function *)
 (*
-Require Import interfaces intervals syntax.
+Require Import intervals.
 
 Section test.
 
-  Let C := Iprimitive.IOps1.  
+  Let C := intervals.FOps1.  
 
   Definition one : C :=  fromZ 1.
 
@@ -1417,14 +1383,15 @@ Section test.
   Definition N := 4%Z.
 
   Check fast_eval pol.
-  Check interpolate. Check points N.
-  Eval compute in Zmap.tolist 0 (2*N +1) (@points C N).
-  Eval compute in Zmap.tolist 0 (2*N +1) (@cosin C N).
-  Eval compute in Zmap.tolist 0 (2*N +1) (@sinus C N).
-  Eval compute in Zmap.tolist 0 (2*N +1) (values N (fast_eval pol)).
-  Eval compute in coeff_aux N (Zmap.get 0 (values N (fast_eval pol))) (Zmap.get 0 (@cosin C N)) 0.
-  Eval compute in @coeff_cos C N (fast_eval pol) 0.
-  Eval compute in interpolate N (fast_eval pol).
+  Check interpolate. 
+  (* Eval compute in Zmap.tolist 0 (2*N +1) (@points C N). *)
+  (* Eval compute in Zmap.tolist 0 (2*N +1) (@cosin C N). *)
+  (* Eval compute in Zmap.tolist 0 (2*N +1) (@sinus C N). *)
+  (* Eval compute in Zmap.tolist 0 (2*N +1) (values N (fast_eval pol)). *)
+  (* Eval compute in coeff_aux N (Zmap.get 0 (values N (fast_eval pol))) (Zmap.get 0 (@cosin C N)) 0. *)
+  (* Eval compute in @coeff_cos C N (fast_eval pol) 0. *)
+  Eval vm_compute in pol.       (* [1;1;2;0;3] *)
+  Eval vm_compute in interpolate N (fast_eval pol).
  
 End test.
  *)
