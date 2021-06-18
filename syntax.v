@@ -247,6 +247,13 @@ Abort.
 (** ** parametricity relation for terms. *)
 (** This inductive relation is required because of our PHOAS encoding of the syntax.
     We use it to be able to proceed by induction on terms when proving correctness of the interval/model semantics below. *)
+(* TOTHINK, generate it using coq-paramcoq?
+
+   Declare ML Module "paramcoq".
+   Parametricity Recursive term. 
+
+   problem is that this generates useless reformulations of [eq] for the types used in term (sort, Z, Q)
+  *)
 Inductive trel X Y (R: forall S, X S -> Y S -> Prop): forall S, @term X S -> @term Y S -> Prop :=
 | re_add: forall x y, trel R x y -> forall x' y', trel R x' y' -> trel R (e_add x x') (e_add y y')
 | re_sub: forall x y, trel R x y -> forall x' y', trel R x' y' -> trel R (e_sub x x') (e_sub y y')
