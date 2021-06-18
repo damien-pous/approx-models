@@ -27,25 +27,39 @@ Proof.
   approx.
 Qed.
 
-(** [approx] computes models, using Chebyshev basis rescaled to the encountered integral bounds
-    the [static11] option systematically uses Chebyshev basis on [[-1;1]]
+(** [approx] computes models on the encountered integral bounds
+    the [static a b] option systematically uses models on [[a;b]]
  *)
 Goal 0.3333 <= RInt (fun x => x*x) 0 1 <= 0.3334.
 Proof.
-  approx static11.
+  approx (static 0 2).
 Qed.
 
-(** Thus, the integral bounds should lie within [[-1;1]] in this case 
-    or we can use the [static] option, which uses Chebyshev basis on the given domain
- *)
+(** Thus, when using [static], the integral bounds should lie within the given bounds *)
 Goal 0 <= RInt (fun x => x*x) 0 2 <= 38.
 Proof.
-  Fail approx static11.
+  Fail approx (static 0 1).
   approx (static (-1.5) 3.3).      
 Abort.
 
 Goal 1.578 <= RInt (fun x => sqrt (2+x)) 0 1 <= 1.579.
 Proof.
+  approx.
+Qed.
+
+(** the basis for models can be selected with [chebyshev] (default) [taylor], or [fourier]
+    [taylor] does not support [sqrt] and [div] (yet)
+    [fourier] does not support the identity (x), but is the only one to support [cos] and [sin]
+    TODO: examples with fourier
+ *)
+Goal 0 <= RInt (fun x => x * (2+x)) 0 1.
+Proof.
+  approx taylor.
+Qed.
+Goal 0 <= RInt (fun x => sqrt (2+x)) 0 1.
+Proof.
+  (** error message is not clear: we lack interpolation for Taylor, so that the oracles simply do not work *)
+  Fail approx taylor.
   approx.
 Qed.
 
@@ -83,7 +97,7 @@ Goal 0.405465108108 <= RInt (fun x => 1/(2+x)) 0 1 <= 0.405465108109.
   approx (i_deg 13).
   Restart.
   (** with a static basis (chebyshev on [[-1;1]]), we need to further increase the degree *)
-  approx (static11, i_deg 23). 
+  approx (chebyshev11, i_deg 23). 
   Restart.
   (** with a larger static basis (chebyshev on [[-1.5;1.5]]), we need to further increase the degree *)
   approx (static (-1.5) 1.5, i_deg 40). 
@@ -92,7 +106,7 @@ Qed.
 Goal -0.1 <= RInt (fun x => x) (-2) 2 <= 0.1.
 Proof.
   (* here we go beyond the default domain [[-1;1]] *)
-  Fail approx (static11).
+  Fail approx chebyshev11.
   (* with a rescaled chebyshev basis *)
   approx (static (-3) 3).
 Qed.
@@ -101,7 +115,7 @@ Goal 1.2189 <= RInt (fun x => sqrt (1+x)) 0 1 <= 1.219.
 Proof.
   (** since we use Chebyshev basis on [[-1;1]] by default, 
      we get too close from sqrt of a negative value here *)
-  Fail approx (static11).
+  Fail approx chebyshev11.
   (** solved by using a better basis *)
   approx.
 Qed.

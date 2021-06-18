@@ -39,8 +39,10 @@ Inductive param :=
 | nbh of NBH
 (** native or vm computations *)
 | vm | native
-(** dynamic/static semantics *)
-| dynamic | static(a b: Q) | static11.             
+(** dynamic/static semantics (and Chebyshev of [[-1;1]] as a special case of static semantics) *)
+| dynamic | static(a b: Q) | chebyshev11
+(** basis (be careful, chebyshev11 above takes precedence even when placed after [taylor] or [fourier] )*)
+| chebyshev | taylor | fourier.             
 
 (** lists of parameters are presented as tuples of tuples of tuples ... of elements in [param] 
     (e.g., [(bigZ60,((i_deg 5,vm), primfloat))])
@@ -84,6 +86,16 @@ Ltac get_native x y :=
   | _ => get_native y tt
   end.
 
+Ltac get_basis x y :=
+  lazymatch x with
+  | tt => constr:(tt)
+  | chebyshev => constr:(chebyshev)
+  | taylor => constr:(taylor)
+  | fourier => constr:(fourier)
+  | (?p,?q) => get_basis p constr:((q,y))
+  | _ => get_basis y tt
+  end.
+
 Ltac get_nbh x y :=
   lazymatch x with
   | tt => constr:(IPrimFloat.nbh)
@@ -98,24 +110,43 @@ Ltac get_nbh x y :=
   | _ => get_nbh y tt
   end.
 
-Ltac get_check nbh x y :=
+Ltac get_model basis :=
+  match basis with
+    | tt => uconstr:(chebyshev_model)
+    | chebyshev => uconstr:(chebyshev_model)
+    | taylor => uconstr:(taylor_model)
+    | fourier => fail 100 "fourier not yet integrated"
+  end.
+Ltac get_check nbh model x y :=
   lazymatch x with
-  | tt => constr:(Dynamic.check (N:=nbh) chebyshev_model)
-  | dynamic => constr:(Dynamic.check (N:=nbh) chebyshev_model)
-  | static ?a ?b => constr:(Static.check (N:=nbh) (chebyshev_model (DQ2 a b)))
-  | static11 => constr:(Static.check (N:=nbh) chebyshev11_model)
-  | (?p,?q) => get_check nbh p constr:((q,y))
-  | _ => get_check nbh y tt
+  | tt => constr:(Dynamic.check (N:=nbh) model)
+  | dynamic => constr:(Dynamic.check (N:=nbh) model)
+  | static ?a ?b => constr:(Static.check (N:=nbh) (model (DQ2 a b)))
+  | chebyshev11 =>
+    (* match basis with *)
+    (*   | taylor => idtac "warning, chebyshev11 takes precedence over taylor" *)
+    (*   | fourier => idtac "warning, chebyshev11 takes precedence over fourier" *)
+    (* end; *)
+    constr:(Static.check (N:=nbh) chebyshev11_model)
+  | (?p,?q) => get_check nbh model p constr:((q,y))
+  | _ => get_check nbh model y tt
   end.
 
-Ltac get_Sem nbh x y :=
+Ltac get_model_ops basis :=
+  match basis with
+    | tt => uconstr:(chebyshev_model_ops)
+    | chebyshev => uconstr:(chebyshev_model_ops)
+    | taylor => uconstr:(taylor_model_ops)
+    | fourier => fail 100 "fourier not yet integrated"
+  end.
+Ltac get_Sem nbh model_ops x y :=
   lazymatch x with
-  | tt => constr:(Dynamic.Sem' (N:=nbh) chebyshev_model_ops)
-  | dynamic => constr:(Dynamic.Sem' (N:=nbh) chebyshev_model_ops)
-  | static ?a ?b => constr:(Static.Sem' (N:=nbh) (chebyshev_model_ops (fromQ a) (fromQ b)))
-  | static11 => constr:(Static.Sem' (N:=nbh) chebyshev11_model_ops)
-  | (?p,?q) => get_Sem nbh p constr:((q,y))
-  | _ => get_Sem nbh y tt
+  | tt => constr:(Dynamic.Sem' (N:=nbh) model_ops)
+  | dynamic => constr:(Dynamic.Sem' (N:=nbh) model_ops)
+  | static ?a ?b => constr:(Static.Sem' (N:=nbh) (model_ops (fromQ a) (fromQ b)))
+  | chebyshev11 => constr:(Static.Sem' (N:=nbh) chebyshev11_model_ops)
+  | (?p,?q) => get_Sem nbh model_ops p constr:((q,y))
+  | _ => get_Sem nbh model_ops y tt
   end.
 
 (*
@@ -139,7 +170,9 @@ Tactic Notation "approx" constr(params) :=
   let deg := get_deg params tt in
   let native := get_native params tt in
   let nbh := get_nbh params tt in
-  let check := get_check nbh params tt in
+  let basis := get_basis params tt in
+  let model := get_model basis in
+  let check := get_check nbh model params tt in
   lazymatch goal with |- ?p =>
   let p := reify_prop p in
   let t := constr:(check deg p) in
@@ -164,7 +197,9 @@ Tactic Notation "estimate" constr(e) constr(params) :=
   let deg := get_deg params tt in
   let native := get_native params tt in
   let nbh := get_nbh params tt in
-  let Sem := get_Sem nbh params tt in
+  let basis := get_basis params tt in
+  let model_ops := get_model_ops basis in
+  let Sem := get_Sem nbh model_ops params tt in
   let e := reify_real e in
   let t := constr:(Sem deg REAL e) in
   let i := ecomp native t in
@@ -179,9 +214,11 @@ Proof.
   Restart.
   approx (i_deg 15).
   Restart.
-  approx static11.
+  approx chebyshev11.
   Restart.
-  approx (static11, i_deg 15).
+  approx (static 0 3,taylor).
+  Restart.
+  approx (chebyshev11, i_deg 15).
   Restart.
   approx (static 0.5 2, stdz60).
   Restart.
@@ -196,8 +233,8 @@ Proof.
   estimate (RInt (@sqrt _) 1 2) (i_deg 3, bigint120, vm).
   estimate (RInt (@sqrt _) 1 2) (i_deg 3, primfloat, native).
   estimate (RInt (@sqrt _) 1 2) (i_deg 3, primfloat, vm).
-  estimate (RInt id 0 1) (static11).
-  estimate (RInt id 0 2) (static (-1) 3).
+  estimate (RInt id 0 1) (chebyshev11).
+  estimate (RInt id 0 2) (static (-1) 3, taylor).
   estimate (RInt (@sqrt _) (-1) 1) (native).
 Abort.
 *)

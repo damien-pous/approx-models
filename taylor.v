@@ -112,7 +112,7 @@ End r'.
 
 
 (** interpolation (not implemented for monomial basis, for now) *)
-Parameter interpolate: forall {C: Ops1}, Z -> (C -> C) -> list C.
+Definition interpolate {C: Ops1} (deg: Z)(f: C -> C): list C := [].
 
 
 (** ** correctness of the above operations, on R *)
