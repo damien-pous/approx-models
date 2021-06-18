@@ -839,11 +839,6 @@ Section ops.
     | h::q => h*(b-a) + let Q := prim_ 1 q in fast_eval (0::Q) b - fast_eval (0::Q) a
     end.
   
-
-  (** domain *)
-  Definition lo: C := 0. 
-  Definition hi: C := (fromZ 2)*pi.
-  
   (** range on C
     since the [F n] have their range in [-1;1], we chose to take the sum of the absolute values of the coefficients. for the constant coefficient, we don't even have to take the absolute value.
     
@@ -1187,10 +1182,6 @@ Proof.
     apply ex_RInt_continuous. 
     intros. apply continuity_pt_filterlim, eval_cont_.
 Qed.    
-    
-
-Lemma lohi: lo < hi.
-Proof. rewrite /lo /hi /=.  move : PI_RGT_0; lra. Qed.
 
 Lemma eval_range_ x : forall p n, Rabs (eval_ n p x) <= range_ p.
 Proof.
@@ -1204,7 +1195,7 @@ Proof.
     apply IH. 
 Qed.
 
-Lemma eval_range (p: list R) (x: R) (Hx: lo<=x<=hi): (range p).1 <= eval p x <= (range p).2.
+Lemma eval_range {D: R -> Prop} (p: list R) (x: R): D x -> (range p).1 <= eval p x <= (range p).2.
 Proof.
   rewrite /range/eval. destruct p as [|a q]=>/=.
   - lra.
@@ -1318,10 +1309,6 @@ Section s.
   Lemma rintegrate : forall P Q, pT P Q -> forall a b, rel T a b -> forall c d , rel T c d ->
                      rel T (integrate P a c) (integrate Q b d).
   Proof. intro P; move : P => [ Q H | x p Q H ]; inversion H; unfold integrate; rel. Qed.
-  Lemma rlo: T lo lo.
-  Proof. unfold lo; rel. Qed. 
-  Lemma rhi: T hi hi.
-  Proof. unfold hi; rel. Qed. 
   Lemma rrange_ p q: pT p q -> T (range_ p) (range_ q).
   Proof. induction 1; simpl; rel. Qed.
   Lemma rrange p q: pT p q -> pair_rel T (range p) (range q).
@@ -1444,7 +1431,7 @@ End test.
 
 (** packing everything together, we get a basis *)
 
-Definition basisFourier_02PI_ops_on (C: Ops1): BasisOps_on C := {|
+Definition basis_ops_on (C: Ops1) (lo hi: C): BasisOps_on C := {|
   vectorspace.lo := lo;
   vectorspace.hi := hi;
   vectorspace.beval := @fast_eval C;
@@ -1458,18 +1445,16 @@ Definition basisFourier_02PI_ops_on (C: Ops1): BasisOps_on C := {|
   vectorspace.interpolate := interpolate;
 |}.
 
-Definition basisFourier_02PI_ops {N: NBH}: BasisOps := {|
-  BI := basisFourier_02PI_ops_on II;
-  BF := basisFourier_02PI_ops_on FF;
+Definition basis_ops {N: NBH} (lo hi: II): BasisOps := {|
+  BI := basis_ops_on lo hi;
+  BF := basis_ops_on (I2F lo) (I2F hi);
 |}.
 
-Definition basisFourier_ops {N: NBH} (lo hi: II): BasisOps :=
-  rescale_ops basisFourier_02PI_ops lo hi.
-
-Program Definition basisFourier_02PI {N: NBH}: Basis basisFourier_02PI_ops := {|
+Program Definition basis {N: NBH} (D: Domain):
+  Basis (basis_ops dlo dhi) := {|
   TT := F;
-  BR := basisFourier_02PI_ops_on _;
-  vectorspace.lohi := lohi;
+  BR := basis_ops_on dlo dhi;
+  vectorspace.lohi := dlohi;
   vectorspace.evalE := equiv_eval_fast_eval;
   vectorspace.basis_cont := F_cont;
   vectorspace.eval_mul := eval_mul;
@@ -1478,8 +1463,8 @@ Program Definition basisFourier_02PI {N: NBH}: Basis basisFourier_02PI_ops := {|
   vectorspace.eval_sin := ep_ret eval_sin;
   vectorspace.eval_range := eval_range;
   vectorspace.integrateE := eval_integrate;
-  vectorspace.rlo := rlo _  ;
-  vectorspace.rhi := rhi _;
+  vectorspace.rlo := rdlo;
+  vectorspace.rhi := rdhi;
   vectorspace.rbmul := @rpmul _ _ (contains (NBH:=N));
   vectorspace.rbone := @rpone _ _ _;
   vectorspace.rbcos := er_ret (@rpcos _ _ _);
@@ -1488,6 +1473,4 @@ Program Definition basisFourier_02PI {N: NBH}: Basis basisFourier_02PI_ops := {|
   vectorspace.rbeval := @rfast_eval _ _ _;
   vectorspace.rbrange := @rrange _ _ _;
 |}.
-
-Definition basisFourier {N: NBH} (D: Domain): Basis (basisFourier_ops dlo dhi) := rescale basisFourier_02PI D.
 
