@@ -17,11 +17,21 @@ Notation eval_ := (eval_ M).
 Notation eval := (eval M).
 
 (* Definition of operations on polynomial functional operators *)
+Section From_N.
+  Context {M : Ops0}.
+
+  Fixpoint fromN n : M :=
+    match n with
+    | 0 => 0
+    | S n => 1 + (fromN n)
+                  end.
+
+End From_N.
 
 Section P_Op.
- Context {N: NBH} {M: Ops0}.
+ Context {M: Ops0}.
  Notation poly_op := (list M).
- Variable fromN : nat -> M. 
+ 
  
  Definition opone: poly_op := [1].
  
@@ -69,6 +79,8 @@ Section P_Op.
    | [] => 0
    | h::Q => add h (mul s (opeval Q s))
    end.
+
+ Definition opnewton (P : list M) (A : M) := ssub opid (sscal A P).
    
 End P_Op.
 
@@ -77,32 +89,154 @@ Section e.
  Context { A : Type } { C : Ops0 }.
  Notation Fun := (A -> C).
 
- Fixpoint direct_eval (P :list Fun) (s : Fun) (t:A) : C :=
-   match P with
-   | [] => 0
-   | h::Q => h t + ( s t * direct_eval Q s t)
-   end.
+ Definition direct_eval (P :list Fun) (s : Fun) (t:A) : C :=
+   opeval (List.map (fun h => h t) P) (s t).
 
 End e.
 
+Lemma direct_eval_cons (P : list (R->R)) (a s : R->R) (t:R) :
+  direct_eval (a::P) s t = a t + s t * direct_eval P s t.
+Proof. by []. Qed.
 
 Lemma opeval_direct_eval (P : list (R -> R)) s (t :R) : (opeval P s) t = direct_eval P s t.
-Admitted. 
+Proof.
+  elim: P => [ // | h P IHP]. 
+    by rewrite direct_eval_cons -IHP.
+Qed.
+
+Lemma opeval_opp (P : list (R -> R)) s (t :R) :
+  opeval (sopp P) s t = - opeval P s t.
+Proof.
+  elim : P => [ //= | a P IHP /=]. rewrite /f_cst. ring.
+  rewrite /f_cst /f_bin IHP. ring.
+Qed.  
+
+Lemma opeval_add (P Q: list (R -> R)) s (t :R) :
+  opeval (sadd P Q) s t = opeval P s t + opeval Q s t.
+Proof.
+  move : Q; elim : P => [ Q /= | a p IHP [ | b Q ] /= ].
+  + rewrite /sadd /f_cst; lra.
+  + rewrite /f_bin /sadd /f_cst. lra.
+  + rewrite /f_bin IHP /=. lra.
+Qed.
+
+Lemma opeval_sub (P Q: list (R -> R)) s (t :R) :
+  opeval (ssub P Q) s t = opeval P s t - opeval Q s t.
+Proof. unfold ssub. rewrite opeval_add opeval_opp /=. lra. Qed.
+
+Lemma opeval_scal (P : list (R -> R)) A s (t :R) :
+  opeval (sscal A P) s t = A t * opeval P s t.
+Proof.
+  elim : P => [ | a P IHP ] /=.
+  + rewrite /f_cst. lra.
+  + rewrite /f_bin IHP /=. lra.
+Qed.
+
+Lemma opeval_opid (s: R->R) (t:R) : opeval opid s t = s t.
+Proof.
+  rewrite /opid /= /f_bin /f_cst. lra.
+Qed.
+
+(*Lemma opderive_opp_ n (P : list (R -> R)) :
+  opderive_ n (sopp P) = sopp (opderive_ n P) t.
+Proof.
+  move: n. elim : P => [ //= | a P IHP n /=]. rewrite /f_bin IHP. ring.
+  rewrite /f_cst /f_bin IHP. ring.
+Qed.  
+
+Lemma opeval_add (P Q: list (R -> R)) s (t :R) :
+  opeval (sadd P Q) s t = opeval P s t + opeval Q s t.
+Proof.
+  move : Q; elim : P => [ Q /= | a p IHP [ | b Q ] /= ].
+  + rewrite /sadd /f_cst; lra.
+  + rewrite /f_bin /sadd /f_cst. lra.
+  + rewrite /f_bin IHP /=. lra.
+Qed.
+
+Lemma opeval_sub (P Q: list (R -> R)) s (t :R) :
+  opeval (ssub P Q) s t = opeval P s t - opeval Q s t.
+Proof. unfold ssub. rewrite opeval_add opeval_opp /=. lra. Qed.
+
+Lemma opeval_scal (P : list (R -> R)) A s (t :R) :
+  opeval (sscal A P) s t = A t * opeval P s t.
+Proof.
+  elim : P => [ | a P IHP ] /=.
+  + rewrite /f_cst. lra.
+  + rewrite /f_bin IHP /=. lra.
+Qed.
+
+Lemma opeval_opid (s: R->R) (t:R) : opeval opid s t = s t.
+Proof.
+  rewrite /opid /= /f_bin /f_cst. lra.
+Qed. 
+ *)
+
+(*Lemma opderive_opeval (P : list (R -> R)) s t : opeval (opderive P) s t = Derive (fun x => opeval P s x) t.
+Proof.
+  move : P => [ /= | h P].
+  + by rewrite /f_cst Derive_const.
+  + rewrite /= /f_bin.
+ *)
+(*
+Lemma opderive_opnewton (P: list (R -> R)) (A : R->R) s t : opeval (opderive (opnewton P A)) s t = 1 - A t * opeval (opderive P) s t.
+Proof.
+  rewrite /opnewton. e_sub.
+ *)
 
 Section TubePolyn.
-Variable (D : R -> Prop).
+Variable (I : R -> Prop).
 Notation "{R,I -> R}" := (@domfct_CompleteSpace R_CompleteSpace R_CompleteSpace I).
 
 
+
+(*
 Lemma newton ( F : list (R -> R)) (phi A : R -> R) (d lambda0 lambda1 r eta : R) :
   let lambda := lambda0 + eta*lambda1 in
-  (forall t, D t -> Rabs (1 - A t * direct_eval (opderive F) phi t) <= lambda0 ) ->
+  (forall t, D t -> Rabs (1 - A t * opeval (opderive F) phi t) <= lambda0 ) ->
   (forall t, D t -> Rabs ( A t ) <= eta ) ->
   (forall (s : R->R), (forall t, D t -> Rabs (s t - phi t) <= r) ->
-                      (forall t, D t -> Rabs ( direct_eval (opderive F) phi t - direct_eval (opderive F) s t ) <= lambda1)) ->
-  (forall t, D t -> Rabs ( A t * direct_eval F phi t ) <= d) ->
+                      (forall t, D t -> Rabs ( opeval (opderive F) phi t - opeval (opderive F) s t ) <= lambda1)) ->
+  (forall t, D t -> Rabs ( A t * opeval F phi t ) <= d) ->
   0 <= lambda /\ lambda < 1 /\ d + lambda * r <= r ->
-  ( forall t, D t  -> direct_eval F phi t <= d / (1 - lambda)).
+  (exists (f: R -> R) ,  forall t, D t  ->  opeval F f t = 0 /\ Rabs ( f t - phi t ) <= d / (1 - lambda)).
+ *)
+Lemma Requation (x y : R) : x = x - y -> y = 0. 
+Proof. simpl. lra. Qed.
 
+Lemma newton (F : list (R -> R)) (phi A : R -> R) ( d r lambda : R) :
+  (forall (s : R->R), (forall t , I t -> Rabs ( phi t - s t ) <= r ) ->
+                      (forall t, I t -> Rabs (  opeval (opderive (opnewton F A)) s t ) <= lambda )) ->
+  (forall t, I t ->  Rabs ( A t * opeval F phi t ) <= d) ->
+  0 <= lambda /\ lambda < 1 -> 0 <= d /\ 0 <= r -> d + lambda * r <= r ->
+  (exists (f: R -> R) , forall t, I t  ->  opeval F f t = 0 /\ Rabs ( f t - phi t ) <= d / (1 - lambda)).
+Proof.
+  move => Hlambda Hd [ Hl0 Hl1 ] [Hd0 Hr0] Hdlr.
+  set lambda0 := mknonnegreal Hl0.
+  set d0 := mknonnegreal Hd0.
+  (*set r0 := mknonnegreal Hr0.*)
+  have Hbound : 0 <= d / (1 - lambda). apply Rle_div_r; lra. 
+  set b0 := mknonnegreal Hbound.
+  set SB := mkSBall (phi : {R,I -> R}) d0 b0.
+  set N : {R,I -> R} -> {R,I -> R} := fun s t => opeval (opnewton F A) s t.
+  have SBP : SBallProp N lambda0 SB.
+   apply mkSBallProp.
+  + admit.
+  + apply R_dcballE => t It /=.
+    replace ( _ - _ ) with ( - (A t * opeval F phi t)). rewrite Rabs_Ropp. auto.
+    rewrite /N /opnewton opeval_sub opeval_scal /= /f_bin /f_cst. lra. 
+  + simpl. replace ( _ + _ ) with ( d / (1 - lambda)) => /=. apply Rle_refl.
+    field. lra. 
 
+  move: (BF_lim_is_fixpoint (Hl1 : lambda0 < 1)  SBP) (BF_lim_inside_sball (Hl1 : lambda0 < 1) SBP).
+  (*have HA t : I t -> A t <> 0.
+  move => It HAt. move : (Hlambda phi). *)
+  set bf := lim (banach.BF N lambda0 SB). rewrite /SBall_pred /=. 
+  
+  move => /Rdomfct_close Hbanach_fix /R_dcballE Hbanach_bound; rewrite /N in Hbanach_fix.
+  exists bf; split.
+  + move : (Hbanach_fix t). rewrite /opnewton. rewrite opeval_sub opeval_scal opeval_opid /=.  
+    intro Hb; apply Requation in Hb => //. admit.
+    
+  + by apply Hbanach_bound.
+Admitted. 
 End TubePolyn.
