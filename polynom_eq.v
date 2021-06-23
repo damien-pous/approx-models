@@ -81,138 +81,143 @@ Section e.
  Definition partial_eval (P : list Fun) (t:A) : list C :=
    List.map (fun h => h t) P.
 
-End e.
 
-Lemma opeval_partial_eval (P : list (R -> R)) s (t :R) :
-  opeval P s t = opeval (partial_eval P t) (s t).
-Proof. elim: P => [ // | h P IHP /=];rewrite /f_bin IHP. lra. Qed. 
+ Lemma opeval_partial_eval (P : list Fun) s (t :A) :
+   opeval P s t = opeval (partial_eval P t) (s t).
+ Proof. by elim: P => [ // | h P IHP /=];rewrite /f_bin IHP. Qed.
+
+ (* Compatibility of partial_eval with operations *)
+ 
+ 
+ Lemma partial_eval_opp (P : list Fun) t :
+   partial_eval (sopp P) t = sopp (partial_eval P t).
+ Proof. 
+   elim : P => [ //= | a P IHP /=]. by rewrite /f_bin /f_cst IHP.
+ Qed. 
+ 
+ Lemma partial_eval_add (P Q: list Fun) t :
+  partial_eval (sadd P Q) t = sadd (partial_eval P t) (partial_eval Q t).
+ Proof.
+   move : Q; elim : P => [ Q // | a p IHP [ // | b Q ] /= ]; by rewrite /f_bin IHP.
+ Qed.
+ 
+ Lemma partial_eval_sub P Q t :
+   partial_eval (ssub P Q) t = ssub (partial_eval P t) (partial_eval Q t).
+ Proof. by rewrite /ssub partial_eval_add partial_eval_opp /=. Qed.
+ 
+ Lemma partial_eval_scal P K t :
+   partial_eval (sscal K P) t = sscal (K t) (partial_eval P t).
+ Proof.
+   elim : P => [ | a P IHP /= ] //; by rewrite /f_bin IHP. 
+ Qed.
+ 
+ Lemma partial_eval_opid t :
+   partial_eval opid t = opid.
+ Proof. by rewrite /opid /= /f_cst. Qed. Check @fromN.
+
+ Lemma fromN_cst n (t:A) : (@fromN (f_Ops0 A C) n) t = fromN n. 
+ Proof. elim : n => [ | n IHn /= ] //. by rewrite /f_bin /f_cst IHn. Qed.
+   
+ Lemma partial_eval_opderive_ n P t :
+   partial_eval (opderive_ n P) t = opderive_ n (partial_eval P t).
+ Proof. move : n;elim : P => [ | h P IHP /=] n //. by rewrite /f_bin IHP fromN_cst. Qed.
+
+ Lemma partial_eval_opderive P t :
+   partial_eval (opderive P) t = opderive (partial_eval P t).
+ Proof. move : P => [ | a P /= ] //. apply partial_eval_opderive_. Qed.
+
+End e.
 
 (* Compatibility of opeval and partial_eval with sum, sub, scal ... operations
    Think about the modularity of these results *)
-Lemma opeval_opp_R (P : list R) s :
-  opeval (sopp P) s = - opeval P s.
-Proof. elim : P => [ | a p IHP ] /=; try rewrite IHP; lra. Qed. 
- 
-Lemma opeval_add_R (P Q: list R) s  :
-  opeval (sadd P Q) s =  (opeval P s) + (opeval Q s).
-Proof.
-  move : Q; elim : P => [ Q /= | a p IHP [ | b Q ] /= ]; rewrite /sadd; try rewrite IHP /= ; lra.
-Qed.
 
-Lemma opeval_sub_R (P Q: list R) s  :
-  opeval (ssub P Q) s  = opeval P s  - opeval Q s.
-Proof. rewrite /ssub opeval_add_R opeval_opp_R /=; lra. Qed.
+Section OnR.
 
-Lemma opeval_scal_R (P : list R) A s  :
-  opeval (sscal A P) s = A * opeval P s.
-Proof. elim : P => [ | a P IHP ] /=; try rewrite  IHP /=; lra. Qed.
+  Lemma opeval_opp_R (P : list R) s :
+    opeval (sopp P) s = - (opeval P s).
+  Proof. elim : P => [ | a p IHP ] /=; try rewrite IHP; lra . Qed.
 
-Lemma opeval_opid_R (s: R) : opeval opid s = s.
-Proof.  rewrite /opid /=; lra. Qed.
+  Lemma opeval_opp_RinR (P : list (R-> R)) s t :
+    opeval (sopp P) s t = - (opeval P s t).
+    Proof. by rewrite !opeval_partial_eval partial_eval_opp opeval_opp_R. Qed.
 
-Lemma opeval_opp_RinR (P : list (R -> R)) s (t :R) :
-  opeval (sopp P) s t = - opeval P s t.
-Proof.
-  elim : P => [ | a p IHP ] /=.
-  + rewrite /f_cst; lra.
-  + rewrite /f_bin /f_cst IHP; lra.
-Qed.
-    
-Lemma opeval_add_RinR (P Q: list (R -> R)) s (t :R) :
-  opeval (sadd P Q) s t =  (opeval P s t) + (opeval Q s t).
-Proof.
-  move : Q; elim : P => [ Q /= | a p IHP [ | b Q ] /= ].
-  + rewrite /sadd /f_cst; lra.
-  + rewrite /f_bin /sadd /f_cst. lra.
-  + rewrite /f_bin IHP /=. lra.
-Qed.
+  Lemma opeval_add_R (P Q: list R) s  :
+    opeval (sadd P Q) s =  (opeval P s) + (opeval Q s).
+  Proof.
+    move : Q; elim : P => [ Q /= | a p IHP [ | b Q ] /= ]; rewrite /sadd; try rewrite IHP /= ; lra.
+  Qed.
 
-Lemma opeval_sub_RinR (P Q: list (R -> R)) s (t :R) :
-  opeval (ssub P Q) s t = opeval P s t - opeval Q s t.
-Proof. unfold ssub. rewrite opeval_add_RinR opeval_opp_RinR /=. lra. Qed.
+  Lemma opeval_add_RinR (P Q : list (R-> R)) s t :
+    opeval (sadd P Q) s t = opeval P s t + opeval Q s t.
+  Proof. by rewrite !opeval_partial_eval partial_eval_add opeval_add_R. Qed.
+  
+  Lemma opeval_sub_R (P Q: list R) s  :
+    opeval (ssub P Q) s  = opeval P s  - opeval Q s.
+  Proof. rewrite /ssub opeval_add_R opeval_opp_R /=; lra. Qed.
 
-Lemma opeval_scal_RinR (P : list (R -> R)) A s (t :R) :
-  opeval (sscal A P) s t = A t * opeval P s t.
-Proof.
-  elim : P => [ | a P IHP ] /=.
-  + rewrite /f_cst. lra.
-  + rewrite /f_bin IHP /=. lra.
-Qed.
+  Lemma opeval_sub_RinR (P Q : list (R-> R)) s t :
+    opeval (ssub P Q) s t = opeval P s t - opeval Q s t.
+  Proof. by rewrite !opeval_partial_eval partial_eval_sub opeval_sub_R. Qed.
+  
+  Lemma opeval_scal_R (P : list R) A s  :
+    opeval (sscal A P) s = A * opeval P s.
+  Proof. elim : P => [ | a P IHP ] /=; try rewrite  IHP /=; lra. Qed.
 
-Lemma opeval_opid_RinR (s: R->R) (t:R) : opeval opid s t = s t.
-Proof.
-  rewrite /opid /= /f_bin /f_cst. lra.
-Qed.
+  Lemma opeval_scal_RinR (P : list (R-> R)) A s t :
+    opeval (sscal A P) s t = A t * opeval P s t.
+  Proof. by rewrite !opeval_partial_eval partial_eval_scal opeval_scal_R. Qed.
 
-Lemma partial_eval_opp (P : list (R -> R)) (t:R) :
-  partial_eval (sopp P) t = sopp (partial_eval P t).
-Proof.
-  elim : P => [ //= | a P IHP /=]. by rewrite /f_bin /f_cst IHP.
-Qed. 
+  Lemma opeval_opid_R (s: R) : opeval opid s = s.
+  Proof. rewrite /opid /=; lra. Qed.
 
-Lemma partial_eval_add (P Q: list (R -> R)) (t :R) :
-  partial_eval (sadd P Q) t = sadd (partial_eval P t) (partial_eval Q t).
-Proof.
-  move : Q; elim : P => [ Q // | a p IHP [ // | b Q ] /= ]; by rewrite /f_bin IHP.
-Qed.
+  Lemma opeval_opid_RinR (s: R->R) (t:R) : opeval opid s t = s t.
+  Proof. by rewrite !opeval_partial_eval partial_eval_opid opeval_opid_R. Qed.
+  
 
-Lemma partial_eval_sub (P Q: list (R -> R)) (t :R) :
-  partial_eval (ssub P Q) t = ssub (partial_eval P t) (partial_eval Q t).
-Proof. by rewrite /ssub partial_eval_add partial_eval_opp /=. Qed.
+  Lemma ex_derive_opeval (P: list R) t : ex_derive (opeval P) t.
+  Proof. elim: P => [ | a P IHP] /=.
+         + apply ex_derive_const.
+         + apply @ex_derive_plus. apply ex_derive_const.
+           apply ex_derive_mult. apply ex_derive_id. apply IHP.
+  Qed.
 
-Lemma partial_eval_scal (P : list (R -> R)) A  (t :R) :
-  partial_eval (sscal A P) t = sscal (A t) (partial_eval P t).
-Proof.
-  elim : P => [ | a P IHP /= ] //; by rewrite /f_bin IHP. 
-Qed.
+  Lemma opderive_succ k ( P : list R) x:
+    opeval (opderive_ k .+1 P) x =  opeval P x +  opeval (opderive_ k P) x.
+  Proof. move : k;elim : P => [ | a p IHP ] k /=; try rewrite /f_bin /f_cst IHP /=; lra. Qed.
 
-Lemma partial_eval_opid (t: R) :
-  partial_eval (@opid (f_Ops0 R ROps0 )) t = opid.
-Proof. by rewrite /opid /= /f_cst. Qed.
+  Lemma opderive0 ( P : list R ) x:
+    opeval (opderive_ 0 P) x =  x *  opeval (opderive P) x.
+  Proof. move : P => [ | a P ] /=; rewrite /f_bin /f_cst; lra. Qed.  
 
-(* Results on derivation *)
-Lemma ex_derive_opeval (P : list (R->R)) u t : ex_derive (opeval (partial_eval P t)) (u).
-Proof. elim: P => [ | a P IHP] /=.
-       + apply ex_derive_const.
-       + apply @ex_derive_plus. apply ex_derive_const.
-         apply ex_derive_mult. apply ex_derive_id. apply IHP.
-Qed.
+  Lemma opderive_opeval (P : list R) x:
+    Derive (opeval P) x = opeval (opderive P) x.
+  Proof.
+    elim : P => [ | a p IHP ] /=.
+    + by rewrite /f_cst Derive_const.
+    + rewrite Derive_plus. rewrite Derive_const Derive_mult.
+      rewrite IHP Derive_id opderive_succ opderive0 /=; lra.
+      apply ex_derive_id. apply ex_derive_opeval. apply ex_derive_const.
+      apply ex_derive_mult.  apply ex_derive_id. apply ex_derive_opeval.
+  Qed.
 
-Lemma opderive_succ k ( P : list (R->R))  t x:
-  opeval (partial_eval (opderive_ k .+1 P) t) x =  opeval (partial_eval P t) x +  opeval (partial_eval (opderive_ k P) t) x.
-Proof. move : k;elim : P => [ | a p IHP ] k /=; try rewrite /f_bin /f_cst IHP /=; lra. Qed.
+  Lemma eval_is_derive (P : list R) (x:R):
+    is_derive (opeval P) x (opeval (opderive P) x).
+  Proof.
+    move : (opderive_opeval P x) => HDe; rewrite -HDe.
+    apply Derive_correct. apply ex_derive_opeval.
+  Qed.  
 
-Lemma opderive0 ( P : list (R->R)) t x:
-  opeval (partial_eval (opderive_ 0 P) t) x =  x *  opeval (partial_eval (opderive P) t) x.
-Proof. move : P => [ | a P ] /=; rewrite /f_bin /f_cst; lra. Qed.  
+  (* Continuity result *)
+  Lemma eval_continuity (P : list R) (x:R):
+    continuity_pt (opeval P) x.
+  Proof. elim: P => [ | a P IHP] /=.  
+         + by apply continuity_pt_const. 
+         + apply continuity_pt_plus. by apply continuity_pt_const. 
+           apply continuity_pt_mult. apply continuity_pt_id. apply IHP.
+  Qed.
+  
+End OnR.
 
-Lemma opderive_partial_eval ( P : list (R->R)) t x:
- Derive (opeval (partial_eval P t)) x = opeval (partial_eval (opderive P) t) x.
-Proof.
-  elim : P => [ | a p IHP ] /=.
-  + by rewrite /f_cst Derive_const.
-  + rewrite Derive_plus. rewrite Derive_const Derive_mult.
-    rewrite IHP Derive_id opderive_succ opderive0 /=; lra.
-    apply ex_derive_id. apply ex_derive_opeval. apply ex_derive_const.
-    apply ex_derive_mult.  apply ex_derive_id. apply ex_derive_opeval.
-Qed.
-
-Lemma eval_is_derive (P : list (R->R)) t (x:R):
-  is_derive (opeval (partial_eval P t)) x (opeval (partial_eval (opderive P) t) x).
-Proof.
-  move : (opderive_partial_eval P t x) => HDe; rewrite -HDe.
-  apply Derive_correct. apply ex_derive_opeval.
-Qed.  
-
-(* Continuity result *)
-Lemma eval_continuity (P : list (R->R)) t (x:R):
-  continuity_pt (opeval (partial_eval P t)) x.
-Proof. elim: P => [ | a P IHP] /=.  
-       Search continuity_pt.
-       + apply continuity_pt_const. by rewrite /constant.
-       + apply continuity_pt_plus. apply continuity_pt_const. by rewrite /constant.
-         apply continuity_pt_mult. apply continuity_pt_id. apply IHP.
-Qed.
 
 Section TubePolyn.
 Variable (I : R -> Prop).
@@ -224,13 +229,13 @@ Proof. simpl. lra. Qed.
 
 Lemma Requation2 (x y : R) : x <> 0 -> x*y = 0 -> y = 0.
 Proof.
-  intros. Check Rmult_eq_compat_l.
+  intros. 
   apply (Rmult_eq_compat_l (/ x) (x*y) 0) in H0. move : H0.
   rewrite -Rmult_assoc Rmult_0_r Rinv_l /= => //. lra.
 Qed.
 
 Lemma Rle_sum (a b c d: R) : a <= c -> b <= d -> a + b <= c + d.
-Proof. lra. Qed.
+Proof. lra. Qed. 
 
 
 Lemma Rinterval_convex (a b u : R) :
@@ -246,19 +251,20 @@ Proof.
   + field; lra.
 Qed.
 
-Lemma ball_convex (v s1 s2 : R->R) r eta:
+
+Lemma Rabs_convex v s1 s2 r eta:
   0 <= eta <= 1 ->
-  (forall t, I t -> Rabs ( v t - s1 t ) <= r) ->  (forall t, I t -> Rabs ( v t - s2 t ) <= r) ->
-   ( forall t , I t -> Rabs ( v t - ( Rmin (s1 t) (s2 t) + eta * ( Rmax (s1 t) (s2 t) - Rmin (s1 t) (s2 t)))) <= r).
+   Rabs ( v  - s1 ) <= r ->  Rabs ( v - s2 ) <= r ->
+    Rabs ( v - ( s1 + eta * ( s2 - s1))) <= r.
 Proof.
-  intros [Heta_le Heta_ge] Hs1 Hs2 t It.
-  replace ( _ - ( _ + _)) with ( (1-eta)*(v t - Rmin (s1 t) (s2 t)) + eta * ( v t - Rmax (s1 t) (s2 t))). 2: simpl; lra.
+  intros [Heta_le Heta_ge] Hs1 Hs2.
+  replace ( _ - ( _ + _)) with ( (1-eta)*(v  - s1) + eta * ( v - s2)). 2: simpl; lra.
   have H1meta : 0 <= 1 - eta. lra.
   eapply Rle_trans. apply Rabs_triang. rewrite !Rabs_mult.
   replace r with ((1-eta)*r + eta * r). 2: simpl;lra.
-  apply Rle_sum; rewrite /Rmin /Rmax; destruct (Rle_dec (s1 t) (s2 t)); rewrite Rabs_pos_eq => //; apply Rmult_le_compat_l => //; try apply Hs1 => //; try apply Hs2 => //.
+  apply Rle_sum ; rewrite Rabs_pos_eq => //; apply Rmult_le_compat_l => //; try apply Hs1 => //; try apply Hs2 => //.
 Qed.
-  
+
 
 Lemma newton (F : list (R -> R)) (phi A : R -> R) ( d r lambda : R) :
   (forall (s : R->R), (forall t , I t -> Rabs ( phi t - s t ) <= r ) ->
@@ -270,7 +276,6 @@ Proof.
   move => Hlambda Hd [ Hl0 Hl1 ] [Hd0 Hr0] Hdlr.
   set lambda0 := mknonnegreal Hl0.
   set d0 := mknonnegreal Hd0.
-  (*set r0 := mknonnegreal Hr0.*)
   have Hbound : 0 <= d / (1 - lambda). apply Rle_div_r; lra. 
   set b0 := mknonnegreal Hbound.
   set SB := mkSBall (phi : {R,I -> R}) d0 b0.
@@ -280,19 +285,18 @@ Proof.
    apply mkSBallProp.
   + move => s1 s2 r' SBs1 SBs2 Hs1s2.
 
-    have Hphis1 : forall t, I t -> Rabs ( phi t - s1 t ) <= r.
-    apply R_dcballE, cball_sym; move : SBs1 ; rewrite /SBall_pred  /=; apply cball_le => //.
-    have Hphis2 : forall t, I t -> Rabs ( phi t - s2 t ) <= r.
-    apply R_dcballE, cball_sym; move : SBs2 ; rewrite /SBall_pred  /=; apply cball_le => //.
-
     apply R_dcballE => t It. rewrite /N. rewrite 2!opeval_partial_eval. 
     move : (MVT_gen (opeval (partial_eval (opnewton F A) t)) (s1 t) (s2 t) (opeval (partial_eval (opderive (opnewton F A)) t))) =>  [ x Ineq  | x Ineq  | u [ Ineq Hmv ] ]. 
-    - apply eval_is_derive.
+    - rewrite partial_eval_opderive. apply eval_is_derive.
     - apply eval_continuity.
     - rewrite Hmv.
       
       move : (Rinterval_convex Ineq) => [eta] [Heta Hu]. rewrite Hu.
-      move : (@ball_convex phi s1 s2 r eta Heta Hphis1 Hphis2) => Hconvex.
+      have Hconvex : (forall t : R, I t -> Rabs (phi t - (fun t=>(Rmin (s1 t) (s2 t) + eta * (Rmax (s1 t) (s2 t) - Rmin (s1 t) (s2 t)))) t) <= r).
+      move => t0 It0;
+      rewrite /Rmin /Rmax; destruct (Rle_dec (s1 t0) (s2 t0)); apply Rabs_convex => //;
+      by move : It0; apply R_dcballE, cball_sym, (cball_le Hdlr').   
+      
       
       move: (Hlambda (fun t=> (Rmin (s1 t) (s2 t) + eta * (Rmax (s1 t) (s2 t) - Rmin (s1 t) (s2 t)))) Hconvex t It) => Hlambda'.
       rewrite Rabs_mult /=. apply Rmult_le_compat. apply Rabs_pos. apply Rabs_pos. 
@@ -309,7 +313,7 @@ Proof.
     have Ht0 : forall t0 : R , I t0 -> Rabs (phi t0 - phi t0) <= r.
       move => t0 IT0; by rewrite Rminus_eq_0 Rabs_R0.  
     move => It HAt; move : (Hlambda phi Ht0 t It).
-    rewrite /opnewton opeval_partial_eval -opderive_partial_eval.
+    rewrite /opnewton opeval_partial_eval partial_eval_opderive -opderive_opeval.
     rewrite partial_eval_sub partial_eval_scal partial_eval_opid.
     rewrite (Derive_ext _ (fun x => x - (A t) * opeval (partial_eval F t) x)).
     rewrite Derive_minus. rewrite Derive_mult. rewrite Derive_id Derive_const HAt.
@@ -329,6 +333,6 @@ Proof.
     intro Hb; apply Requation1 in Hb => //. apply HA in H. move : H Hb. apply Requation2. 
     
   + by apply Hbanach_bound.
-Qed. 
+Qed.
 
 End TubePolyn.
