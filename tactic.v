@@ -3,7 +3,7 @@
 Require Export String.
 Require Export interfaces.
 Require Import intervals syntax rescale.
-Require taylor chebyshev approx.
+Require fourier taylor chebyshev approx.
 
 
 Section s.
@@ -13,6 +13,11 @@ Section s.
  Definition chebyshev11_model
    : Model chebyshev11_model_ops (-1) 1
    := approx.model chebyshev.basis11.
+
+ Definition fourier_model_ops A B: ModelOps := approx.model_ops (fourier.basis_ops A B).
+ Definition fourier_model (D: Domain)
+   : Model (fourier_model_ops dlo dhi) dlo dhi
+   := approx.model (fourier.basis D).
 
  Definition taylor_model_ops A B: ModelOps := approx.model_ops (taylor.basis_ops A B).
  Definition taylor_model (D: Domain)
@@ -115,7 +120,7 @@ Ltac get_model basis :=
     | tt => uconstr:(chebyshev_model)
     | chebyshev => uconstr:(chebyshev_model)
     | taylor => uconstr:(taylor_model)
-    | fourier => fail 100 "fourier not yet integrated"
+    | fourier => uconstr:(fourier_model)
   end.
 Ltac get_check nbh model x y :=
   lazymatch x with
@@ -137,7 +142,7 @@ Ltac get_model_ops basis :=
     | tt => uconstr:(chebyshev_model_ops)
     | chebyshev => uconstr:(chebyshev_model_ops)
     | taylor => uconstr:(taylor_model_ops)
-    | fourier => fail 100 "fourier not yet integrated"
+    | fourier => uconstr:(fourier_model_ops)
   end.
 Ltac get_Sem nbh model_ops x y :=
   lazymatch x with
