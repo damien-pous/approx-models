@@ -89,11 +89,13 @@ Section r.
    | a::P => sadd (scst a) (smul (comp P Q) Q)
    end.
 
-End r.
-
-Section r'.
- Context {C: Ops1}.
- Notation poly := (list C).
+ (** derivation *)
+ Fixpoint derive_ n (P: poly) :=
+   match P with
+   | [] => []
+   | x::P => mulN n x :: derive_ (S n) P
+   end.
+ Definition derive P := derive_ 1 (tl P).
 
  (** primitive *)
  Fixpoint prim_ n (P: poly) :=
@@ -101,14 +103,13 @@ Section r'.
    | [] => []
    | x::P => x//n :: prim_ (S n) P
    end.
-
  Definition prim P := 0::prim_ 1 P.
 
  (** integration *)
  Definition integrate p a b :=
    let q := prim p in eval' q b - eval' q a. 
 
-End r'.
+End r.
 
 
 (** interpolation (not implemented for monomial basis, for now) *)
@@ -141,6 +142,36 @@ Proof.
   rewrite !evalR eval_add eval_mul eval_cst -!evalR.
   rewrite /=IH/=; ring. 
 Qed.
+
+Lemma derive_succ k (P : list R) x:
+  eval' (derive_ k .+1 P) x =  eval' P x +  eval' (derive_ k P) x.
+Proof.
+  move : k; elim : P => [ | a p IHP ] k /=. lra.
+  rewrite IHP Zpos_P_of_succ_nat succ_IZR /=. ring. 
+Qed.
+
+Lemma derive0 (P : list R) x:
+  eval' (derive_ 0 P) x =  x *  eval' (derive P) x.
+Proof. destruct P; cbn; lra. Qed.  
+
+Lemma eval'_derive (P : list R) x: eval' (derive P) x = Derive (eval' P) x.
+Proof.
+  elim : P => [ | a p IHP ] /=.
+  + by rewrite /f_cst Derive_const.
+  + rewrite Derive_plus. rewrite Derive_const Derive_mult.
+    rewrite -IHP Derive_id derive_succ derive0 /=; lra.
+    apply ex_derive_id. eapply ex_derive_ext. 2: apply eval_ex_derive. intro. by rewrite evalR.
+    apply ex_derive_const. apply ex_derive_mult. apply ex_derive_id.
+    eapply ex_derive_ext. 2: apply eval_ex_derive. intro. by rewrite evalR.
+Qed.
+
+Lemma eval_derive (P : list R) x: eval (derive P) x = Derive (eval P) x.
+Admitted.          (* TODO, or the one below, Louis' lemmas are commented below *)
+
+Lemma is_derive_eval (P : list R) (x:R):
+  is_derive (eval P) x (eval (derive P) x).
+Proof. rewrite eval_derive. apply Derive_correct, eval_ex_derive. Qed.  
+
 
 Lemma eval_prim_ n p x : Derive (eval_ n.+1 (prim_ n.+1 p)) x = eval_ n p x.
 Proof.
@@ -248,3 +279,80 @@ Program Definition basis {N: NBH} (D: Domain):
   vectorspace.rbeval := @reval _ _ _;
   vectorspace.rbrange := I;
 |}.
+
+
+
+(** polynomials with functional coefficients *)
+Section f.
+ Context {A: Type} {C: Ops0}.
+ Notation Fun := (A -> C).
+
+ (** evaluation of the coefficients at a given point [t] *)
+ Definition apply (P: list Fun) (t: A): list C := map (fun h => h t) P.
+
+ Lemma eval'_apply (P : list Fun) s (t :A): eval' (apply P t) (s t) = eval' P s t.
+ Proof. by elim: P => [ // | h P IHP /=];rewrite /f_bin IHP. Qed.
+
+
+ (** commutation with the various operations *)
+ Lemma apply_opp (P : list Fun) t: apply (sopp P) t = sopp (apply P t).
+ Proof. 
+   elim : P => [ //= | a P IHP /=]. by rewrite /f_bin /f_cst IHP.
+ Qed. 
+ 
+ Lemma apply_add (P Q: list Fun) t: apply (sadd P Q) t = sadd (apply P t) (apply Q t).
+ Proof.
+   move : Q; elim : P => [ Q // | a p IHP [ // | b Q ] /= ]; by rewrite /f_bin IHP.
+ Qed.
+ 
+ Lemma apply_sub P Q t: apply (ssub P Q) t = ssub (apply P t) (apply Q t).
+ Proof. by rewrite /ssub apply_add apply_opp /=. Qed.
+ 
+ Lemma apply_scal P K t: apply (sscal K P) t = sscal (K t) (apply P t).
+ Proof.
+   elim : P => [ | a P IHP /= ] //; by rewrite /f_bin IHP. 
+ Qed.
+ 
+ Lemma apply_mul (P Q: list Fun) t: apply (smul P Q) t = smul (apply P t) (apply Q t).
+ Proof.
+   move : Q; elim : P => [ Q // | a p IHP [ // | b Q ] /= ].
+   by rewrite IHP. by rewrite /f_bin -apply_scal apply_add IHP.
+ Qed.
+ 
+ Lemma apply_id t: apply sid t = sid.
+ Proof. by rewrite /sid /= /f_cst. Qed. 
+   
+ Lemma apply_derive_ n P t: apply (derive_ n P) t = derive_ n (apply P t).
+ Proof. move : n;elim : P => [ | h P IHP /=] n //. by rewrite /f_unr IHP. Qed.
+
+ Lemma apply_derive P t: apply (derive P) t = derive (apply P t).
+ Proof. move : P => [ | a P /= ] //. apply apply_derive_. Qed.
+ 
+End f.
+
+
+Lemma eval_apply (P : list (R->R)) s (t: R): eval (apply P t) (s t) = eval' P s t.
+Proof. by rewrite -evalR eval'_apply. Qed.
+
+Lemma eval_opp_RinR (P : list (R->R)) s t :
+  eval' (sopp P) s t = - (eval' P s t).
+Proof. by rewrite -!eval'_apply apply_opp !evalR eval_opp. Qed.
+
+Lemma eval_add_RinR (P Q : list (R->R)) s t :
+  eval' (sadd P Q) s t = eval' P s t + eval' Q s t.
+Proof. by rewrite -!eval'_apply apply_add !evalR eval_add. Qed.
+
+Lemma eval_sub_RinR (P Q : list (R->R)) s t :
+  eval' (ssub P Q) s t = eval' P s t - eval' Q s t.
+Proof. by rewrite -!eval'_apply apply_sub !evalR eval_sub. Qed.
+
+Lemma eval_mul_RinR (P Q : list (R->R)) s t :
+  eval' (smul P Q) s t = eval' P s t * eval' Q s t.
+Proof. by rewrite -!eval'_apply apply_mul !evalR eval_mul. Qed.
+
+Lemma eval_scal_RinR A (P : list (R->R)) s t :
+  eval' (sscal A P) s t = A t * eval' P s t.
+Proof. by rewrite -!eval'_apply apply_scal !evalR eval_scal. Qed.
+
+Lemma eval_id_RinR (s: R -> R) t: eval' sid s t = s t.
+Proof. by rewrite -!eval'_apply apply_id !evalR eval_id. Qed.
