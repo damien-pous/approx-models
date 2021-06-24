@@ -57,6 +57,10 @@ Proof.
   induction P as [|a Q IH]; intro; simpl; unfold M; rewrite ?IH; simpl; ring.
   unfold eval. rewrite H. simpl. lra. (* BUG: ring fails *)
 Qed.
+Lemma evalN x: eval [] x = 0.
+Proof. reflexivity. Qed.
+Lemma evalC a Q x: eval (a::Q) x = a + x * eval Q x.
+Proof. by rewrite -evalR /= evalR. Qed.
 
 Section r.
  Context {C: Ops0}.
@@ -129,49 +133,42 @@ Proof. compute. ring. Qed.
 
 Lemma eval_mul: forall P Q (x: R), eval (smul P Q) x = eval P x * eval Q x.
 Proof.
-  intros. rewrite -!evalR. revert Q x. 
-  induction P as [|a P IH]; intros Q x; simpl. ring.
-  rewrite !evalR eval_add eval_scal -!evalR.
-  rewrite /=IH/=; ring. 
+  induction P as [|a P IH]; intros Q x; simpl. cbn; ring.
+  rewrite eval_add eval_scal 2!evalC IH /=. ring. 
 Qed.
 
 Lemma eval_comp: forall P Q (x: R), eval (comp P Q) x = eval P (eval Q x).
 Proof.
-  intros. rewrite -!evalR. revert Q x. 
   induction P as [|a P IH]; intros Q x; simpl. reflexivity. 
-  rewrite !evalR eval_add eval_mul eval_cst -!evalR.
-  rewrite /=IH/=; ring. 
+  rewrite eval_add eval_mul eval_cst evalC IH /=. ring. 
 Qed.
 
-Lemma derive_succ k (P : list R) x:
-  eval' (derive_ k .+1 P) x =  eval' P x +  eval' (derive_ k P) x.
+Lemma deriveS (P: list R) x: forall k,
+  eval (derive_ k .+1 P) x =  eval P x + eval (derive_ k P) x.
 Proof.
-  move : k; elim : P => [ | a p IHP ] k /=. lra.
-  rewrite IHP Zpos_P_of_succ_nat succ_IZR /=. ring. 
+  induction P as [|a p IHP]=>k /=. cbv; ring.
+  rewrite 3!evalC /= IHP.
+  rewrite Zpos_P_of_succ_nat succ_IZR /=. ring. 
 Qed.
 
 Lemma derive0 (P : list R) x:
-  eval' (derive_ 0 P) x =  x *  eval' (derive P) x.
-Proof. destruct P; cbn; lra. Qed.  
+  eval (derive_ 0 P) x =  x * eval (derive P) x.
+Proof. destruct P=>/=. cbn; ring. rewrite evalC; cbn; ring. Qed.  
 
-Lemma eval'_derive (P : list R) x: eval' (derive P) x = Derive (eval' P) x.
+Lemma eval_derive (P : list R) x: eval (derive P) x = Derive (eval P) x.
 Proof.
   elim : P => [ | a p IHP ] /=.
   + by rewrite /f_cst Derive_const.
-  + rewrite Derive_plus. rewrite Derive_const Derive_mult.
-    rewrite -IHP Derive_id derive_succ derive0 /=; lra.
-    apply ex_derive_id. eapply ex_derive_ext. 2: apply eval_ex_derive. intro. by rewrite evalR.
-    apply ex_derive_const. apply ex_derive_mult. apply ex_derive_id.
-    eapply ex_derive_ext. 2: apply eval_ex_derive. intro. by rewrite evalR.
+    rewrite (Derive_ext _ _ _ (evalC a p)). 
+    rewrite Derive_plus. rewrite Derive_const Derive_mult.
+    rewrite -IHP Derive_id deriveS derive0 /=; lra.
+    apply ex_derive_id. apply eval_ex_derive. 
+    apply ex_derive_const. apply ex_derive_mult. apply ex_derive_id. apply eval_ex_derive. 
 Qed.
-
-Lemma eval_derive (P : list R) x: eval (derive P) x = Derive (eval P) x.
-Admitted.          (* TODO, or the one below, Louis' lemmas are commented below *)
 
 Lemma is_derive_eval (P : list R) (x:R):
   is_derive (eval P) x (eval (derive P) x).
 Proof. rewrite eval_derive. apply Derive_correct, eval_ex_derive. Qed.  
-
 
 Lemma eval_prim_ n p x : Derive (eval_ n.+1 (prim_ n.+1 p)) x = eval_ n p x.
 Proof.
