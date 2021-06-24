@@ -785,14 +785,14 @@ Section ops.
     end.
 
   Definition pmulCC (pCC qCC: list C): list C :=
-    sscal (1//2) (sadd (mul_minus pCC qCC) (mul_plus pCC qCC)).
+    sdivZ 2 (sadd (mul_minus pCC qCC) (mul_plus pCC qCC)).
 
   Definition pmulSS (pSS qSS: list C): list C :=
-    sscal (1//2) (ssub (mul_minus pSS qSS) (cons00 (mul_plus pSS qSS))).
+    sdivZ 2 (ssub (mul_minus pSS qSS) (cons00 (mul_plus pSS qSS))).
 
   Definition pmulSC' (pSS0 qCC: list C): list C :=
     (* Here only, the polynom in sinus pSS0 has its first index begining in 0 *)  
-    sscal (1//2) (ssub (mul_plus pSS0 qCC) (mul_minusSC pSS0 qCC)).
+    sdivZ 2 (ssub (mul_plus pSS0 qCC) (mul_minusSC pSS0 qCC)).
 
   Definition pmulSC (pSS qCC: list C): list C :=
     tl (pmulSC' (cons0 pSS) qCC).
@@ -899,7 +899,7 @@ Proof.
 Qed.
 
 Lemma eval_mulCC: forall pCC qCC (x: R), evalCC (pmulCC pCC qCC) x = evalCC pCC x * evalCC qCC x.
-Proof. intros. rewrite /evalCC eval_mulCC_ /pmulCC eval_scal_ eval_add_/= /Rdiv /=. ring. Qed.
+Proof. intros. rewrite /evalCC eval_mulCC_ /pmulCC eval_divZ_ eval_add_/= /Rdiv /=. ring. Qed.
 
 (* Multiplication of sinus polynoms *)
 Lemma evalSS_cons00_ n p (x: R): evalSS_ n (cons00 p) x = evalSS_ n.+2 p x.
@@ -931,7 +931,7 @@ Qed.
 
 Lemma eval_mulSS: forall pSS qSS (x: R), evalCC (pmulSS pSS qSS) x = evalSS pSS x * evalSS qSS x.
 (* pSS and qSS are polynoms in sinus in which the first index equals to 1 *)
-Proof. intros. rewrite /evalCC /evalSS eval_mulSS_ /pmulSS eval_scal_ eval_sub_ evalCC_cons00_ /= /Rdiv /=. ring. Qed.
+Proof. intros. rewrite /evalCC /evalSS eval_mulSS_ /pmulSS eval_divZ_ eval_sub_ evalCC_cons00_ /= /Rdiv /=. ring. Qed.
 
 (* Multiplication of a sinus polynom with a cosinus polynom *)
 Lemma SCeval: forall p n m x,
@@ -984,7 +984,7 @@ Proof. intros. destruct p; by []. Qed.
 
 Lemma eval_mulSC': forall pSS qCC (x: R), evalSS_ 0 (pmulSC' pSS qCC) x = evalSS_ 0 pSS x * evalCC qCC x.
 Proof. intros.
-       rewrite /evalCC eval_mulSC_ /pmulSC' eval_scal_ eval_sub_ /= /Rdiv /=;ring.
+       rewrite /evalCC eval_mulSC_ /pmulSC' eval_divZ_ eval_sub_ /= /Rdiv /=;ring.
 Qed.
 
 Lemma eval_mulSC : forall pSS qCC (x: R), evalSS (pmulSC pSS qCC) x = evalSS pSS x * evalCC qCC x.
@@ -1328,14 +1328,13 @@ Section i.
 
  Let sn: Z := n+1.
  Let sdn: Z := 2*n+1.
- Let osdn: C := 1 / fromZ sdn.
- Let two: C := fromZ 2.
- Let twopisdn: C := two * pi * osdn.
+ Let osdn: C := divZ sdn 1.
+ Let twopisdn: C := mulZ 2 (pi * osdn).
  
  (** interpolation points *)
  Let point: Z -> C :=
    Zmap.get 0 (
-     Zmap.mk (fun i => fromZ i * twopisdn) sdn).
+     Zmap.mk (fun i => mulZ i twopisdn) sdn).
 
  Let map_points g : Z -> C :=
    Zmap.get 0 (
@@ -1350,11 +1349,11 @@ Section i.
    Zfold (fun j acc => acc +  value j * g ((i*j) mod sdn)%Z) sdn 0.
       
  Definition coeff_cos (i : Z) :=
-   (if Z.eqb i 0%Z then ssrfun.id else mul two)
+   (if Z.eqb i 0%Z then ssrfun.id else mulZ 2)
    (coeff_aux cosin i * osdn).
 
  Definition coeff_sin (i : Z) :=
-   two * coeff_aux sinus (i+1) * osdn.
+   mulZ 2 (coeff_aux sinus (i+1) * osdn).
 
  (* TOTHINK: this returns a list of size [2n+1], while interpolation in Chebyshev returns a polynom of degree [n]. We might wante to divide by two in order to be more uniform. On the other hand a list of Fourier coefficients of length [2n+1] should certainly be called 'of degree n'... *)
  Definition interpolate :=

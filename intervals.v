@@ -33,13 +33,19 @@ Notation prec := F.p.
 Module I := FloatIntervalFull F.
 Notation I := (f_interval F).
 
+Definition ImulZ z x := I.mul prec (I.fromZ prec z) x.
+Definition IdivZ z x := I.div prec x (I.fromZ prec z).
+
 Canonical Structure IOps0 :=
   {| car := I;
      add := I.add prec;
      mul := I.mul prec;
      sub := I.sub prec;
      zer := I.zero;
-     one := I.fromZ prec 1 |}.
+     one := I.fromZ prec 1;
+     mulZ := ImulZ;
+     divZ := IdivZ;
+  |}.
 
 Definition Fle a b := match F.cmp a b with Xlt | Xeq => true | _ => false end.
 Definition Flt a b := match F.cmp a b with Xlt => true | _ => false end.
@@ -101,13 +107,18 @@ Canonical Structure IOps1 :=
      pi := I.pi prec;
   |}.
 
+Definition FmulZ z x := F.Emul (F.fromZ z) x.
+Definition FdivZ z x := F.Ediv x (F.fromZ z).
 Canonical Structure FOps0 :=
   {| car := F;
      add := F.Eadd;
      mul := F.Emul;
      sub := F.Esub;
      zer := F.zero;
-     one := F.Eone; |}.
+     one := F.Eone;
+     mulZ := FmulZ;
+     divZ := FdivZ;
+  |}.
 
 (* TOTHINK: we do not need certified cos/sin/pi, is there a faster way to get these values? *)
 Definition Fcos x := I.midpoint (I.cos prec (I.bnd x x)).
@@ -141,14 +152,6 @@ Proof. unfold Icontains. now rewrite I.zero_correct. Qed.
 Lemma Irone: Imem 1 1.
 Proof. apply I.fromZ_correct. Qed.
 
-Canonical Structure IRel0 :=
-  {| rel := Icontains;
-     radd := Iradd;
-     rmul := Irmul;
-     rsub := Irsub;
-     rzer := Irzer;
-     rone := Irone |}.
-
 Lemma Irdiv J j: Imem j J -> forall K k, Imem k K -> Imem (j / k) (J / K).
 Proof.
   move => Hj K k Hk.
@@ -163,6 +166,15 @@ Proof.
     rewrite /= /Xdiv'; case is_zero_spec => H' //.
   by rewrite H; apply I.div_correct.
 Qed.
+
+Lemma IrfromZ n: Imem (fromZ n) (fromZ n).
+Proof. by apply I.fromZ_correct. Qed.
+
+Lemma IrmulZ z j y (K: Imem y j): Imem (IZR z*y) (mulZ z j).
+Proof. apply Irmul=>//. apply IrfromZ. Qed.
+
+Lemma IrdivZ z j y (K: Imem y j): Imem (y/IZR z) (divZ z j).
+Proof. apply Irdiv=>//. apply IrfromZ. Qed.
 
 Lemma Irsqrt J j: Imem j J -> Imem (sqrt j) (sqrt J).
 Proof.
@@ -179,9 +191,17 @@ Proof. apply (I.cos_correct prec _ _ H). Qed.
 
 Lemma Irsin i x (H: Imem x i): Imem (sin x) (sin i).
 Proof. apply (I.sin_correct prec _ _ H). Qed.
-
-Lemma IrfromZ n: Imem (fromZ n) (fromZ n).
-Proof. by apply I.fromZ_correct. Qed.
+      
+Canonical Structure IRel0 :=
+  {| rel := Icontains;
+     radd := Iradd;
+     rmul := Irmul;
+     rsub := Irsub;
+     rzer := Irzer;
+     rone := Irone;
+     rmulZ := IrmulZ;
+     rdivZ := IrdivZ;
+  |}.
 
 Canonical Structure IRel1 :=
   {| rel0 := IRel0;
@@ -534,13 +554,18 @@ Eval hnf in (@add IPrimFloat.FOps0 1 1).          (* anomaly, please report (wit
 *)  
 
 (** canonical structures for floating point operations *)
+Definition PFmulZ z x := PrimFloat.mul (PrimitiveFloat.fromZ z) x.
+Definition PFdivZ z x := PrimFloat.div x (PrimitiveFloat.fromZ z).
 Canonical Structure FOps0 :=
   {| car := float;
      add := PrimFloat.add;
      mul := PrimFloat.mul;
      sub := PrimFloat.sub;
      zer := PrimFloat.zero;
-     one := PrimFloat.one |}.
+     one := PrimFloat.one;
+     mulZ := PFmulZ;
+     divZ := PFdivZ;
+  |}.
 
 Definition Fpi := 0x1.921fb54442d18p+1%float.
 Canonical Structure FOps1 :=

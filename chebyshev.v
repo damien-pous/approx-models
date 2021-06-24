@@ -178,7 +178,7 @@ Proof. apply eval_ex_derive_. Qed.
  *)
 Section ops.
 
- Context {C: Ops1}.
+ Context {C: Ops0}.
 
  (** constant *)
  Definition pcst a: list C := [a].
@@ -209,7 +209,7 @@ Section ops.
    end.
  
  Definition pmul (p q: list C): list C :=
-   sscal (1//2) (sadd (mul_minus p q) (mul_plus p q)).
+   sdivZ 2 (sadd (mul_minus p q) (mul_plus p q)).
 
  (** primitive  *)
  Fixpoint prim_ (n : nat) (p : list C) : list C :=
@@ -219,7 +219,7 @@ Section ops.
       match n with
         | 0 => sadd [ 0; a] (prim_ 1 q)
         | 1 => cons0 (sadd [0; a // 4] (prim_ 2 q))
-        | n'.+2 => sadd [0 - a // ((n'.+1)*2)%nat; 0; a // ((n.+1)*2)%nat]
+        | (_.+1 as n').+1 => sadd [0 - a // (n'*2); 0; a // ((n.+1)*2)%nat]
                         (cons0 (prim_ n.+1 q))
       end
   end.
@@ -229,7 +229,7 @@ Section ops.
  Fixpoint Clenshaw b c (P: list C) x :=
    match P with
    | [] => c - x*b
-   | a::Q => Clenshaw c (a + fromZ 2*(x*c) - b) Q x 
+   | a::Q => Clenshaw c (a + mulZ 2 (x*c) - b) Q x 
    end.
  Definition eval' P x := Clenshaw 0 0 (rev P) x.
  (** recall: 
@@ -240,21 +240,21 @@ Section ops.
  Definition integrate p a b :=
    let q := prim p in eval' q b - eval' q a. 
  
- (** domain *)
- Definition lo: C := fromZ (-1).
- Definition hi: C := 1.
-
- (** range on [[-1;1]]
-    since the [T n] have their range in [[-1;1]], it suffices to take the sum of the absolute values of   the coefficients. for the constant coefficient, we don't even have to take the absolute value.
-  *)
- Definition range_: list C -> C := List.fold_right (fun a x => abs a + x) 0.
- Definition range p: C*C :=
-   match p with
-   | [] => (0,0)
-   | a :: q => let r := range_ q in (a-r,a+r)
-   end.
- 
 End ops.
+ 
+(** domain *)
+Definition lo {C: Ops1}: C := fromZ (-1).
+Definition hi {C: Ops1}: C := 1.
+
+(** range on [[-1;1]]
+    since the [T n] have their range in [[-1;1]], it suffices to take the sum of the absolute values of   the coefficients. for the constant coefficient, we don't even have to take the absolute value.
+ *)
+Definition range_ {C: Ops1}: list C -> C := List.fold_right (fun a x => abs a + x) 0.
+Definition range {C: Ops1} p: C*C :=
+  match p with
+  | [] => (0,0)
+  | a :: q => let r := range_ q in (a-r,a+r)
+  end.
 
 
 (** ** correctness of the above operations, on R *)
@@ -297,7 +297,7 @@ Proof.
   rewrite T0 Nat.add_succ_l /=. field. 
 Qed.
 Lemma eval_mul: forall P Q (x: R), eval (pmul P Q) x = eval P x * eval Q x.
-Proof. intros. rewrite /eval eval_mul_ /pmul eval_scal_ eval_add_/= /Rdiv /=. ring. Qed.
+Proof. intros. rewrite /eval eval_mul_ /pmul eval_divZ_ eval_add_//. Qed.
 
 
 
@@ -325,7 +325,7 @@ Proof. rewrite /eval' ClenshawR rev_append_rev rev_involutive eval_app /=. ring.
 
 
 Lemma prim_consSS_ n (a: R) p : prim_ n.+2 (a :: p) =
-  sadd [0 - a // ((n.+1)*2)%nat; 0; a // ((n.+3)*2)%nat] (cons0 (prim_ n.+3 p)).
+  sadd [0 - a // ((n.+1)*2); 0; a // ((n.+3)*2)] (cons0 (prim_ n.+3 p)).
 Proof. reflexivity. Qed.
 
 Lemma eval_prim_ n p x : Derive (eval_ n.-1 (prim_ n p)) x = eval_ n p x.
@@ -346,7 +346,7 @@ Proof.
   apply ex_derive_scal, ex_derive_minus with (f:=fun t => _*T _ t); apply ex_derive_scal; apply T_ex_derive.
   intro. rewrite prim_consSS_ eval_add_.
   replace (eval_ n.+2.-1 (0 :: prim_ n.+3 p) t) with (eval_ n.+3.-1 (prim_ n.+3 p) t); last by compute; ring.
-  rewrite /dvn -!RfromN !mult_INR !INRS eval_cons0_ /=.
+  rewrite -!RdivN !mult_INR !INRS eval_cons0_ /=.
     by field; split; rewrite -?INRS; apply not_0_INR.
 Qed.
 
@@ -456,12 +456,11 @@ Section i.
  Let dn: Z := 2*n.
  Let sn: Z := n+1.
  Let cn: C := fromZ n.
- Let two:C := fromZ 2.
 
  (** interpolation points *)
  Let point: Z -> C :=
    Zmap.get 0 (
-     Zmap.mk (fun i => cos (fromZ i * pi / cn)) dn).
+     Zmap.mk (fun i => cos (mulZ i (pi / cn))) dn).
 
  (** values at interpolation points *)
  Let value: Z -> C :=
@@ -471,11 +470,11 @@ Section i.
  Let DCTinv_coeff_aux (i j: Z): C :=
    Zfold' (fun j acc => acc +
      if Z.ltb j n 
-     then two * value j * point ((i*j) mod dn)
-     else       value j * point ((i*j) mod dn)
+     then mulZ 2 (value j * point ((i*j) mod dn))
+     else         value j * point ((i*j) mod dn)
          ) j (value 0).
  Let DCTinv_coeff (i: Z): C :=
-   (if Z.eqb i 0 then dvn 2 else ssrfun.id)
+   (if Z.eqb i 0 then divZ 2 else ssrfun.id)
      (DCTinv_coeff_aux i n / cn).
  
  Definition interpolate: list C :=

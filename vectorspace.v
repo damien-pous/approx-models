@@ -64,8 +64,12 @@ Section abs.
  Definition sopp (P: list C): list C := map (sub 0) P.
  
  Definition ssub P Q := sadd P (sopp Q).
+
+ Definition smulZ z: list C -> list C := map (mulZ z).
+
+ Definition sdivZ z: list C -> list C := map (divZ z).
  
- Definition sscal a (P: list C): list C := map (mul a) P.
+ Definition sscal a: list C -> list C := map (mul a).
 
  Definition cons0 (p: list C) := match p with [] => p | _=>0::p end.
  
@@ -120,6 +124,14 @@ Section e.
  Proof. intros. rewrite /ssub eval_add_ eval_opp_ /=. ring. Qed.
  Lemma eval_sub: forall P Q (x: R), eval (ssub P Q) x = eval P x - eval Q x.
  Proof. intros. apply eval_sub_. Qed.
+ Lemma eval_mulZ_: forall a P (x: R) n, eval_ n (smulZ a P) x = mulZ a (eval_ n P x).
+ Proof. induction P as [|b P IH]; intros; rewrite /=?IH/=; ring. Qed. 
+ Lemma eval_mulZ: forall a P (x: R), eval (smulZ a P) x = mulZ a (eval P x).
+ Proof. intros. apply eval_mulZ_. Qed. 
+ Lemma eval_divZ_: forall a P (x: R) n, eval_ n (sdivZ a P) x = divZ a (eval_ n P x).
+ Proof. induction P as [|b P IH]; intros; rewrite /=?IH/=/Rdiv; ring. Qed. 
+ Lemma eval_divZ: forall a P (x: R), eval (sdivZ a P) x = divZ a (eval P x).
+ Proof. intros. apply eval_divZ_. Qed. 
  Lemma eval_scal_: forall a P (x: R) n, eval_ n (sscal a P) x = a * eval_ n P x.
  Proof. induction P as [|b P IH]; intros; rewrite /=?IH/=; ring. Qed. 
  Lemma eval_scal a P (x: R): eval (sscal a P) x = a * eval P x.
@@ -194,6 +206,10 @@ Section s.
    intros P Q H. induction H. rel. 
    intros P' Q' H'. destruct H'; simpl in *; rel. 
  Qed.
+ Lemma rsmulZ z: forall x y, sT x y -> sT (smulZ z x) (smulZ z y).
+ Proof. induction 1; simpl; rel.  Qed.
+ Lemma rsdivZ z: forall x y, sT x y -> sT (sdivZ z x) (sdivZ z y).
+ Proof. induction 1; simpl; rel.  Qed.
  Lemma rsscal a b: rel T a b -> forall x y, sT x y -> sT (sscal a x) (sscal b y).
  Proof. induction 2; simpl; rel.  Qed.
  Lemma rsopp: forall x y, sT x y -> sT (sopp x) (sopp y).
@@ -217,7 +233,7 @@ Section s.
  Lemma rsnth n: sT (snth n) (snth n).
  Proof. elim: n=>/=; rel. Qed.
 End s.
-Global Hint Resolve rsadd rsscal rsopp rssub rszer rcons0 rcons00 rsnth: rel.
+Global Hint Resolve rsadd rsmulZ rsdivZ rsscal rsopp rssub rszer rcons0 rcons00 rsnth: rel.
 
 
 (** ** [Basis]: requirements for generating pseudo-polynomial models (in approx.v) *)
@@ -246,7 +262,10 @@ Canonical Structure listOps0 (C: Ops1) (B: BasisOps_on C) := {|
   mul := bmul;
   sub := ssub;
   zer := szer;
-  one := bone|}.
+  one := bone;
+  mulZ := smulZ;
+  divZ := sdivZ;
+|}.
 
 Class BasisOps {N: NBH} := {
   (** concrete operations on intervals & floating points *)
