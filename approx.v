@@ -44,6 +44,14 @@ Section n.
    {| pol := pol M - pol N;
       rem := rem M - rem N;
       cont := cont M && cont N; |}.
+ Definition mmulZ z (M: Tube): Tube :=
+   {| pol := mulZ z (pol M);
+      rem := mulZ z (rem M);
+      cont := cont M; |}.
+ Definition mdivZ z (M: Tube): Tube :=
+   {| pol := divZ z (pol M);
+      rem := divZ z (rem M);
+      cont := cont M; |}.
  Definition mscal (x: II) (M: Tube): Tube :=
    {| pol := sscal x (pol M);
       rem := x * rem M;
@@ -64,6 +72,8 @@ Section n.
      mul:=mmul;
      zer:=mzer;
      one:=mone;
+     mulZ:=mmulZ;
+     divZ:=mdivZ;
    |}.
 
  (** nth element of the basis *)
@@ -136,15 +146,15 @@ Section n.
    let x0' := (lo+hi)//2 in
    let y0' := meval_unsafe w' x0' in
    if ~~ is_lt 0 y0' then err "msqrt: potentially negative value" else
-   let k1' := 1 - (mscal (fromZ 2) (w' * h')) in
+   let k1' := 1 - (mmulZ 2 (w' * h')) in
    let k2' := w' * (h' * h' - f') in
    match mag (mrange k1'), mag (mrange w'), mag (mrange k2') with
    | Some mu0', Some mu1', Some b' =>
-     let delta' := pow 2 (1 - mu0') - fromZ 8 * b' * mu1' in
+     let delta' := pow 2 (1 - mu0') - mulZ 8 b' * mu1' in
      if is_lt mu0' 1 then
        if is_lt 0 delta' then
-         let rmin' := (1 - mu0' - sqrt delta')/(fromZ 4 * mu1') in
-         let mu' := mu0' + fromZ 2 * mu1' * rmin' in
+         let rmin' := (1 - mu0' - sqrt delta')/(mulZ 4 mu1') in
+         let mu' := mu0' + mulZ 2 mu1' * rmin' in
          if is_lt mu' 1 then ret {| pol := pol h'; rem:=rem h' + sym rmin'; cont := cont f' |}             
          else err "msqrt: missed mu'<1"
        else err "msqrt: missed 0<delta"
@@ -168,7 +178,7 @@ Section n.
    let h := interpolate n (fun x: FF => sqrt (beval p x)) in
    msqrt_aux M
              (mfc h)
-             (mfc (interpolate n (fun x: FF => 1 / (fromZ 2 * beval h x)))).
+             (mfc (interpolate n (fun x: FF => 1 / (mulZ 2 (beval h x))))).
 
  (** testing nullability *)
  Definition mne0 n (M: Tube): bool :=
@@ -281,6 +291,26 @@ Section n.
    move=> x Hx. replace (_-_) with (c*(f x - eval p x)).
    apply rmul; auto. rewrite eval_scal/=; ring. 
  Qed.
+
+ Lemma rmmulZ: forall z M f, mcontains M f -> mcontains (mmulZ z M) (mulZ z f). 
+ Proof.
+   move=> z M f [Cf [p [Hp Hf]]]. split.
+   cbn. elim:Cf=>[Cf|]; constructor=>x Dx.
+   apply continuity_pt_mult; auto. now apply continuity_pt_const.
+   exists (smulZ z p); split. by apply rsmulZ.
+   move=> x Hx. replace (_-_) with (mulZ z (f x - eval p x)).
+   apply rmulZ; auto. rewrite eval_mulZ/=/f_unr. ring. 
+ Qed.
+
+ Lemma rmdivZ: forall z M f, mcontains M f -> mcontains (mdivZ z M) (divZ z f). 
+ Proof.
+   move=> z M f [Cf [p [Hp Hf]]]. split.
+   cbn. elim:Cf=>[Cf|]; constructor=>x Dx.
+   apply continuity_pt_mult; auto. now apply continuity_pt_const.
+   exists (sdivZ z p); split. by apply rsdivZ.
+   move=> x Hx. replace (_-_) with (divZ z (f x - eval p x)).
+   apply rdivZ; auto. rewrite eval_divZ/=/f_unr/Rdiv. ring. 
+ Qed.
  
  Lemma rmmul: forall M f, mcontains M f -> forall P g, mcontains P g -> mcontains (mmul M P) (f*g).
  Proof.
@@ -359,6 +389,8 @@ Section n.
      rmul := rmmul;
      rzer := rmzer;
      rone := rmone;    
+     rmulZ := rmmulZ;
+     rdivZ := rmdivZ;
    |}.
 
  Lemma rmtruncate n: forall F f, mcontains F f -> mcontains (mtruncate n F) f.
@@ -547,7 +579,7 @@ Section n.
  Proof. move => M f Mf P g Pg. eapply rmdiv_aux=>//; apply rmfc. Qed.
 
  (** *** square root *)
- 
+
  Lemma rmsqrt_aux (f' h' w': Tube) (f h w : R -> R):
    mcontains f' f -> mcontains h' h -> mcontains w' w ->
    (forall x, dom x -> continuity_pt w x) ->
@@ -556,7 +588,7 @@ Section n.
    move => Hf Hh Hw Hwcont. rewrite /msqrt_aux.
    set (x0:=(lo+hi)//2).
    have domx0: dom ((lo+hi)/2) by generalize domlo; generalize domhi; rewrite /dom; lra. 
-   have rx0: contains x0 ((lo+hi)/2) by rel. 
+   have rx0: contains x0 ((lo+hi)/2) by rel.
    case is_ltE => [Hwx0|]=>[|//=]. 
    specialize (Hwx0 _ _ (rzer _) (rmeval_unsafe Hw rx0 domx0)).
    simpl negb.
@@ -568,7 +600,7 @@ Section n.
    destruct (ssrfun.id Hh) as [_ [p [Hp Hh']]].
    case is_ltE => [Hmu|] =>//.
    lapply (fun H x Hx => Hmu0 _ (eval_mrange (x:=x) (f:=fun x => 1 - 2 * (w x*h x)) H Hx)); last first.
-    apply rmsub. apply rmone. apply rmscal. apply rfromZ. by apply rmmul.
+    apply rmsub. apply rmone. apply rmmulZ. by apply rmmul.
     intro Hmu0'. 
    pose proof (fun x Hx => Hmu1 _ (eval_mrange (x:=x) Hw Hx))as Hmu1'.
    lapply (fun H x Hx => Hb _ (eval_mrange (x:=x) (f:=w*(h*h-f)) H Hx));
@@ -582,8 +614,8 @@ Section n.
      + apply Rlt_le_trans with (Rabs (w ((lo+hi)/2))); eauto.
        clear -Hwx0. split_Rabs; simpl in *; lra.
      + rewrite <- (Hb' _ domx0). apply Rabs_pos.
-     + apply Rlt_le, Hmu0b; rel.
-     + apply Hmu; rel.
+     + apply Rlt_le, Hmu0b; rel. 
+     + apply Hmu; rel. 
      + unfold dom. clear. intros; simpl in *; lra. 
      + exists ((lo+hi)/2). split. apply domx0. apply Hwx0. 
    constructor. split. 

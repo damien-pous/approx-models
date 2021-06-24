@@ -54,6 +54,8 @@ Record Ops0 := {
   mul: car -> car -> car;
   zer: car;
   one: car;
+  mulZ: Z -> car -> car;
+  divZ: Z -> car -> car;
 }.
 
 (** extended operations *)
@@ -79,6 +81,8 @@ Infix "/" := div: RO_scope.
 Notation "0" := (zer _): RO_scope.
 Notation "1" := (one _): RO_scope.
 Arguments fromZ {_}. 
+Arguments mulZ {_}. 
+Arguments divZ {_}. 
 Arguments sqrt {_}. 
 Arguments cos {_}. 
 Arguments sin {_}. 
@@ -88,12 +92,12 @@ Open Scope RO_scope.
 
 (** derived operations *)
 Definition fromN {C: Ops1} (n: nat): C := fromZ (Z.of_nat n). 
-Definition fromQ {C: Ops1} (q: Q): C := fromZ (Qnum q) / fromZ (Zpos (Qden q)).
+Definition fromQ {C: Ops1} (q: Q): C := divZ (Zpos (Qden q)) (fromZ (Qnum q)).
+Definition mulN {C: Ops0} n: C -> C := mulZ (Z.of_nat n).
+Definition divN {C: Ops0} n: C -> C := divZ (Z.of_nat n).
+Notation "x // n" := (divN n x) (at level 40, left associativity): RO_scope .
 
-Definition dvn {C: Ops1} n x: C := div x (fromN n).
-Notation "x // n" := (dvn n x) (at level 40, left associativity): RO_scope .
-
-(** derived operations *)
+(* TOTHINK: powN, powP? *)
 Fixpoint pow (C: Ops0) n (x: C) :=
   match n with
   | O => 1
@@ -112,6 +116,8 @@ Canonical Structure f_Ops0 (A: Type) (C: Ops0): Ops0 := {|
   mul := f_bin (@mul C);
   zer := f_cst (@zer C);
   one := f_cst (@one C);
+  mulZ z := f_unr (mulZ z);
+  divZ z := f_unr (divZ z);
 |}.
 
 (** ** instances on real numbers *)
@@ -122,6 +128,8 @@ Canonical Structure ROps0 := {|
   mul := Rmult;
   zer := R0;
   one := R1;
+  mulZ z x := Rmult (IZR z) x;
+  divZ z x := Rdiv x (IZR z);
 |}.
 Canonical Structure ROps1 := {|
   ops0 := ROps0;
@@ -133,8 +141,20 @@ Canonical Structure ROps1 := {|
   abs := Rabs;
   pi := Rtrigo1.PI;
 |}.
+
 Lemma RfromN: forall n, INR n = fromN n.
 Proof INR_IZR_INZ.
+Lemma RfromQ: forall q, Q2R q = fromQ q.
+Proof. reflexivity. Qed.
+Lemma RmulZ x z: IZR z * x = mulZ z x.
+Proof. reflexivity. Qed.
+Lemma RmulN x n: INR n * x = mulN n x.
+Proof. cbn. now rewrite RfromN. Qed.
+Lemma RdivZ x z: x / IZR z = divZ z x.
+Proof. reflexivity. Qed.
+Lemma RdivN x n: x / INR n = divN n x.
+Proof. cbn. now rewrite RfromN. Qed.
+
 Lemma Rpow n x: x^n = pow n x.
 Proof. induction n=>//=. congruence. Qed.
 
@@ -145,12 +165,14 @@ Record Rel0 (R S: Ops0) := {
   rsub: forall x y, rel x y -> forall x' y', rel x' y' -> rel (x-x') (y-y');
   rmul: forall x y, rel x y -> forall x' y', rel x' y' -> rel (x*x') (y*y');
   rzer: rel 0 0;
-  rone: rel 1 1
+  rone: rel 1 1;
+  rmulZ: forall z x y, rel x y -> rel (mulZ z x) (mulZ z y);
+  rdivZ: forall z x y, rel x y -> rel (divZ z x) (divZ z y);
 }.
 Record Rel1 (R S: Ops1) := {
   rel0:> Rel0 R S;
-  rdiv: forall x y, rel0 x y -> forall x' y', rel0 x' y' -> rel0 (x/x') (y/y');
   rfromZ: forall z, rel0 (fromZ z) (fromZ z);
+  rdiv: forall x y, rel0 x y -> forall x' y', rel0 x' y' -> rel0 (x/x') (y/y');
   rsqrt: forall x y, rel0 x y -> rel0 (sqrt x) (sqrt y);
   rabs: forall x y, rel0 x y -> rel0 (abs x) (abs y);
   rcos: forall x y, rel0 x y -> rel0 (cos x) (cos y);
@@ -158,7 +180,7 @@ Record Rel1 (R S: Ops1) := {
   rpi: rel0 pi pi;
 }.
 Create HintDb rel discriminated.
-Global Hint Resolve radd rsub rmul rfromZ rzer rone rdiv rsqrt rabs rcos rsin rpi: rel.
+Global Hint Resolve radd rsub rmul rfromZ rmulZ rdivZ rzer rone rdiv rsqrt rabs rcos rsin rpi: rel.
 Ltac rel := by eauto 100 with rel.
 
 (** parametricity of derived operations *)
@@ -174,9 +196,13 @@ Lemma rfromQ R S (T: Rel1 R S) q: T (fromQ q) (fromQ q).
 Proof. unfold fromQ; rel. Qed.
 Global Hint Resolve rfromQ: rel.
 
-Lemma rdvn R S (T: Rel1 R S) n: forall x y, T x y -> T (x//n) (y//n).
-Proof. rewrite /dvn; rel. Qed.
-Global Hint Resolve rdvn: rel.
+Lemma rmulN R S (T: Rel0 R S) n x y: T x y -> T (mulN n x) (mulN n y).
+Proof. apply rmulZ. Qed.
+Global Hint Resolve rmulN: rel.
+
+Lemma rdivN R S (T: Rel0 R S) n x y: T x y -> T (divN n x) (divN n y).
+Proof. apply rdivZ. Qed.
+Global Hint Resolve rdivN: rel.
 
 
 (** ** neighborhoods (effective abstractions for real numbers) *)
@@ -344,6 +370,14 @@ Proof.
   intros b B. constructor. intros. now apply Rminus_gt_0_lt, B.
 Qed.
 
+(** two instances of [rmulZ] and [rdivZ] that need to be explicited for the [rel] tactic to work well *)
+Lemma rmulZ' {N: NBH} z x y: contains x y -> contains (mulZ z x) (IZR z * y).
+Proof. apply rmulZ. Qed.
+Lemma rdivZ' {N: NBH} z x y: contains x y -> contains (divZ z x) (y / IZR z).
+Proof. apply rdivZ. Qed.
+Global Hint Resolve rmulZ' rdivZ': rel.
+
+
 (** ** domains *)
 
 Class Domain_on C := make_domain_on {
@@ -359,7 +393,6 @@ Class Domain {N: NBH} := make_domain {
   dlohi: dlo<dhi;
 }.
 Global Hint Resolve rdlo rdhi: rel.
-
 
 (** constructing simple domains *)
 (** from relative numbers *)

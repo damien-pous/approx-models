@@ -19,8 +19,8 @@ Section s.
 
  Let N' := Z.of_nat N.
  Let r: II := fromQ r_.
- Let x0: II := fromZ 9 / fromZ 10.
- Let y0: II := fromZ 11 / fromZ 10.
+ Let x0: II := fromQ 0.9.
+ Let y0: II := fromQ 1.1.
  Let sqrt2: II := sqrt (fromZ 2). 
  Let r2: II := r*r. 
  Let r_sqrt2: II := r / sqrt2.
