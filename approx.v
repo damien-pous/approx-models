@@ -2,7 +2,7 @@
 
 Require Import String.
 Require Import vectorspace.
-Require div sqrt.
+Require div sqrt polynom_eq.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -21,7 +21,8 @@ Record Tube C := { pol: list C; rem: C; cont: bool }.
 Section n.
  Context {N: NBH} {BO: BasisOps}.
  Notation Tube := (Tube (car (ops0 (@II N)))).
-
+ Notation eval' := taylor.eval'.
+ Notation derive := taylor.derive.
  (** range of a polynomial *)
  Definition srange p: II :=
    match brange with
@@ -162,6 +163,27 @@ Section n.
    | _,_,_ => err "msqrt: error when checking the ranges of k1/w/k2"
    end.
 
+ (** polynomial equation : F' is a model polynom
+     phi', A' are models given by an oracle so that
+     F' (phi') ~ 0
+     A' ~ 1/ DF'(phi')
+     r' is a ball radius given by an oracle, we wish 
+     the newton operator to be lambda contracting (lambda' < 1) on B(phi',r') and stable  *) 
+ Definition mpolyn_eq_aux (F' : list Tube) (phi' A' : Tube) (r' : II)  : E Tube :=
+   let phir' := {| pol := pol phi' ; rem := r' ; cont := cont phi' |} in
+   let DN' := eval' (derive (polynom_eq.opnewton F' A')) phir' in
+   let N0' := A' * eval' F' phi' in
+   match mag (mrange DN') , mag (mrange N0') with
+   | Some lambda' , Some d' =>
+     if is_lt lambda' 1 then
+       if is_le (d' + lambda' * r') r' then
+         let eps' := d' / (1 - lambda') in
+         ret {| pol := pol phi' ; rem := sym eps' ; cont := false |}
+       else err "mpolyn_eq : missed (d+lambda*r)<=r"
+     else err "mpolyn_eq : missed lambda'<1"
+   | _,_ => err "mpolyn_eq: error when checking the ranges of DN'/N0'"
+   end.
+
  (** auxiliary conversion functions to perform interpolation with floating points *)
  Definition mcf (M: Tube): list FF := map I2F (pol M).
  Definition mfc (p: list FF): Tube := {| pol := map F2I p; rem := 0; cont := true |}.
@@ -179,6 +201,10 @@ Section n.
    msqrt_aux M
              (mfc h)
              (mfc (interpolate n (fun x: FF => 1 / (mulZ 2 (beval h x))))).
+
+  (********** /!\ Need oracles to "guess" phi, A and r /!\ ********
+  Definition mpolyn_eq (F : list Tube ) : E Tube := ... 
+  ********** ____________________________________________ ********)
 
  (** testing nullability *)
  Definition mne0 n (M: Tube): bool :=
@@ -636,6 +662,41 @@ Section n.
    move => Mf. eapply rmsqrt_aux=> //; try apply rmfc. 
    move => ??. apply eval_cont.
  Qed.
+
+
+ Lemma rmpolyn_eq_aux (F' : list Tube) (phi' A' : Tube) (r' : II) (F : list (R->R)) (phi A : R->R) (r: R) :
+   list_rel mcontains F' F ->
+   mcontains phi' phi ->
+   mcontains A' A ->
+   contains r' r -> 0 <= r ->
+   EP (fun M => exists f, mcontains M f /\ forall t, dom t ->  eval' F f t = 0) (mpolyn_eq_aux F' phi' A' r').  
+ Proof.
+   move => HF Hphi HA Hr Hr0. rewrite /mpolyn_eq_aux.
+   case magE => [lambda' lambda clambda Hlambda | ] => [ | //].
+   case magE => [ d' d cd Hd | ] => [ | //].
+   case is_ltE => [Hl1|]=>[|//].
+   case is_leE => [Hdlr|] => [|//]. constructor.
+   move : Hphi => [ _ [ p [ Hp1 Hp2 ]]]. 
+   have Hnewton : exists f, forall t, dom t ->  eval' F f t = 0 /\ Rabs ( f t - eval p t ) <= d / (1 - lambda).
+   apply polynom_eq.newton with A r.
+   + move => s Hs t Dt.
+     apply Hlambda, eval_mrange => //.  admit.
+   + move => t Dt.
+     apply Hd.
+     move : t Dt. apply eval_mrange, rmmul => //. admit.
+   + split. admit. (* find a point in the interval (middle!!)*)
+     apply Hl1 => //; rel.
+   + split. admit. (* same *) by [].
+   + apply Hdlr; rel.
+
+   move : Hnewton => [ f Hnewton].
+   exists f; split. 2 : apply Hnewton.
+   split; first constructor.
+   exists p; split => //.
+   move => x Dx. eapply symE. 2: rel. simpl. 
+   apply Hnewton => //.
+ Admitted.
+ 
 
  (** non-nullability test *)
  Lemma rmne0 n M f: mcontains M f -> mne0 n M -> forall x, dom x -> f x <> 0.

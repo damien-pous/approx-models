@@ -9,6 +9,7 @@ domfct.v
 banach.v
 div.v
 sqrt.v
+polynom_eq.v
 errors.v
 interfaces.v
 syntax.v
