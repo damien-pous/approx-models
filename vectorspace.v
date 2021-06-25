@@ -17,6 +17,9 @@ Inductive list_rel: list R -> list S -> Prop :=
 | rcons: forall x y h k, rel x y -> list_rel h k -> list_rel (x::h) (y::k).
 Hint Constructors list_rel: rel.
 
+Lemma list_rel_tl : forall h k , list_rel h k -> list_rel (tl h) (tl k).
+Proof. induction 1; rel. Qed.
+
 Lemma list_rel_app: forall h k, list_rel h k -> forall p q, list_rel p q -> list_rel (h++p) (k++q).
 Proof. induction 1; simpl; rel. Qed.
 Hint Resolve list_rel_app: rel.
@@ -36,7 +39,7 @@ Proof. by []. Qed.
 
 End r.
 Global Hint Constructors list_rel: rel.
-Global Hint Resolve list_rel_app list_rel_rev rpair: rel.
+Global Hint Resolve list_rel_tl list_rel_app list_rel_rev rpair: rel.
 
 Lemma list_rel_map' {A B R S} (rel: A -> B -> Prop) (rel': R -> S -> Prop) (f: A -> R) (g: B -> S):
   (forall a b, rel a b -> rel' (f a) (g b)) ->

@@ -218,20 +218,27 @@ Section s.
 End s.
 
 Section s'.
- Context {R S: Ops1}.
- Variable T: Rel1 R S.
+ Context {R S: Ops0}.
+ Variable T: Rel0 R S.
  Notation sT := (list_rel T).
+
+
+ Lemma rderive_ : forall x y, sT x y -> forall n , sT (derive_ n x) (derive_ n y).
+ Proof. induction 1; simpl; rel. Qed.
+ Hint Resolve rderive_ : rel.
+ Lemma rderive : forall x y, sT x y -> sT (derive x) (derive y).
+ Proof. intros. rel. Qed.
  Lemma rprim_: forall x y, sT x y -> forall n, sT (prim_ n x) (prim_ n y).
  Proof. induction 1; simpl; rel. Qed.
  Hint Resolve rprim_ reval: rel.
  Lemma rprim: forall x y, sT x y -> sT (prim x) (prim y).
  Proof. intros. constructor; rel. Qed.
- Hint Resolve rprim: rel.
  Lemma rintegrate: forall p q, sT p q ->
                    forall a b, T a b ->
                    forall c d, T c d ->
                                T (integrate p a c) (integrate q b d).
  Proof. unfold integrate. rel. Qed.
+ Hint Resolve rderive rprim rintegrate: rel.
 End s'.
 
 (** packing everything together, we get a basis *)

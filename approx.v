@@ -1,6 +1,6 @@
 (** * Rigorous approximations in a generic basis *)
 
-Require Import String.
+Require Import String. 
 Require Import vectorspace.
 Require div sqrt polynom_eq.
 
@@ -170,7 +170,7 @@ Section n.
      r' is a ball radius given by an oracle, we wish 
      the newton operator to be lambda contracting (lambda' < 1) on B(phi',r') and stable  *) 
  Definition mpolyn_eq_aux (F' : list Tube) (phi' A' : Tube) (r' : II)  : E Tube :=
-   let phir' := {| pol := pol phi' ; rem := r' ; cont := cont phi' |} in
+   let phir' := {| pol := pol phi' ; rem := rem phi' + sym r' ; cont := false |} in
    let DN' := eval' (derive (polynom_eq.opnewton F' A')) phir' in
    let N0' := A' * eval' F' phi' in
    match mag (mrange DN') , mag (mrange N0') with
@@ -178,7 +178,7 @@ Section n.
      if is_lt lambda' 1 then
        if is_le (d' + lambda' * r') r' then
          let eps' := d' / (1 - lambda') in
-         ret {| pol := pol phi' ; rem := sym eps' ; cont := false |}
+         ret {| pol := pol phi' ; rem := rem phi' + sym eps' ; cont := false |}
        else err "mpolyn_eq : missed (d+lambda*r)<=r"
      else err "mpolyn_eq : missed lambda'<1"
    | _,_ => err "mpolyn_eq: error when checking the ranges of DN'/N0'"
@@ -263,7 +263,7 @@ Section n.
    case DomE=>// H. constructor.
    now apply rmeval_unsafe; auto. 
  Qed.
- 
+   
  Lemma rdom x: dom x -> contains (bnd lo hi) x.
  Proof. rewrite /dom /Dom. apply bndE. apply rlo. apply rhi. Qed.
 
@@ -455,8 +455,7 @@ Section n.
    interfaces.mgt0 := mgt0;               
  |}.
 
- 
- (** *** integration *)
+   (** *** integration *)
 
  Lemma RInt_min a d u f:
    a<d -> (forall x, a<=x<=d -> u <= f x) -> ex_RInt f a d ->
@@ -663,7 +662,6 @@ Section n.
    move => ??. apply eval_cont.
  Qed.
 
-
  Lemma rmpolyn_eq_aux (F' : list Tube) (phi' A' : Tube) (r' : II) (F : list (R->R)) (phi A : R->R) (r: R) :
    list_rel mcontains F' F ->
    mcontains phi' phi ->
@@ -676,27 +674,46 @@ Section n.
    case magE => [ d' d cd Hd | ] => [ | //].
    case is_ltE => [Hl1|]=>[|//].
    case is_leE => [Hdlr|] => [|//]. constructor.
-   move : Hphi => [ _ [ p [ Hp1 Hp2 ]]]. 
-   have Hnewton : exists f, forall t, dom t ->  eval' F f t = 0 /\ Rabs ( f t - eval p t ) <= d / (1 - lambda).
+   move : (id Hphi) => [ _ [ p [ Hp1 Hp2 ]]]. 
+   have Hnewton : exists f, forall t, dom t ->  eval' F f t = 0 /\ Rabs ( f t - phi t ) <= d / (1 - lambda).
    apply polynom_eq.newton with A r.
    + move => s Hs t Dt.
-     apply Hlambda, eval_mrange => //.  admit.
+     apply Hlambda, eval_mrange => //. apply taylor.reval. apply taylor.rderive. rel.
+     split; first constructor.
+     exists p; split => //.
+     move => x Dx /=.
+     replace ( _ - _) with ( (phi x - eval p x ) + ( s x - phi x) ) by (simpl;ring).
+     apply radd. apply Hp2 => //.
+     apply symE with r => //. rewrite Rabs_minus_sym. apply Hs => //. 
    + move => t Dt.
      apply Hd.
-     move : t Dt. apply eval_mrange, rmmul => //. admit.
-   + split. admit. (* find a point in the interval (middle!!)*)
-     apply Hl1 => //; rel.
-   + split. admit. (* same *) by [].
+     move : t Dt. apply eval_mrange, rmmul => //. apply taylor.reval => //.
+   + split. 2 : apply Hl1 => //; rel.
+     apply Rle_trans with (Rabs ( eval' (derive (polynom_eq.opnewton F A)) phi hi)).
+     apply Rabs_pos.   
+     apply Hlambda, eval_mrange. apply taylor.reval. apply taylor.rderive => //. rel.
+     split ; first constructor.
+     exists p; split => //=.
+     move => x Dx /=.
+     replace ( _ - _) with ( (phi x - eval p x ) + 0 ) by (simpl;ring).
+     apply radd. apply Hp2 => //. apply symE with r => //. by rewrite Rabs_R0. apply domhi.
+   + split. 2 :by [].
+     eapply Rle_trans with (Rabs _). 
+     apply Rabs_pos. apply Hd, eval_mrange. apply rmmul. rel.
+     apply taylor.reval. apply HF. apply Hphi. apply domhi.
    + apply Hdlr; rel.
 
    move : Hnewton => [ f Hnewton].
    exists f; split. 2 : apply Hnewton.
    split; first constructor.
    exists p; split => //.
-   move => x Dx. eapply symE. 2: rel. simpl. 
-   apply Hnewton => //.
- Admitted.
- 
+   move => x Dx /=.
+   replace (_ - _) with ((phi x - eval p x) +  (f x - phi x )) by (simpl;ring).
+   apply radd. by apply Hp2.
+   eapply symE. 2: rel.
+   by apply Hnewton.
+Qed.
+   
 
  (** non-nullability test *)
  Lemma rmne0 n M f: mcontains M f -> mne0 n M -> forall x, dom x -> f x <> 0.
