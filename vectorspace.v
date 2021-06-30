@@ -18,7 +18,7 @@ Inductive list_rel: list R -> list S -> Prop :=
 Hint Constructors list_rel: rel.
 
 Lemma list_rel_tl : forall h k , list_rel h k -> list_rel (tl h) (tl k).
-Proof. induction 1; rel. Qed.
+Proof. destruct 1; rel. Qed.
 
 Lemma list_rel_app: forall h k, list_rel h k -> forall p q, list_rel p q -> list_rel (h++p) (k++q).
 Proof. induction 1; simpl; rel. Qed.

@@ -202,8 +202,23 @@ Section n.
              (mfc h)
              (mfc (interpolate n (fun x: FF => 1 / (mulZ 2 (beval h x))))).
 
-  (********** /!\ Need oracles to "guess" phi, A and r /!\ ********
-  Definition mpolyn_eq (F : list Tube ) : E Tube := ... 
+(********* /!\ Need oracles to "guess" phi, A and r /!\ *******
+ Definition newton_ball (d : II) (lambda : II -> option II) : E II := err "newton_ball not implemented yet".
+ 
+ Definition mpolyn_eq  n (F : list Tube ) (phi0 : Tube) : E Tube :=
+   let phi := phi0 (* Find a way to refine the initial approximation *) in
+   let DF := mcf (eval' (derive F) phi) in
+   let A := mfc (interpolate n (fun x=> 1 / beval DF x)) in
+   match mag (mrange (A * eval' F phi)) with
+     | Some d => 
+       let lambda :=
+           fun r =>
+             let phir := {| pol := pol phi ; rem := rem phi + sym r ; cont := false |} in
+             mag (mrange (eval' (derive (polynom_eq.opnewton F A)) phir)) 
+       in
+       LET r ::= newton_ball d lambda IN mpolyn_eq_aux F phi A r
+     | _ => err "mpolyn_eq: error when checking the range N0"
+   end. 
   ********** ____________________________________________ ********)
 
  (** testing nullability *)
@@ -712,8 +727,15 @@ Section n.
    apply radd. by apply Hp2.
    eapply symE. 2: rel.
    by apply Hnewton.
-Qed.
-   
+ Qed.
+
+(*
+ Lemma rmpolyn_eq n F' phi0' F phi0 :
+   list_rel mcontains F' F -> mcontains phi0' phi0 ->
+   EP (fun M => exists f, mcontains M f /\ forall t, dom t ->  eval' F f t = 0) (mpolyn_eq n F' phi0').
+ Proof.
+ *) 
+     
 
  (** non-nullability test *)
  Lemma rmne0 n M f: mcontains M f -> mne0 n M -> forall x, dom x -> f x <> 0.
