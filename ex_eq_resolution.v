@@ -14,9 +14,6 @@ Unset Printing Implicit Defensive.
 Section i.
   Context {nbh: NBH} {BO: BasisOps}.
   Notation Tube := (Tube (car (ops0 (@II nbh)))).
-(*  Context {C: Ops1} {B: BasisOps_on C}. 
-  Notation Fun := (C -> C).
-  Notation poly := (list Fun).*)
   Variable n: Z.
 
   Definition newton_method (N:Z) (f f' : list FF)  u0 :=
@@ -40,6 +37,7 @@ Section test.
   Let Bc := basis11_ops.
   Let nbh := IPrimFloat.nbh.
   Let Bt := taylor.basis_ops (fromZ (-1)) (fromZ 1).
+ 
   Definition a0: list C := sopp (sadd pone (pmul pid pid)).
   Eval compute in a0.
   Definition A0  := mfc a0.
@@ -47,20 +45,23 @@ Section test.
   Definition F := A0::(mfc [0])::(mfc pone)::[].
   Eval compute in F.
   Definition s0 := mfc pone.
-  Definition Pf := @taylor.eval' (@approx.MOps0 nbh Bt) F s0.
+  Definition Pf := @taylor.eval' (@approx.MOps0 nbh Bc) F s0.
   Eval compute in Pf.
   Eval compute in @mrange nbh (model_ops Bc) Pf.
 
-  Definition s := @solution_approx nbh Bc 100 F 10 s0.
-  (*Eval compute in s.*)
-  Definition Pf' := @taylor.eval' (@approx.MOps0 nbh Bt) F s.
-  (*Eval compute in Pf'.*)
+  Definition s := @solution_approx nbh Bc 40 F 10 s0.
+  Eval compute in s.
+  Definition Pf' := @taylor.eval' (@approx.MOps0 nbh Bc) F s.
+  (* We make a taylor evaluation but we use the operations of the Cheb basis (for the multiplication) *)
+  Eval compute in Pf'.
   Eval compute in @mrange nbh (model_ops Bc) Pf'.
-  (* We get [[-0.046307697537852952; 0.00365240036736261]] *)
-
-  (*
+  
+(*
   Definition s' := @solution_approx nbh Bc 100 F 10 (@mtruncate nbh (model_ops Bc) 20 s).
-  Definition Pf'' := @taylor.eval' (@approx.MOps0 nbh Bt) F s'.
+  Definition Pf'' := @taylor.eval' (@approx.MOps0 nbh Bc) F s'.
   Eval compute in @mrange nbh (model_ops Bc) Pf''.
- *)
+*)
 
+  
+  
+End test.
