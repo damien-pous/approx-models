@@ -65,7 +65,7 @@ Section n.
  Definition mone: Tube := msingle 1.
 
  (** by defining this structure, we get nice notations for the above operations on models *)
- Local Canonical Structure MOps0: Ops0 :=
+Canonical Structure MOps0: Ops0 :=
    {|
      car:=Tube;
      add:=madd;
