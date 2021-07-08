@@ -3,6 +3,7 @@
 Require Import String. 
 Require Import vectorspace.
 Require div sqrt polynom_eq.
+Require Import utils.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -202,24 +203,55 @@ Local Canonical Structure MOps0: Ops0 :=
              (mfc h)
              (mfc (interpolate n (fun x: FF => 1 / (mulZ 2 (beval h x))))).
 
-(********* /!\ Need oracles to "guess" phi, A and r /!\ *******
- Definition newton_ball (d : II) (lambda : II -> option II) : E II := err "newton_ball not implemented yet".
+ (********* /!\ Need oracles to "guess" phi, A and r /!\ *******)
  
- Definition mpolyn_eq  n (F : list Tube ) (phi0 : Tube) : E Tube :=
-   let phi := phi0 (* Find a way to refine the initial approximation *) in
-   let DF := mcf (eval' (derive F) phi) in
-   let A := mfc (interpolate n (fun x=> 1 / beval DF x)) in
-   match mag (mrange (A * eval' F phi)) with
-     | Some d => 
-       let lambda :=
-           fun r =>
-             let phir := {| pol := pol phi ; rem := rem phi + sym r ; cont := false |} in
-             mag (mrange (eval' (derive (polynom_eq.opnewton F A)) phir)) 
-       in
-       LET r ::= newton_ball d lambda IN mpolyn_eq_aux F phi A r
-     | _ => err "mpolyn_eq: error when checking the range N0"
-   end. 
-  ********** ____________________________________________ ********)
+ Definition newton_method (N:Z) (f f' : list FF)  u0 :=
+    Zfold (fun _ u=> u - (taylor.eval' f u)/(taylor.eval' f' u)) N u0.
+
+  
+  Definition solution_approx n (F: list Tube) (N:Z) (s0 : Tube) : Tube :=
+    let p0 := mcf s0 in
+    let Fp := map (fun f => mcf f) F in
+    let f := (fun t => let P := map (fun f=> beval f t) Fp in
+                 newton_method N P (derive P) (beval p0 t)) in
+    mfc (vectorspace.interpolate n f).
+
+  Fixpoint newton_ball (k:nat) (d : II) (lambda : II -> option II) (rmin rmax : II) : E II :=
+   match k with
+   | 0 =>  err "newton_ball : no correct radius was found"
+   | S k' =>
+   match (lambda rmin , lambda rmax) with
+   | (Some d1 , Some d2) =>
+     if is_lt ( d + d2 * rmax) rmax then ret rmax
+     else let rm := divZ 2 (rmin + rmax) in
+          TRY  (newton_ball k' d lambda rmin rm) CATCH  (newton_ball k' d lambda rm rmax) 
+      (*    match (newton_ball k' d lambda rmin rm) with
+          | ret r => ret r
+          | err r => (newton_ball k' d lambda rm rmax)
+          end*)
+   | (_, _) => err "newton_ball: error when checking the range lambda"
+   end
+   end.
+ 
+  Definition mpolyn_eq  k n (N:Z) (F : list Tube ) (phi0 : Tube) (rmax : FF) : E Tube :=
+    let rm' := F2I rmax in
+    if is_le 0 rm' then 
+      let phi := solution_approx n F N phi0 in
+      let DF := mcf (eval' (derive F) phi) in
+      let A := mfc (interpolate n (fun x=> 1 / beval DF x)) in
+      match mag (mrange (A * eval' F phi)) with
+      | Some d => 
+        let lambda :=
+            fun r =>
+              let phir := {| pol := pol phi ; rem := rem phi + sym r ; cont := false |} in
+              mag (mrange (eval' (derive (polynom_eq.opnewton F A)) phir)) 
+        in
+        LET r ::= newton_ball k d lambda 0 rm' IN mpolyn_eq_aux F phi A r
+                          
+      | _ => err "mpolyn_eq: error when checking the range N0"
+      end
+    else err "mpolyn_eq : rmax could be negative". 
+  
 
  (** testing nullability *)
  Definition mne0 n (M: Tube): bool :=
@@ -729,12 +761,41 @@ Local Canonical Structure MOps0: Ops0 :=
    by apply Hnewton.
  Qed.
 
-(*
- Lemma rmpolyn_eq n F' phi0' F phi0 :
-   list_rel mcontains F' F -> mcontains phi0' phi0 ->
-   EP (fun M => exists f, mcontains M f /\ forall t, dom t ->  eval' F f t = 0) (mpolyn_eq n F' phi0').
- Proof.
- *) 
+
+
+ Lemma rmnewton_ball k d' lambda rmin rmax r1 r2 :
+  contains rmin r1 /\ 0 <= r1 -> contains rmax r2 /\ 0 <= r2 -> EP (fun r' => exists (rR:R), contains r' rR /\ 0 <= rR) (newton_ball k d' lambda rmin rmax).
+ Proof. move : rmax rmin r2 r1. elim: k => [ | k Ihk /=] rmax rmin r2 r1 Hr1 Hr2.
+        constructor.
+
+        destruct (lambda rmin); destruct (lambda rmax); try constructor. 
+        case (is_lt); try constructor.
+        exists r2 => //.
+        destruct Hr1 as [ Hc1 Hle1]; destruct Hr2 as [Hc2 Hle2].
+        case_eq (newton_ball k d' lambda rmin (divZ 2 (rmin + rmax))) =>  A H /=.
+        rewrite -H.
+        eapply Ihk. eauto. split. apply rdivZ; apply radd; eauto; simpl; lra.
+        simpl;lra.
+        eapply Ihk. split. apply rdivZ; apply radd; eauto; simpl ;lra. simpl; lra.
+        eauto.
+
+Qed.
+    
+ Lemma rmpolyn_eq k n_interpol N_newton_iter F' phi0' rm' F :  
+   list_rel mcontains F' F ->  
+   EP (fun M => exists f, mcontains M f /\ forall t, dom t ->  eval' F f t = 0) (mpolyn_eq k n_interpol N_newton_iter F' phi0' rm').
+
+ Proof. move => HF. rewrite /mpolyn_eq.
+        case is_leE; try constructor. move => H.
+        case magE => [d' d cd Hd | ] => [ | //].
+        apply ep_bind with (P := fun r => exists (rR:R), contains r rR /\ 0 <= rR ) => [ r [rR [PcR PRle]] |].
+        move : PcR PRle; eapply rmpolyn_eq_aux => //; try apply rmfc.
+        eapply rmnewton_ball with (r1 := 0).
+        split. rel. simpl; lra.
+        split. apply F2IE.
+        apply H. rel. apply F2IE.
+Qed.
+        
      
 
  (** non-nullability test *)

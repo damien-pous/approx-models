@@ -50,10 +50,8 @@ Section testCheb.
   Definition s0 : Model := mfc pone.
 
   Definition Pf := taylor.eval' F1 s0.
- (* Definition Pf := @taylor.eval' (@approx.MOps0 nbh Bc) F1 s0.*)
   Eval compute in Pf.
   Eval compute in mrange Pf.
-  (*Eval compute in @mrange nbh (model_ops Bc) Pf.*)
  
   Definition s : Model := solution_approx 40 F1 10 s0.
   Eval compute in s.
@@ -62,12 +60,17 @@ Section testCheb.
   (* We make a taylor evaluation but we use the operations of the Cheb basis (for the multiplication) *)
   Eval compute in Pf'.
   Eval compute in mrange Pf'.
-  
-(*
-  Definition s' := @solution_approx nbh Bc 100 F 10 (@mtruncate nbh (model_ops Bc) 20 s).
-  Definition Pf'' := @taylor.eval' (@approx.MOps0 nbh Bc) F1 s'.
-  Eval compute in @mrange nbh (model_ops Bc) Pf''.
-*)
+
+  Definition valid_aux_s n : E Model :=
+    let DF := mcf (eval' (taylor.derive F1) s) in
+    let A := mfc (interpolate n (fun x=> 1 / eval' DF x)) in
+    @mpolyn_eq_aux nbh Bc F1 s A (F2I (divZ 10 (fromZ 1))).
+  Eval compute in valid_aux_s 40.
+
+  Definition valid_s : E Model :=
+    @mpolyn_eq nbh Bc 5 40 10 F1 s0 (divZ 1 (fromZ 2)).
+  Eval compute in valid_s.
+ 
   
 End testCheb.
 
@@ -125,3 +128,7 @@ Section testFourier.
    Time exec ~ 5 min *)
   (* 120 -> [[-5.8430719814984113e-11; 5.843060879268165e-11]]
      : nbh 7 min *)
+
+End testfourier.
+
+  
