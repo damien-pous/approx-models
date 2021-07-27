@@ -4,7 +4,7 @@ Require Import interfaces.
 
 Require Import vectorspace taylor approx.
 
-Require Import utils.
+Require Import utils String.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -41,7 +41,7 @@ Section testCheb.
   Notation Model := (@model_ops nbh Bc).
 
   
-  Definition a0 : list flt := sopp (sadd pone (pmul pid pid)).
+  Definition a0 : list flt := sopp (sadd pone (sscal (fromZ 10) (pmul pid pid))).
   Eval compute in a0.
   Definition A0 : Model  := mfc a0.
   
@@ -52,24 +52,24 @@ Section testCheb.
   Definition Pf := taylor.eval' F1 s0.
   Eval compute in Pf.
   Eval compute in mrange Pf.
- 
-  Definition s : Model := solution_approx 40 F1 10 s0.
-  Eval compute in s.
+
+  Definition s : Model := solution_approx 5 F1 10 s0.
+  (*Eval compute in s.
   
   Definition Pf' := taylor.eval' F1 s.
   (* We make a taylor evaluation but we use the operations of the Cheb basis (for the multiplication) *)
   Eval compute in Pf'.
-  Eval compute in mrange Pf'.
+  Eval compute in mrange Pf'.*)
 
   Definition valid_aux_s n : E Model :=
     let DF := mcf (eval' (taylor.derive F1) s) in
     let A := mfc (interpolate n (fun x=> 1 / eval' DF x)) in
     @mpolyn_eq_aux nbh Bc F1 s A (F2I (divZ 10 (fromZ 1))).
-  Eval compute in valid_aux_s 40.
+ (* Eval compute in valid_aux_s 40.*)
 
   Definition valid_s : E Model :=
-    @mpolyn_eq nbh Bc 5 40 10 F1 s0 (divZ 1 (fromZ 2)).
-  Eval compute in valid_s.
+    @mpolyn_eq nbh Bc 5 20 10 F1 s0 (divZ 1 (fromZ 1)).
+   Eval native_compute in valid_s.
  
   
 End testCheb.
@@ -89,7 +89,7 @@ Section testFourier.
   Let h : Model := msingle [divZ 25 (fromZ 16)].
 
   Let x0 : Model := msingle ((divZ 10 (fromZ 9))::0::(divZ 10 (fromZ 3))::[]).
-  Let y0 : Model := msingle (1::(divZ 10 (fromZ 3))::[]).
+  Let y0 : Model := msingle ((divZ 100 (fromZ 100))::(divZ 10 (fromZ 3))::[]).
 
   Let msquare T : list Model := smul T T.
   Let Px : list Model := ssub (msquare sid) [X0].
@@ -106,17 +106,20 @@ Section testFourier.
 
   Definition F2 : list Model := ssub H [h].
   Definition s_init : Model := 0.
-
+ (* Eval compute in F2.*)
   Definition Pf2 : Model := taylor.eval' F2 s_init.
-  Eval compute in Pf2.
-  Eval compute in mrange Pf2.
-
-  Definition s_approx : Model := solution_approx 120 F2 10 s_init.
-  (*Eval compute in s_approx.*)
+  (*Eval compute in Pf2.*)
+ (* Eval compute in mrange Pf2.*)
+  
+  Definition s_approx50 : Model := solution_approx 50 F2 10 s_init.
+  Definition s_approx : Model := solution_approx 50 F2 10 s_init.
+ (* Definition diff := mrange (sub s_approx50 s_approx60).
+  Eval compute in diff.*)
+ (*Eval compute in s_approx.*)
 
   Definition  Pf2' : Model := taylor.eval' F2 s_approx.
   (*Eval compute in Pf2'.*)
-  Eval compute in mrange Pf2'.
+  (*Time Eval compute in mrange Pf2'.*)
   (* 40 -> [[-0.00013693284970087133; 0.00013693377905579768]]
      : nbh *)
   (* 50 -> [[-1.9056106884527256e-05; 1.9056119656310886e-05]]
@@ -129,6 +132,21 @@ Section testFourier.
   (* 120 -> [[-5.8430719814984113e-11; 5.843060879268165e-11]]
      : nbh 7 min *)
 
+ Definition oval_valid n : E Model :=
+   @mpolyn_eq nbh Bf 13 n 10 F2 s_init (divZ 1 (fromZ 1)).
+ 
+ (*Time Eval compute in oval_valid 20.*) (*[[-0.015069843634262801; 0.0150698436342628]]; / 24 s*)
+ Time Eval compute in oval_valid 25. (* [[-0.0031384950293210315; 0.0031384950293210311]]; / 48s s*)
+ (*Time Eval compute in oval_valid 30.*) (* [[-0.0010775659050942326; 0.0010775659050942324]] / 71 s *)
+ Time Eval compute in oval_valid 35. (* [[-0.00043869723080766903; 0.00043869723080766898]] / 122 s *)
+ (*Time Eval compute in oval_valid 40.*) (* [[-0.00015525289736369543; 0.00015525289736369541]] / 169 s *)
+ Time Eval compute in oval_valid 45. (* [[-6.1553068275257869e-05; 6.1553068275257855e-05]] / 264 s *)
+ (*Time Eval compute in oval_valid 50.*)(* [[-2.5468849730489291e-05; 2.5468849730489287e-05]] / 354 s *)
+ Time Eval compute in oval_valid 60. (* [[-3.9777846581784549e-06; 3.9777846581784541e-06]] / 704 s *)
+ Time Eval compute in oval_valid 80. (* [[-1.2660417643661427e-07; 1.2660417643661424e-07]] / 2020 s *)
+ (*Time Eval compute in oval_valid 100.*)
+  (*Time Eval compute in oval_valid 120.*)
+ 
 End testfourier.
 
   
