@@ -709,6 +709,8 @@ Canonical Structure MOps0: Ops0 :=
    move => ??. apply eval_cont.
  Qed.
 
+(** Polynomial equation *)
+ 
  Lemma rmpolyn_eq_aux (F' : list Tube) (phi' A' : Tube) (r' : II) (F : list (R->R)) (phi A : R->R) (r: R) :
    list_rel mcontains F' F ->
    mcontains phi' phi ->
