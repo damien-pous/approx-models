@@ -75,15 +75,17 @@ Goal RInt (fun x => RInt id 1 x) 0 1 <= 5.
   Fail approx.
 Abort.
 
-Goal 0 <= RInt (fun x => cos x + 1) 0 1 <= 1.
+Goal 1.84 <= RInt (fun x => cos x + 1) 0 1 <= 1.85.
 Proof.
   Fail approx.                  (* need Fourier basis *)
-Abort.
+  approx fourier.
+Qed.
 
-Goal 0 <= RInt (fun x => cos x * sin x) 0 1 <= 1.
+Goal 1/3 <= RInt (fun x => cos x * sin x) 0 1 <= 1/2.
 Proof.
   Fail approx.                  (* need Fourier basis *)
-Abort.
+  approx fourier. 
+Qed.
 
 Goal RInt (fun x => cos 1 + x) 0 1 <= cos 1+0.6.
 Proof.
@@ -92,12 +94,14 @@ Qed.
 
 Goal RInt (fun x => cos (x*x)) 0 1 <= 100.
 Proof.
-  Fail approx.                  (* only [cos x] would be allowed in Fourier basis *)
+  Fail approx.                  (* only [cos x] is allowed in Fourier *)
+  Fail approx fourier. 
 Abort.
 
 Goal RInt (fun x => x * cos x) 0 1 <= 100.
 Proof.
   Fail approx.                  (* would need a basis supporting both [id] and [cos] *)
+  Fail approx fourier.
 Abort.
 
 
@@ -116,6 +120,12 @@ Qed.
 Goal forall x, 0.1<=x<=0.9 -> x <> sqrt x.
   approx.
 Qed.
+Goal forall x, 0.111<=x<=0.999 -> x <> sqrt x.
+  approx (i_deg 60).
+Qed.
+Goal forall x, 0.111<=x<=0.999 -> x < sqrt x.
+  approx (i_deg 60).
+Qed.
 
 
 (** testing Fourier basis *)
@@ -125,6 +135,8 @@ Goal True.
   estimate (RInt (fun x => sin x / (2+cos x)) (-4) (18*pi/3)) fourier.
   (* below: although 1+sin x > 0 on [0;pi], the range is estimated on [0;2pi], so this cannot work... *)
   estimate (RInt (fun x => sqrt (1+sin x)) 0 pi) fourier.
+  (* even in dynamic mode: the declared domain does not change the way the range is estimated *)
+  estimate (RInt (fun x => sqrt (1+sin x)) 0 pi) (fourier, dynamic).
   estimate (RInt (fun x => sqrt (2+sin x)) 0 pi) fourier.
   estimate (RInt (fun x => sqrt (2+sin x) / (2+cos x)) (-4) (18*pi/3)) fourier.
 Abort.
