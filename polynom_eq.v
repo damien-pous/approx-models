@@ -1,6 +1,4 @@
-(** * Definition of general polynomial functional operators on Models (monomial basis) 
-    to encode polynomial functional equations 
- *)
+(** * Newton method for certifying solutions of polynomial functional equations *)
 
 Require Import Coquelicot.Coquelicot.
 Require Import posreal_complements cball domfct banach.
@@ -11,37 +9,16 @@ Unset Strict Implicit.
 Unset Printing Implicit Defensive.
 
 
-(* Definition of operations on polynomial functional operators *)
-
-Definition opnewton {M: Ops0} (P : list M) (A : M) := ssub sid (sscal A P).
-
-(* DAMIEN
-   substitutions:
-   - partial_eval => apply
-   - opeval => eval'
- *)
+(** Newton operator *)
+Definition opnewton {C: Ops0} (P : list C) (A : C) := ssub sid (sscal A P).
 
 Section TubePolyn.
 Variable (I : R -> Prop).
 Notation "{R,I -> R}" := (@domfct_CompleteSpace R_CompleteSpace R_CompleteSpace I).
 
-
-Lemma Requation1 (x y : R) : x = x - y -> y = 0. 
-Proof. simpl. lra. Qed.
-
-Lemma Requation2 (x y : R) : x <> 0 -> x*y = 0 -> y = 0.
-Proof.
-  intros. 
-  apply (Rmult_eq_compat_l (/ x) (x*y) 0) in H0. move : H0.
-  rewrite -Rmult_assoc Rmult_0_r Rinv_l /= => //. lra.
-Qed.
-
-Lemma Rle_sum (a b c d: R) : a <= c -> b <= d -> a + b <= c + d.
-Proof. lra. Qed. 
-
-
+(** auxiliary lemmas about convexity *)
 Lemma Rinterval_convex (a b u : R) :
-  a <= u <= b -> exists eta,  0 <= eta <= 1 /\ u = a + eta * ( b - a).
+  a <= u <= b -> exists eta,  0 <= eta <= 1 /\ u = a + eta * (b - a).
 Proof.
   intros [Hle Hge]. exists ((u-a)/(b-a)); case (Req_dec a b) => Hab.
   + move : Hle Hge; rewrite Hab => Hle Hge; apply Rle_antisym in Hle => //.
@@ -53,29 +30,28 @@ Proof.
   + field; lra.
 Qed.
 
-
 Lemma Rabs_convex v s1 s2 r eta:
   0 <= eta <= 1 ->
-   Rabs ( v  - s1 ) <= r ->  Rabs ( v - s2 ) <= r ->
-    Rabs ( v - ( s1 + eta * ( s2 - s1))) <= r.
+  Rabs (v  - s1) <= r ->  Rabs (v - s2) <= r ->
+  Rabs (v - (s1 + eta * (s2 - s1))) <= r.
 Proof.
   intros [Heta_le Heta_ge] Hs1 Hs2.
   replace ( _ - ( _ + _)) with ( (1-eta)*(v  - s1) + eta * ( v - s2)). 2: simpl; lra.
   have H1meta : 0 <= 1 - eta. lra.
   eapply Rle_trans. apply Rabs_triang. rewrite !Rabs_mult.
   replace r with ((1-eta)*r + eta * r). 2: simpl;lra.
-  apply Rle_sum ; rewrite Rabs_pos_eq => //; apply Rmult_le_compat_l => //; try apply Hs1 => //; try apply Hs2 => //.
+  apply Rplus_le_compat ; rewrite Rabs_pos_eq => //; apply Rmult_le_compat_l => //; 
+    try apply Hs1 => //; try apply Hs2 => //.
 Qed.
 
-
 Lemma newton (F : list (R -> R)) (phi A : R -> R) ( d r lambda : R) :
-  (forall (s : R->R), (forall t , I t -> Rabs ( phi t - s t ) <= r ) ->
-                      (forall t, I t -> Rabs (  eval' (derive (opnewton F A)) s t ) <= lambda )) ->
-  (forall t, I t ->  Rabs ( A t * eval' F phi t ) <= d) ->
+  (forall (s : R->R), (forall t , I t -> Rabs (phi t - s t) <= r) ->
+                (forall t, I t -> Rabs (eval' (derive (opnewton F A)) s t) <= lambda)) ->
+  (forall t, I t ->  Rabs (A t * eval' F phi t) <= d) ->
   0 <= lambda /\ lambda < 1 -> 0 <= d /\ 0 <= r -> d + lambda * r <= r ->
-  (exists (f: R -> R) , forall t, I t  ->  eval' F f t = 0 /\ Rabs ( f t - phi t ) <= d / (1 - lambda)).
+  (exists f: R -> R, forall t, I t  ->  eval' F f t = 0 /\ Rabs (f t - phi t) <= d / (1 - lambda)).
 Proof.
-  move => Hlambda Hd [ Hl0 Hl1 ] [Hd0 Hr0] Hdlr.
+  move => Hlambda Hd [Hl0 Hl1] [Hd0 Hr0] Hdlr.
   set lambda0 := mknonnegreal Hl0.
   set d0 := mknonnegreal Hd0.
   have Hbound : 0 <= d / (1 - lambda). apply Rle_div_r; lra. 
@@ -97,9 +73,8 @@ Proof.
       have Hconvex : (forall t : R, I t -> Rabs (phi t - (fun t=>(Rmin (s1 t) (s2 t) + eta * (Rmax (s1 t) (s2 t) - Rmin (s1 t) (s2 t)))) t) <= r).
       move => t0 It0;
       rewrite /Rmin /Rmax; destruct (Rle_dec (s1 t0) (s2 t0)); apply Rabs_convex => //;
-      by move : It0; apply R_dcballE, cball_sym, (cball_le Hdlr').   
-      
-      
+      by move : It0; apply R_dcballE, cball_sym, (cball_le Hdlr').
+
       move: (Hlambda (fun t=> (Rmin (s1 t) (s2 t) + eta * (Rmax (s1 t) (s2 t) - Rmin (s1 t) (s2 t)))) Hconvex t It) => Hlambda'.
       rewrite Rabs_mult /=. apply Rmult_le_compat. apply Rabs_pos. apply Rabs_pos. 
       by move : Hlambda'; rewrite -eval_apply.
@@ -119,7 +94,7 @@ Proof.
     rewrite apply_sub apply_scal apply_id.
     rewrite (Derive_ext _ (fun x => x - (A t) * eval (apply F t) x)).
     rewrite Derive_minus. rewrite Derive_mult. rewrite Derive_id Derive_const HAt.
-    replace ( 1 - _ ) with 1%R => /=. rewrite Rabs_pos_eq => //=.  lra. lra.
+    replace (1 - _) with 1%R => /=. rewrite Rabs_pos_eq => //=. lra. lra.
     apply ex_derive_const. apply eval_ex_derive. apply ex_derive_id.
     apply ex_derive_mult. apply ex_derive_const. apply eval_ex_derive. 
     by move => x; rewrite eval_sub eval_id eval_scal.  
@@ -132,8 +107,9 @@ Proof.
 
   + move : (Hbanach_fix t). rewrite /opnewton.
     rewrite eval_sub_RinR eval_scal_RinR eval_id_RinR /=.  
-    intro Hb; apply Requation1 in Hb => //. apply HA in H. move : H Hb. apply Requation2. 
-    
+    intro Hb; specialize (Hb H); specialize (HA _ H). clear -Hb HA.
+    have H': (A t * eval' F bf t = 0)%R by lra.
+    apply Rmult_integral in H'. tauto. 
   + by apply Hbanach_bound.
 Qed.
 
