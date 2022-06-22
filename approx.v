@@ -126,145 +126,157 @@ Canonical Structure MOps0: Ops0 :=
  Definition mcontinuous (M: Tube): Tube :=
    {| pol := pol M; rem := rem M; cont := true |}.
  
- (** division: h' and w' are given by an oracle
-    h' ~ f'/g'
-    w' ~ 1 /g' *)
- Definition mdiv_aux (f' g' h' w': Tube): E Tube :=
-   let k1' := 1 - w'*g' in
-   let k2' := w' * (g' * h' - f') in
-   match mag (mrange k1'), mag (mrange k2') with
-   | Some mu', Some b' =>
-     if is_lt mu' 1 then ret {| pol := pol h';
-                                rem := rem h' + sym (b' / (1 - mu'));
-                                cont := cont f' && cont g'; |}
+ (** division: H and W are given by an oracle
+    H ~ F/G
+    W ~ 1 /G *)
+ Definition mdiv_aux (F G H W: Tube): E Tube :=
+   let K1 := 1 - W*G in
+   let K2 := W*(G*H - F) in
+   match mag (mrange K1), mag (mrange K2) with
+   | Some mu, Some b =>
+       if is_lt mu 1 then ret {| pol := pol H;
+                                 rem := rem H + sym (b / (1 - mu));
+                                 cont := cont F && cont G; |}
      else err "mdiv: non contractive operator"
    | _,_ => err "mdiv: error when checking the ranges of k1/k2"
    end.
 
- (** square root: g' and k' are given by an oracle 
-    g' ~ sqrt f'
-    k' ~ 1 / 2g' *)
- Definition msqrt_aux (f' h' w': Tube): E Tube :=
+ (** square root: G and K are given by an oracle 
+    H ~ sqrt F
+    W ~ 1 / 2H *)
+ Definition msqrt_aux (F H W: Tube): E Tube :=
    let x0' := (lo+hi)//2 in
-   let y0' := meval_unsafe w' x0' in
+   let y0' := meval_unsafe W x0' in
    if ~~ is_lt 0 y0' then err "msqrt: potentially negative value" else
-   let k1' := 1 - (mmulZ 2 (w' * h')) in
-   let k2' := w' * (h' * h' - f') in
-   match mag (mrange k1'), mag (mrange w'), mag (mrange k2') with
-   | Some mu0', Some mu1', Some b' =>
-     let delta' := pow 2 (1 - mu0') - mulZ 8 b' * mu1' in
-     if is_lt mu0' 1 then
-       if is_lt 0 delta' then
-         let rmin' := (1 - mu0' - sqrt delta')/(mulZ 4 mu1') in
-         let mu' := mu0' + mulZ 2 mu1' * rmin' in
-         if is_lt mu' 1 then ret {| pol := pol h'; rem:=rem h' + sym rmin'; cont := cont f' |}             
-         else err "msqrt: missed mu'<1"
+   let K1 := 1 - (mmulZ 2 (W*H)) in
+   let K2 := W*(H*H - F) in
+   match mag (mrange K1), mag (mrange W), mag (mrange K2) with
+   | Some mu0, Some mu1, Some b =>
+     let delta := pow 2 (1 - mu0) - mulZ 8 b * mu1 in
+     if is_lt mu0 1 then
+       if is_lt 0 delta then
+         let rmin := (1 - mu0 - sqrt delta)/(mulZ 4 mu1) in
+         let mu := mu0 + mulZ 2 mu1 * rmin in
+         if is_lt mu 1 then ret {| pol := pol H; rem:=rem H + sym rmin; cont := cont F |}             
+         else err "msqrt: missed mu<1"
        else err "msqrt: missed 0<delta"
      else err "msqrt: missed mu0<1"
-   | _,_,_ => err "msqrt: error when checking the ranges of k1/w/k2"
+   | _,_,_ => err "msqrt: error when checking the ranges of K1/W/K2"
    end.
 
- (** polynomial equation : F' is a model polynom
-     phi', A' are models given by an oracle so that
-     F' (phi') ~ 0
-     A' ~ 1/ DF'(phi')
-     r' is a ball radius given by an oracle, we wish 
-     the newton operator to be lambda contracting (lambda' < 1) on B(phi',r') and stable  *) 
- Definition mpolyn_eq_aux (F' : list Tube) (phi' A' : Tube) (r' : II)  : E Tube :=
-   let phir' := {| pol := pol phi' ; rem := rem phi' + sym r' ; cont := false |} in
-   let DN' := eval' (derive (polynom_eq.opnewton F' A')) phir' in
-   let N0' := A' * eval' F' phi' in
-   match mag (mrange DN') , mag (mrange N0') with
-   | Some lambda' , Some d' =>
-     if is_lt lambda' 1 then
-       if is_le (d' + lambda' * r') r' then
-         let eps' := d' / (1 - lambda') in
-         ret {| pol := pol phi' ; rem := rem phi' + sym eps' ; cont := false |}
+ (** solution of polynomial equation : F is a polynom with model coefficients
+     - phi, A are models given by an oracle, such that F(phi) ~ 0 and A ~ 1/ DF(phi)
+     - r is a ball radius also given by an oracle, such that the newton operator is stable and lambda contracting on B(phi,r) *) 
+ Definition mpolynom_eq_aux (F: list Tube) (phi A: Tube) (r: II): E Tube :=
+   let phir := {| pol := pol phi ; rem := rem phi + sym r ; cont := false |} in
+   let DN := eval' (derive (polynom_eq.opnewton F A)) phir in
+   let N0 := A * eval' F phi in
+   match mag (mrange DN) , mag (mrange N0) with
+   | Some lambda , Some d =>
+     if is_lt lambda 1 then
+       if is_le (d + lambda * r) r then
+         let eps := d / (1 - lambda) in
+         ret {| pol := pol phi; rem := rem phi + sym eps; cont := false |}
        else err "mpolyn_eq : missed (d+lambda*r)<=r"
-     else err "mpolyn_eq : missed lambda'<1"
-   | _,_ => err "mpolyn_eq: error when checking the ranges of DN'/N0'"
+     else err "mpolyn_eq : missed lambda<1"
+   | _,_ => err "mpolyn_eq: error when checking the ranges of DN/N0"
    end.
 
  (** auxiliary conversion functions to perform interpolation with floating points *)
  Definition mcf (M: Tube): list FF := map I2F (pol M).
  Definition mfc (p: list FF): Tube := {| pol := map F2I p; rem := 0; cont := true |}.
 
- (** division and square root, using interpolation as oracle *)
- Definition mdiv n (M N: Tube): E Tube :=
+ (** division and square root, using interpolation as oracle ; [d] is the interpolation degree *)
+ Definition mdiv d (M N: Tube): E Tube :=
    let p := mcf M in
    let q := mcf N in
    mdiv_aux M N
-            (mfc (interpolate n (fun x => beval p x / beval q x)))
-            (mfc (interpolate n (fun x => 1 / beval q x))).
- Definition msqrt n (M: Tube): E Tube :=
+            (mfc (interpolate d (fun x => beval p x / beval q x)))
+            (mfc (interpolate d (fun x => 1 / beval q x))).
+ Definition msqrt d (M: Tube): E Tube :=
    let p := mcf M in
-   let h := interpolate n (fun x: FF => sqrt (beval p x)) in
+   let h := interpolate d (fun x: FF => sqrt (beval p x)) in
    msqrt_aux M
              (mfc h)
-             (mfc (interpolate n (fun x: FF => 1 / (mulZ 2 (beval h x))))).
+             (mfc (interpolate d (fun x: FF => 1 / (mulZ 2 (beval h x))))).
 
- (********* /!\ Need oracles to "guess" phi, A and r /!\ *******)
- 
- Definition newton_method (N:Z) (f f' : list FF)  u0 :=
-    Zfold (fun _ u=> u - (taylor.eval' f u)/(taylor.eval' f' u)) N u0.
+ (** oracle for solutions of polynomial equations *)
 
-  
-  Definition solution_approx n (F: list Tube) (N:Z) (s0 : Tube) : Tube :=
-    let p0 := mcf s0 in
-    let Fp := map (fun f => mcf f) F in
-    let f := (fun t => let P := map (fun f=> beval f t) Fp in
-                 newton_method N P (derive P) (beval p0 t)) in
-    mfc (vectorspace.interpolate n f).
+ (** Newton iteration, given a polynomial [f] and its derivative [f'] *)
+ Definition newton_method (n: Z) (f f': list FF) u0 :=
+   Zfold (fun _ u => u - eval' f u / eval' f' u) n u0.
 
-  Fixpoint newton_ball (k:nat) (d : II) (lambda : II -> option II) (rmin rmax : II) : E II :=
-   match k with
-   | 0 =>  err "newton_ball : no correct radius was found"
-   | S k' =>
-   match (lambda rmin , lambda rmax) with
-   | (Some d1 , Some d2) =>
-     if is_lt ( d + d2 * rmax) rmax then ret rmax
-     else let rm := divZ 2 (rmin + rmax) in
-          TRY  (newton_ball k' d lambda rmin rm) CATCH  (newton_ball k' d lambda rm rmax) 
-      (*    match (newton_ball k' d lambda rmin rm) with
-          | ret r => ret r
-          | err r => (newton_ball k' d lambda rm rmax)
-          end*)
-   | (_, _) => err "newton_ball: error when checking the range lambda"
-   end
-   end.
- 
-  Definition mpolyn_eq  k n (N:Z) (F : list Tube ) (phi0 : Tube) (rmax : FF) : E Tube :=
-    let rm' := F2I rmax in
-    if is_le 0 rm' then 
-      let phi := solution_approx n F N phi0 in
-      let DF := mcf (eval' (derive F) phi) in
-      let A := mfc (interpolate n (fun x=> 1 / beval DF x)) in
-      match mag (mrange (A * eval' F phi)) with
-      | Some d => 
-        let lambda :=
-            fun r =>
-              let phir := {| pol := pol phi ; rem := rem phi + sym r ; cont := false |} in
-              mag (mrange (eval' (derive (polynom_eq.opnewton F A)) phir)) 
-        in
-        LET r ::= newton_ball k d lambda 0 rm' IN mpolyn_eq_aux F phi A r
-                          
-      | _ => err "mpolyn_eq: error when checking the range N0"
-      end
-    else err "mpolyn_eq : rmax could be negative". 
-  
+ (** oracle: by interpolation, using Newton's method to approximate the solution at the interpolation points
+     - [d] is the interpolation degree / number of interpolation points
+     - [n] is the number of Newton iterations for each point
+     - [phi] is a preliminary candidate
+  *)
+ Definition polynom_eq_oracle d n (F: list Tube) (phi: Tube): Tube :=
+   let phi := mcf phi in
+   let F := map mcf F in
+   let f t :=
+     let P := map (fun f => beval f t) F in
+     newton_method n P (derive P) (beval phi t)
+   in
+   mfc (interpolate d f).
 
- (** testing nullability *)
- Definition mne0 n (M: Tube): bool :=
+ (** heuristic to find an appropriate radius 
+     - [k] is a bound on recursion depth (fuel)
+     - [c] is the ball center
+     - [lambda] estimates the contraction factor
+     - [rmin,rmax] are bounds within which the radius should be found
+  *)
+ Fixpoint polynom_eq_radius (k: nat) (c: II) (lambda: II -> option II) (rmin rmax: II): E II :=
+  match k with
+  | 0 => err "mpolynom_eq: could not find a correct radius"
+  | S k =>
+  match (lambda rmin, lambda rmax) with
+  | (Some d1, Some d2) =>
+    if is_lt (c + d2*rmax) rmax then ret rmax
+    else let rm := divZ 2 (rmin + rmax) in
+         TRY  (polynom_eq_radius k c lambda rmin rm)
+         CATCH  (polynom_eq_radius k c lambda rm rmax) 
+  | (_, _) => err "mpolynom_eq: error when checking the range of lambda"
+  end
+  end.
+
+ (** putting everything together, we obtain the following function for computing solutions of polynomial functional equations.
+     - [d] is the interpolation degree
+     - [n] is the number of Newton iterations to be used at each point
+     - [k] is the recursion depth when looking for an appropriate radius
+     - [rmax] is the starting maximal radius
+     - [phi] is a temptative solution (from which Newton iterations start with)
+  *)
+ Definition mpolynom_eq d n k (rmax: FF) (F: list Tube) (phi: Tube): E Tube :=
+   let rmax := F2I rmax in
+   if is_le 0 rmax then 
+     let phi := polynom_eq_oracle d n F phi in
+     let DF := mcf (eval' (derive F) phi) in
+     let A := mfc (interpolate d (fun x=> 1 / beval DF x)) in
+     match mag (mrange (A * eval' F phi)) with
+     | Some c => 
+       let lambda r :=
+         let phir := {| pol := pol phi; rem := rem phi + sym r; cont := false |} in
+         mag (mrange (eval' (derive (polynom_eq.opnewton F A)) phir)) 
+       in
+       LET r ::= polynom_eq_radius k c lambda 0 rmax
+       IN mpolynom_eq_aux F phi A r                         
+     | _ => err "mpolynom_eq: error when checking the range of A*F(phi)"
+     end
+   else err "mpolynom_eq : rmax should be positive". 
+
+ (** testing nullability, [d] is the interpolation degree used for conditionning the problem *)
+ Definition mne0 d (M: Tube): bool :=
    let p := mcf M in
-   let q := interpolate n (fun x: FF => 1 / beval p x) in
+   let q := interpolate d (fun x: FF => 1 / beval p x) in
    is_ne 0 (mrange (M * mfc q)).
  
- (** testing positivity *)
- Definition mgt0 n (M: Tube): E bool :=
+ (** testing positivity, [d] is the interpolation degree used for conditionning the problem  *)
+ Definition mgt0 d (M: Tube): E bool :=
    if ~~ cont M then err "mgt0: need a continuous model" else
      (* TOTHINK: in orthogonal bases, sufficient to look at the constant coefficient rather than evaluating at some point (here [lo]) *)
    if ~~ is_lt 0 (meval_unsafe M lo) then ret false
-   else ret (mne0 n M).
+   else ret (mne0 d M).
  
  (** ** correctness of the above operations in valid bases *)
 
@@ -610,9 +622,9 @@ Canonical Structure MOps0: Ops0 :=
  
  (** *** division *)
  
- Lemma rmdiv_aux (f' g' h' w': Tube) f g h w:
-   mcontains f' f -> mcontains g' g -> mcontains h' h -> mcontains w' w ->
-   EP' mcontains (mdiv_aux f' g' h' w') (f_bin Rdiv f g).
+ Lemma rmdiv_aux (F G H W: Tube) f g h w:
+   mcontains F f -> mcontains G g -> mcontains H h -> mcontains W w ->
+   EP' mcontains (mdiv_aux F G H W) (f_bin Rdiv f g).
  Proof.
    move => Hf Hg Hh Hw. rewrite /mdiv_aux.
    case magE => [Mu mu MU Hm|]=>//. 
@@ -629,7 +641,7 @@ Canonical Structure MOps0: Ops0 :=
        apply eval_mrange with (f := w*(g*h-f)) =>//.
          by apply rmmul; last (apply rmsub; first apply rmmul).
      + lapply (fun H => Hm _ (eval_mrange (f:=1-w*g) H Dx)).
-       move => H; split =>//. rewrite <-H. apply Rabs_pos.
+       move => E; split =>//. rewrite <-E. apply Rabs_pos.
        apply rmsub. apply rmone. by apply rmmul.
      + lapply (fun H => Hc _ (eval_mrange (f:=w*(g*h-f)) H Dx)).
        intros <-. apply Rabs_pos.
@@ -645,17 +657,17 @@ Canonical Structure MOps0: Ops0 :=
      rewrite Rabs_Ropp. by apply L. 
  Qed.
 
- Lemma rmdiv n:
+ Lemma rmdiv d:
    forall M f, mcontains M f ->
-   forall N g, mcontains N g -> EP' mcontains (mdiv n M N) (f_bin Rdiv f g).
+   forall N g, mcontains N g -> EP' mcontains (mdiv d M N) (f_bin Rdiv f g).
  Proof. move => M f Mf P g Pg. eapply rmdiv_aux=>//; apply rmfc. Qed.
 
  (** *** square root *)
 
- Lemma rmsqrt_aux (f' h' w': Tube) (f h w : R -> R):
-   mcontains f' f -> mcontains h' h -> mcontains w' w ->
+ Lemma rmsqrt_aux (F H W: Tube) (f h w : R -> R):
+   mcontains F f -> mcontains H h -> mcontains W w ->
    (forall x, dom x -> continuity_pt w x) ->
-   EP' mcontains (msqrt_aux f' h' w') (fun x => R_sqrt.sqrt (f x)).
+   EP' mcontains (msqrt_aux F H W) (fun x => R_sqrt.sqrt (f x)).
  Proof.
    move => Hf Hh Hw Hwcont. rewrite /msqrt_aux.
    set (x0:=(lo+hi)//2).
@@ -702,23 +714,26 @@ Canonical Structure MOps0: Ops0 :=
      rewrite Rabs_Ropp. by apply L.       
  Qed.
 
- Lemma rmsqrt n M f: 
-   mcontains M f -> EP' mcontains (msqrt n M) (f_unr R_sqrt.sqrt f).
+ Lemma rmsqrt d M f: 
+   mcontains M f -> EP' mcontains (msqrt d M) (f_unr R_sqrt.sqrt f).
  Proof.
    move => Mf. eapply rmsqrt_aux=> //; try apply rmfc. 
    move => ??. apply eval_cont.
  Qed.
 
-(** Polynomial equation *)
+ (** *** solutions of polynomial functional equations *)
  
- Lemma rmpolyn_eq_aux (F' : list Tube) (phi' A' : Tube) (r' : II) (F : list (R->R)) (phi A : R->R) (r: R) :
+ Lemma rmpolynom_eq_aux
+       (F': list Tube) (phi' A': Tube) (r': II)
+       (F: list (R->R)) (phi A: R->R) (r: R):
    list_rel mcontains F' F ->
    mcontains phi' phi ->
    mcontains A' A ->
-   contains r' r -> 0 <= r ->
-   EP (fun M => exists f, mcontains M f /\ forall t, dom t ->  eval' F f t = 0) (mpolyn_eq_aux F' phi' A' r').  
+   contains r' r ->
+   0 <= r ->
+   EP (fun M => exists f, mcontains M f /\ forall t, dom t ->  eval' F f t = 0) (mpolynom_eq_aux F' phi' A' r').  
  Proof.
-   move => HF Hphi HA Hr Hr0. rewrite /mpolyn_eq_aux.
+   move => HF Hphi HA Hr Hr0. rewrite /mpolynom_eq_aux.
    case magE => [lambda' lambda clambda Hlambda | ] => [ | //].
    case magE => [ d' d cd Hd | ] => [ | //].
    case is_ltE => [Hl1|]=>[|//].
@@ -763,44 +778,44 @@ Canonical Structure MOps0: Ops0 :=
    by apply Hnewton.
  Qed.
 
+ Lemma polynom_eq_radiusE k C lambda R1 R2 r1 r2 :
+   contains R1 r1 /\ 0 <= r1 ->
+   contains R2 r2 /\ 0 <= r2 ->
+   EP (fun R => exists r, contains R r /\ 0 <= r) (polynom_eq_radius k C lambda R1 R2).
+ Proof.
+   move: R1 R2 r1 r2. elim: k => [ | k Ihk /=] R1 R2 r1 r2 Hr1 Hr2.
+   constructor.
 
-
- Lemma rmnewton_ball k d' lambda rmin rmax r1 r2 :
-  contains rmin r1 /\ 0 <= r1 -> contains rmax r2 /\ 0 <= r2 -> EP (fun r' => exists (rR:R), contains r' rR /\ 0 <= rR) (newton_ball k d' lambda rmin rmax).
- Proof. move : rmax rmin r2 r1. elim: k => [ | k Ihk /=] rmax rmin r2 r1 Hr1 Hr2.
-        constructor.
-
-        destruct (lambda rmin); destruct (lambda rmax); try constructor. 
-        case (is_lt); try constructor.
-        exists r2 => //.
-        destruct Hr1 as [ Hc1 Hle1]; destruct Hr2 as [Hc2 Hle2].
-        case_eq (newton_ball k d' lambda rmin (divZ 2 (rmin + rmax))) =>  A H /=.
-        rewrite -H.
-        eapply Ihk. eauto. split. apply rdivZ; apply radd; eauto; simpl; lra.
-        simpl;lra.
-        eapply Ihk. split. apply rdivZ; apply radd; eauto; simpl ;lra. simpl; lra.
-        eauto.
-
-Qed.
+   destruct (lambda R1); destruct (lambda R2); try constructor. 
+   case (is_lt); try constructor.
+   exists r2 => //.
+   destruct Hr1 as [Hc1 Hle1]; destruct Hr2 as [Hc2 Hle2].
+   case_eq (polynom_eq_radius k C lambda R1 (divZ 2 (R1 + R2))) =>  A H /=.
+   rewrite -H.
+   eapply Ihk. eauto. split. apply rdivZ; apply radd; eauto; simpl; lra.
+   simpl;lra.
+   eapply Ihk. split. apply rdivZ; apply radd; eauto; simpl ;lra. simpl; lra.
+   eauto.
+ Qed.
     
- Lemma rmpolyn_eq k n_interpol N_newton_iter F' phi0' rm' F :  
+ Lemma rmpolynom_eq k d n rmax F' F phi:  
    list_rel mcontains F' F ->  
-   EP (fun M => exists f, mcontains M f /\ forall t, dom t ->  eval' F f t = 0) (mpolyn_eq k n_interpol N_newton_iter F' phi0' rm').
+   EP (fun M => exists f, mcontains M f /\ forall t, dom t ->  eval' F f t = 0) (mpolynom_eq k d n rmax F' phi).
 
- Proof. move => HF. rewrite /mpolyn_eq.
-        case is_leE; try constructor. move => H.
-        case magE => [d' d cd Hd | ] => [ | //].
-        apply ep_bind with (P := fun r => exists (rR:R), contains r rR /\ 0 <= rR ) => [ r [rR [PcR PRle]] |].
-        move : PcR PRle; eapply rmpolyn_eq_aux => //; try apply rmfc.
-        eapply rmnewton_ball with (r1 := 0).
-        split. rel. simpl; lra.
-        split. apply F2IE.
-        apply H. rel. apply F2IE.
-Qed.
-        
+ Proof.
+   move => HF. rewrite /mpolynom_eq.
+   case is_leE; try constructor. move => H.
+   case magE => [E e ce He | ] => [ | //].
+   apply ep_bind with (P := fun R => exists r, contains R r /\ 0 <= r ) => [ r [rR [PcR PRle]] |].
+   move : PcR PRle; eapply rmpolynom_eq_aux => //; try apply rmfc.
+   eapply polynom_eq_radiusE with (r1 := 0).
+   split. rel. simpl; lra.
+   split. apply F2IE.
+   apply H. rel. apply F2IE.
+ Qed.     
      
 
- (** non-nullability test *)
+ (** *** non-nullability test *)
  Lemma rmne0 n M f: mcontains M f -> mne0 n M -> forall x, dom x -> f x <> 0.
  Proof.
    rewrite /mne0=>Mf H x Hx E. 
@@ -813,7 +828,8 @@ Qed.
    apply rmfc.
  Qed.
 
- (** positivity test *)
+ (** *** positivity test *)
+ 
  Lemma continuous_gt0 f:
    (forall x, dom x -> continuity_pt f x) ->
    (forall x, dom x -> f x <> 0) ->

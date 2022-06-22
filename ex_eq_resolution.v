@@ -1,37 +1,16 @@
 (* Example of a polynomial equation resolution *)
 
 Require Import interfaces.
-
 Require Import vectorspace taylor approx.
-
 Require Import utils String.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
 Unset Printing Implicit Defensive.
 
-
-
-Section i.
-  Context {nbh: NBH} {BO: BasisOps}.
-  Notation Model := (@model_ops nbh BO).
-  Variable n: Z.
-
-  Definition newton_method (N:Z) (f f' : list FF)  u0 :=
-    Zfold (fun _ u=> u - (taylor.eval' f u)/(taylor.eval' f' u)) N u0.
-
-  
-  Definition solution_approx (F: list Model) (N:Z) (s0 : Model) : Model :=
-    let p0 := mcf s0 in
-    let Fp := map (fun f => mcf f) F in
-    let f := (fun t => let P := map (fun f=> beval f t) Fp in
-                 newton_method N P (derive P) (beval p0 t)) in
-    mfc (vectorspace.interpolate n f).
-  
-End i.
-
 Require Import intervals.
 Require Import chebyshev.
+
 Section testCheb.
 
   Let Bc := basis11_ops.
@@ -53,23 +32,23 @@ Section testCheb.
   Eval compute in Pf.
   Eval compute in mrange Pf.
 
-  Definition s : Model := solution_approx 5 F1 10 s0.
-  (*Eval compute in s.
+  Definition s : Model := polynom_eq_oracle (BO:=Bc) 5 10 F1 s0.
+  (* Eval vm_compute in s.
   
   Definition Pf' := taylor.eval' F1 s.
   (* We make a taylor evaluation but we use the operations of the Cheb basis (for the multiplication) *)
-  Eval compute in Pf'.
-  Eval compute in mrange Pf'.*)
+  Eval vm_compute in Pf'.
+  Eval vm_compute in mrange Pf'. *)
 
   Definition valid_aux_s n : E Model :=
     let DF := mcf (eval' (taylor.derive F1) s) in
     let A := mfc (interpolate n (fun x=> 1 / eval' DF x)) in
-    @mpolyn_eq_aux nbh Bc F1 s A (F2I (divZ 10 (fromZ 1))).
- (* Eval compute in valid_aux_s 40.*)
+    @mpolynom_eq_aux nbh Bc F1 s A (F2I (divZ 10 (fromZ 1))).
+ (* Eval vm_compute in valid_aux_s 40.*)
 
   Definition valid_s : E Model :=
-    @mpolyn_eq nbh Bc 5 20 10 F1 s0 (divZ 1 (fromZ 1)).
-   Eval native_compute in valid_s.
+    @mpolynom_eq nbh Bc 5 20 10 (divZ 1 (fromZ 1)) F1 s0.
+   Eval vm_compute in valid_s.
  
   
 End testCheb.
@@ -106,20 +85,20 @@ Section testFourier.
 
   Definition F2 : list Model := ssub H [h].
   Definition s_init : Model := 0.
- (* Eval compute in F2.*)
+ (* Eval vm_compute in F2.*)
   Definition Pf2 : Model := taylor.eval' F2 s_init.
-  (*Eval compute in Pf2.*)
- (* Eval compute in mrange Pf2.*)
+  (*Eval vm_compute in Pf2.*)
+ (* Eval vm_compute in mrange Pf2.*)
   
-  Definition s_approx50 : Model := solution_approx 50 F2 10 s_init.
-  Definition s_approx : Model := solution_approx 50 F2 10 s_init.
+  Definition s_approx50 : Model := polynom_eq_oracle (BO:=Bf) 50 10 F2 s_init.
+  Definition s_approx : Model := polynom_eq_oracle (BO:=Bf) 50 10 F2 s_init.
  (* Definition diff := mrange (sub s_approx50 s_approx60).
-  Eval compute in diff.*)
- (*Eval compute in s_approx.*)
+  Eval vm_compute in diff.*)
+ (*Eval vm_compute in s_approx.*)
 
   Definition  Pf2' : Model := taylor.eval' F2 s_approx.
   (*Eval compute in Pf2'.*)
-  (*Time Eval compute in mrange Pf2'.*)
+  Time Eval vm_compute in mrange Pf2'.
   (* 40 -> [[-0.00013693284970087133; 0.00013693377905579768]]
      : nbh *)
   (* 50 -> [[-1.9056106884527256e-05; 1.9056119656310886e-05]]
@@ -133,20 +112,21 @@ Section testFourier.
      : nbh 7 min *)
 
  Definition oval_valid n : E Model :=
-   @mpolyn_eq nbh Bf 13 n 10 F2 s_init (divZ 1 (fromZ 1)).
+   @mpolynom_eq nbh Bf n 10 13 (divZ 1 (fromZ 1)) F2 s_init.
  
- (*Time Eval compute in oval_valid 20.*) (*[[-0.015069843634262801; 0.0150698436342628]]; / 24 s*)
- Time Eval compute in oval_valid 25. (* [[-0.0031384950293210315; 0.0031384950293210311]]; / 48s s*)
- (*Time Eval compute in oval_valid 30.*) (* [[-0.0010775659050942326; 0.0010775659050942324]] / 71 s *)
- Time Eval compute in oval_valid 35. (* [[-0.00043869723080766903; 0.00043869723080766898]] / 122 s *)
- (*Time Eval compute in oval_valid 40.*) (* [[-0.00015525289736369543; 0.00015525289736369541]] / 169 s *)
- Time Eval compute in oval_valid 45. (* [[-6.1553068275257869e-05; 6.1553068275257855e-05]] / 264 s *)
- (*Time Eval compute in oval_valid 50.*)(* [[-2.5468849730489291e-05; 2.5468849730489287e-05]] / 354 s *)
- Time Eval compute in oval_valid 60. (* [[-3.9777846581784549e-06; 3.9777846581784541e-06]] / 704 s *)
- Time Eval compute in oval_valid 80. (* [[-1.2660417643661427e-07; 1.2660417643661424e-07]] / 2020 s *)
- (*Time Eval compute in oval_valid 100.*)
-  (*Time Eval compute in oval_valid 120.*)
- 
+ Time Eval vm_compute in oval_valid 20. (* [[-0.015069843634262801; 0.0150698436342628]]; / 24 s *)
+ (*
+ Time Eval vm_compute in oval_valid 25. (* [[-0.0031384950293210315; 0.0031384950293210311]]; / 48s s*)
+ Time Eval vm_compute in oval_valid 30. (* [[-0.0010775659050942326; 0.0010775659050942324]] / 71 s *)
+ Time Eval vm_compute in oval_valid 35. (* [[-0.00043869723080766903; 0.00043869723080766898]] / 122 s *)
+ Time Eval vm_compute in oval_valid 40. (* [[-0.00015525289736369543; 0.00015525289736369541]] / 169 s *)
+ Time Eval vm_compute in oval_valid 45. (* [[-6.1553068275257869e-05; 6.1553068275257855e-05]] / 264 s *)
+ Time Eval vm_compute in oval_valid 50. (* [[-2.5468849730489291e-05; 2.5468849730489287e-05]] / 354 s *)
+ Time Eval vm_compute in oval_valid 60. (* [[-3.9777846581784549e-06; 3.9777846581784541e-06]] / 704 s *)
+ Time Eval vm_compute in oval_valid 80. (* [[-1.2660417643661427e-07; 1.2660417643661424e-07]] / 2020 s *)
+ Time Eval vm_compute in oval_valid 100.
+ Time Eval vm_compute in oval_valid 120.
+ *)
 End testfourier.
 
   
