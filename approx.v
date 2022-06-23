@@ -57,7 +57,8 @@ Section n.
  Definition mscal (x: II) (M: Tube): Tube :=
    {| pol := sscal x (pol M);
       rem := x * rem M;
-      cont := cont M; |}.
+     cont := cont M; |}.
+ (* TOTHINK: should we always truncate to the max degree of the arguments? *)
  Definition mmul (M N: Tube): Tube :=
    {| pol := pol M * pol N;
       rem := srange (pol M) * rem N + srange (pol N) * rem M + rem M * rem N;
@@ -130,6 +131,7 @@ Canonical Structure MOps0: Ops0 :=
     H ~ F/G
     W ~ 1 /G *)
  Definition mdiv_aux (F G H W: Tube): E Tube :=
+   (* TOTHINK: truncate multiplications? *)
    let K1 := 1 - W*G in
    let K2 := W*(G*H - F) in
    match mag (mrange K1), mag (mrange K2) with
@@ -148,6 +150,7 @@ Canonical Structure MOps0: Ops0 :=
    let x0' := (lo+hi)//2 in
    let y0' := meval_unsafe W x0' in
    if ~~ is_lt 0 y0' then err "msqrt: potentially negative value" else
+   (* TOTHINK: truncate multiplications? *)
    let K1 := 1 - (mmulZ 2 (W*H)) in
    let K2 := W*(H*H - F) in
    match mag (mrange K1), mag (mrange W), mag (mrange K2) with
@@ -169,6 +172,7 @@ Canonical Structure MOps0: Ops0 :=
      - r is a ball radius also given by an oracle, such that the newton operator is stable and lambda contracting on B(phi,r) *) 
  Definition mpolynom_eq_aux (F: list Tube) (phi A: Tube) (r: II): E Tube :=
    let phir := {| pol := pol phi ; rem := rem phi + sym r ; cont := false |} in
+   (* TOTHINK: the two occurrences of [eval'] below use model multiplications -> truncate them? *)
    let DN := eval' (derive (polynom_eq.opnewton F A)) phir in
    let N0 := A * eval' F phi in
    match mag (mrange DN) , mag (mrange N0) with
@@ -251,6 +255,7 @@ Canonical Structure MOps0: Ops0 :=
    let rmax := F2I rmax in
    if is_le 0 rmax then 
      let phi := polynom_eq_oracle d n F phi in
+     (* TOTHINK: the three occurrences of [eval'] below use model multiplications -> truncate them? *)
      let DF := mcf (eval' (derive F) phi) in
      let A := mfc (interpolate d (fun x=> 1 / beval DF x)) in
      match mag (mrange (A * eval' F phi)) with
