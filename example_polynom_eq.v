@@ -116,14 +116,14 @@ Module oval_fourier.
     mpolynom_eq d n 10 1 F phi0.
 
   (* timings on Damien's machine, plugged *)
-  Time Eval vm_compute in oval_valid 20 10. (* [[-0.015...; 0.015...]]; / 1.5s *)
+  Time Eval vm_compute in oval_valid 20 10. (* [[-0.015...; 0.015...]]; / 1.4s *)
   Time Eval vm_compute in oval_valid 25 10. (* [[-0.0031...; 0.0031...]]; / 2.8s*)
   
-  Time Eval vm_compute in oval_valid 30 10. (* [[-0.00107...; 0.00107...]] / 4.5s *)
-  Time Eval vm_compute in polynom_eq_oracle 30 10 F phi0. (* 1.2s -> 3.3s for the certification *)
+  Time Eval vm_compute in oval_valid 30 10. (* [[-0.00107...; 0.00107...]] / 4.4s *)
+  Time Eval vm_compute in polynom_eq_oracle 30 10 F phi0. (* 1.2s -> 3.2s for the certification *)
   
-  Time Eval vm_compute in oval_valid 50 10. (* e-05 / 20s *)
-  Time Eval vm_compute in polynom_eq_oracle 50 10 F phi0. (* 3.3s -> 16.7s for the certification *)
+  Time Eval vm_compute in oval_valid 50 10. (* e-05 / 19.6s *)
+  Time Eval vm_compute in polynom_eq_oracle 50 10 F phi0. (* 3.3s -> 16.3s for the certification *)
 
   (** manual computation *)
   (** refined solution, with degree [d] for the oracle, and [n] Newton iterations for each point  *)

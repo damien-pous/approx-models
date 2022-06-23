@@ -259,10 +259,11 @@ Canonical Structure MOps0: Ops0 :=
      let DF := mcf (eval' (derive F) phi) in
      let A := mfc (interpolate d (fun x=> 1 / beval DF x)) in
      match mag (mrange (A * eval' F phi)) with
-     | Some c => 
+     | Some c =>
+       let L := derive (polynom_eq.opnewton F A) in 
        let lambda r :=
          let phir := {| pol := pol phi; rem := rem phi + sym r; cont := false |} in
-         mag (mrange (eval' (derive (polynom_eq.opnewton F A)) phir)) 
+         mag (mrange (eval' L phir)) 
        in
        LET r ::= polynom_eq_radius k c lambda 0 rmax
        IN mpolynom_eq_aux F phi A r                         
