@@ -115,19 +115,20 @@ Module oval_fourier.
   Definition oval_valid d n: E Model :=
     mpolynom_eq d n 10 1 F phi0.
 
-  Time Eval vm_compute in oval_valid 20 10. (* [[-0.015...; 0.015...]]; / 2.3s *)
-  Time Eval vm_compute in oval_valid 25 10. (* [[-0.0031...; 0.0031...]]; / 3.8s*)
+  (* timings on Damien's machine, plugged *)
+  Time Eval vm_compute in oval_valid 20 10. (* [[-0.015...; 0.015...]]; / 1.5s *)
+  Time Eval vm_compute in oval_valid 25 10. (* [[-0.0031...; 0.0031...]]; / 2.8s*)
   
-  Time Eval vm_compute in oval_valid 30 10. (* [[-0.00107...; 0.00107...]] / 6.2s *)
-  Time Eval vm_compute in polynom_eq_oracle 30 10 F phi0. (* 1.8s -> 4.4s for the certification *)
+  Time Eval vm_compute in oval_valid 30 10. (* [[-0.00107...; 0.00107...]] / 4.5s *)
+  Time Eval vm_compute in polynom_eq_oracle 30 10 F phi0. (* 1.2s -> 3.3s for the certification *)
   
-  Time Eval vm_compute in oval_valid 50 10. (* e-05 / 29s *)
-  Time Eval vm_compute in polynom_eq_oracle 50 10 F phi0. (* 5s -> 24s for the certification *)
+  Time Eval vm_compute in oval_valid 50 10. (* e-05 / 20s *)
+  Time Eval vm_compute in polynom_eq_oracle 50 10 F phi0. (* 3.3s -> 16.7s for the certification *)
 
   (** manual computation *)
   (** refined solution, with degree [d] for the oracle, and [n] Newton iterations for each point  *)
   Definition phi d n : Model := polynom_eq_oracle d n F phi0.
-  Eval vm_compute in mrange (sub (phi 20 10) (phi 30 10)).
+  Eval vm_compute in mrange (sub (phi 20 10) (phi 30 10)). (* 0.002 *)
   
  End s.
 End oval_fourier.
