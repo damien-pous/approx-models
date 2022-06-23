@@ -24,4 +24,5 @@ tactic.v
 examples.v
 example_abs.v
 example_h16.v
+example_polynom_eq.v
 tests.v

@@ -54,6 +54,7 @@ For more details, see the corresponding [article](https://hal.laas.fr/hal-020885
   + `tests.v`       : tests for the library
   + `example_abs.v` : tests for approximating the function [abs], as discussed in the the ITP19 paper
   + `example_h16.v` : computation of Abelian integrals related to Hilbert 16th problem
+  + `example_polynom_eq.v` : examples for solutions of functional polynomial equations
 
 **Axioms**
 
