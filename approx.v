@@ -174,7 +174,9 @@ Canonical Structure MOps0: Ops0 :=
    let phir := {| pol := pol phi ; rem := rem phi + sym r ; cont := false |} in
    (* TOTHINK: the two occurrences of [eval'] below use model multiplications -> truncate them? *)
    let DN := eval' (derive (polynom_eq.opnewton F A)) phir in
+   (* degree (N-1)*(d+d') where N is the degree of F and d' its maximal inner degree *)
    let N0 := A * eval' F phi in
+   (* degree (N+1)*(d+d') *)
    match mag (mrange DN) , mag (mrange N0) with
    | Some lambda , Some d =>
      if is_lt lambda 1 then
@@ -229,6 +231,8 @@ Canonical Structure MOps0: Ops0 :=
      - [c] is the ball center
      - [lambda] estimates the contraction factor
      - [rmin,rmax] are bounds within which the radius should be found
+     TOTHINK: current algorithm is exponential in [k] in the worst case -> improve?
+     TOTHINK: do this in floating points rather than intervals?
   *)
  Fixpoint polynom_eq_radius (k: nat) (c: II) (lambda: II -> option II) (rmin rmax: II): E II :=
   match k with
@@ -257,16 +261,20 @@ Canonical Structure MOps0: Ops0 :=
      let phi := polynom_eq_oracle d n F phi in
      (* TOTHINK: the three occurrences of [eval'] below use model multiplications -> truncate them? *)
      let DF := mcf (eval' (derive F) phi) in
+     (* degree (N-1)*(d+d') where N is the degree of F and d' its maximal inner degree *)
      let A := mfc (interpolate d (fun x=> 1 / beval DF x)) in
      match mag (mrange (A * eval' F phi)) with
+     (* degree (N+1)*(d+d') *)
      | Some c =>
-       let L := derive (polynom_eq.opnewton F A) in 
-       let lambda r :=
-         let phir := {| pol := pol phi; rem := rem phi + sym r; cont := false |} in
-         mag (mrange (eval' L phir)) 
-       in
-       LET r ::= polynom_eq_radius k c lambda 0 rmax
-       IN mpolynom_eq_aux F phi A r                         
+         let L := derive (polynom_eq.opnewton F A) in
+         (* degree N-1, with maximal inner degree d+d' *)
+         let lambda r :=
+           let phir := {| pol := pol phi; rem := rem phi + sym r; cont := false |} in
+           mag (mrange (eval' L phir))
+               (* degree (N-1)*(d+d') *)
+         in
+         LET r ::= polynom_eq_radius k c lambda 0 rmax
+         IN mpolynom_eq_aux F phi A r                         
      | _ => err "mpolynom_eq: error when checking the range of A*F(phi)"
      end
    else err "mpolynom_eq : rmax should be positive". 
