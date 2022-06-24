@@ -44,15 +44,15 @@ Proof.
     try apply Hs1 => //; try apply Hs2 => //.
 Qed.
 
-Lemma newton (F : list (R -> R)) (phi A : R -> R) ( d r lambda : R) :
-  (forall (s : R->R), (forall t , I t -> Rabs (phi t - s t) <= r) ->
-                (forall t, I t -> Rabs (eval' (derive (opnewton F A)) s t) <= lambda)) ->
+Lemma newton (F: list (R -> R)) (phi A: R -> R) (d r lambda: R) :
+  (forall s: R -> R, (forall t , I t -> Rabs (phi t - s t) <= r) ->
+        forall t, I t -> Rabs (eval' (derive (opnewton F A)) s t) <= lambda) ->
   (forall t, I t ->  Rabs (A t * eval' F phi t) <= d) ->
-  0 <= lambda /\ lambda < 1 -> 0 <= d /\ 0 <= r -> d + lambda * r <= r ->
+  0 <= lambda < 1 -> 0 <= d -> 0 <= r -> d + lambda * r <= r ->
   (exists f: R -> R, forall t, I t  ->  eval' F f t = 0 /\ Rabs (f t - phi t) <= d / (1 - lambda)).
 Proof.
-  move => Hlambda Hd [Hl0 Hl1] [Hd0 Hr0] Hdlr.
-  set lambda0 := mknonnegreal Hl0.
+  move => Hlambda Hd Hl Hd0 Hr0 Hdlr.
+  set lambda0 := mknonnegreal (proj1 Hl).
   set d0 := mknonnegreal Hd0.
   have Hbound : 0 <= d / (1 - lambda). apply Rle_div_r; lra. 
   set b0 := mknonnegreal Hbound.
@@ -99,7 +99,8 @@ Proof.
     apply ex_derive_mult. apply ex_derive_const. apply eval_ex_derive. 
     by move => x; rewrite eval_sub eval_id eval_scal.  
     
-  move: (BF_lim_is_fixpoint (Hl1 : lambda0 < 1)  SBP) (BF_lim_inside_sball (Hl1 : lambda0 < 1) SBP).
+    move: (BF_lim_is_fixpoint (proj2 Hl: lambda0 < 1)  SBP)
+            (BF_lim_inside_sball (proj2 Hl: lambda0 < 1) SBP).
 
   set bf := lim (banach.BF N lambda0 SB). rewrite /SBall_pred /=.   
   move => /Rdomfct_close Hbanach_fix /R_dcballE Hbanach_bound; rewrite /N in Hbanach_fix.

@@ -10,6 +10,7 @@
 - subdivision?
 - uncertified but efficient F.cos and F.pi ?
 - continuity (from Coquelicot) vs continuity_pt (from Reals.Ranalysis1)
+- better radius heuristics for solutions of polynomial equations
 
 ## TOTHINK
 
@@ -17,7 +18,6 @@
   cf. branch truncate-mult
   may help a lot to validate solutions of polynomial equations:
   there we use [taylor.eval'] on model ops, so that models may grow significantly
-- estimate radius for validating solutions of polynomial equations using floating points rather than intervals? avoid exponential blow-up when radius is not found?
   
 
 ## usages of certain functions
