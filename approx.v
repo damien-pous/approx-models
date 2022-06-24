@@ -126,11 +126,17 @@ Canonical Structure MOps0: Ops0 :=
  (** asserting continuity 'by hand' (see specification [rmcontinuous] below)*)
  Definition mcontinuous (M: Tube): Tube :=
    {| pol := pol M; rem := rem M; cont := true |}.
+
+ (** auxiliary conversion functions to perform interpolation with floating points *)
+ Definition mcf (M: Tube): list FF := map I2F (pol M).
+ Definition mfc (p: list FF): Tube := {| pol := map F2I p; rem := 0; cont := true |}.
  
  (** division: H and W are given by an oracle
     H ~ F/G
     W ~ 1 /G *)
- Definition mdiv_aux (F G H W: Tube): E Tube :=
+ Definition mdiv_aux (F G: Tube) (H W: list FF): E Tube :=
+   let H := mfc H in
+   let W := mfc W in
    (* TOTHINK: truncate multiplications? *)
    let K1 := 1 - W*G in
    let K2 := W*(G*H - F) in
@@ -143,10 +149,12 @@ Canonical Structure MOps0: Ops0 :=
    | _,_ => err "mdiv: error when checking the ranges of k1/k2"
    end.
 
- (** square root: G and K are given by an oracle 
+ (** square root: H and W are given by an oracle 
     H ~ sqrt F
     W ~ 1 / 2H *)
- Definition msqrt_aux (F H W: Tube): E Tube :=
+ Definition msqrt_aux (F: Tube) (H W: list FF): E Tube :=
+   let H := mfc H in
+   let W := mfc W in
    let x0' := (lo+hi)//2 in
    let y0' := meval_unsafe W x0' in
    if ~~ is_lt 0 y0' then err "msqrt: potentially negative value" else
@@ -167,28 +175,26 @@ Canonical Structure MOps0: Ops0 :=
    | _,_,_ => err "msqrt: error when checking the ranges of K1/W/K2"
    end.
 
- (** auxiliary conversion functions to perform interpolation with floating points *)
- Definition mcf (M: Tube): list FF := map I2F (pol M).
- Definition mfc (p: list FF): Tube := {| pol := map F2I p; rem := 0; cont := true |}.
-
  (** division and square root, using interpolation as oracle ; [d] is the interpolation degree *)
  Definition mdiv d (M N: Tube): E Tube :=
    let p := mcf M in
    let q := mcf N in
    mdiv_aux M N
-            (mfc (interpolate d (fun x => beval p x / beval q x)))
-            (mfc (interpolate d (fun x => 1 / beval q x))).
+            (interpolate d (fun x => beval p x / beval q x))
+            (interpolate d (fun x => 1 / beval q x)).
  Definition msqrt d (M: Tube): E Tube :=
    let p := mcf M in
-   let h := interpolate d (fun x: FF => sqrt (beval p x)) in
+   let h := interpolate d (fun x => sqrt (beval p x)) in
    msqrt_aux M
-             (mfc h)
-             (mfc (interpolate d (fun x: FF => 1 / (mulZ 2 (beval h x))))).
+             h
+             (interpolate d (fun x => 1 / (mulZ 2 (beval h x)))).
 
  (** solution of polynomial equation : F is a polynom with model coefficients
-     - phi, A are models given by an oracle, such that F(phi) ~ 0 and A ~ 1 / DF(phi)
+     - phi, A are given by an oracle, such that F(phi) ~ 0 and A ~ 1 / DF(phi)
      - r is a radius also given by an oracle, such that the Newton operator is stable and lambda contracting on B(phi,r) *) 
- Definition mpolynom_eq_aux (F: list Tube) (phi A: Tube) (r: II): E Tube :=
+ Definition mpolynom_eq_aux (F: list Tube) (phi A: list FF) (r: II): E Tube :=
+   let phi := mfc phi in
+   let A := mfc A in
    let phir := {| pol := pol phi ; rem := rem phi + sym r ; cont := false |} in
    (* TOTHINK: the two occurrences of [eval'] below use model multiplications -> truncate them? *)
    let DN := eval' (derive (polynom_eq.opnewton F A)) phir in
@@ -645,15 +651,17 @@ Canonical Structure MOps0: Ops0 :=
  
  (** *** division *)
  
- Lemma rmdiv_aux (F G H W: Tube) f g h w:
-   mcontains F f -> mcontains G g -> mcontains H h -> mcontains W w ->
+ Lemma rmdiv_aux F G f g H W:
+   mcontains F f -> mcontains G g ->
    EP' mcontains (mdiv_aux F G H W) (f_bin Rdiv f g).
  Proof.
-   move => Hf Hg Hh Hw. rewrite /mdiv_aux.
+   move => Hf Hg. rewrite /mdiv_aux.
    case magE => [Mu mu MU Hm|]=>//. 
    case magE => [b c bc Hc|]=>//.
    case is_ltE => [Hmu|]=>//.
-   specialize (Hmu _ 1 MU (rone _)). 
+   specialize (Hmu _ 1 MU (rone _)).
+   pose proof (Hh := rmfc H). set (h := eval (map F2R H)) in *.
+   pose proof (HW := rmfc W). set (w := eval (map F2R W)) in *.
    destruct (ssrfun.id Hh) as [_ [p [Hp Hh']]].
    have L: forall x, dom x -> g x <> 0 /\ Rabs (h x - f x / g x) <= c / (R1 - mu).
      move=> x Dx; refine (div.newton _ _ _ _ Dx) => //.
@@ -683,16 +691,18 @@ Canonical Structure MOps0: Ops0 :=
  Lemma rmdiv d:
    forall M f, mcontains M f ->
    forall N g, mcontains N g -> EP' mcontains (mdiv d M N) (f_bin Rdiv f g).
- Proof. move => M f Mf P g Pg. eapply rmdiv_aux=>//; apply rmfc. Qed.
+ Proof. intros; by apply rmdiv_aux. Qed.
 
  (** *** square root *)
 
- Lemma rmsqrt_aux (F H W: Tube) (f h w : R -> R):
-   mcontains F f -> mcontains H h -> mcontains W w ->
-   (forall x, dom x -> continuity_pt w x) ->
+ Lemma rmsqrt_aux F f H W:
+   mcontains F f -> 
    EP' mcontains (msqrt_aux F H W) (fun x => R_sqrt.sqrt (f x)).
  Proof.
-   move => Hf Hh Hw Hwcont. rewrite /msqrt_aux.
+   move => Hf. rewrite /msqrt_aux.
+   pose proof (Hh := rmfc H). set (h := eval (map F2R H)) in *.
+   pose proof (Hw := rmfc W).
+   pose proof (Hwcont := eval_cont (map F2R W)). set (w := eval (map F2R W)) in *.
    set (x0:=(lo+hi)//2).
    have domx0: dom ((lo+hi)/2) by generalize domlo; generalize domhi; rewrite /dom; lra. 
    have rx0: contains x0 ((lo+hi)/2) by rel.
@@ -739,24 +749,21 @@ Canonical Structure MOps0: Ops0 :=
 
  Lemma rmsqrt d M f: 
    mcontains M f -> EP' mcontains (msqrt d M) (f_unr R_sqrt.sqrt f).
- Proof.
-   move => Mf. eapply rmsqrt_aux=> //; try apply rmfc. 
-   move => ??. apply eval_cont.
- Qed.
+ Proof. by apply rmsqrt_aux. Qed.
 
  (** *** solutions of polynomial functional equations *)
 
  Lemma rmpolynom_eq_aux
-       (F': list Tube) (phi' A': Tube) (r': II)
-       (F: list (R->R)) (phi A: R->R) (r: R):
+       (F': list Tube) (phi' A': list FF) (r': II)
+       (F: list (R->R)) (r: R):
    list_rel mcontains F' F ->
-   mcontains phi' phi ->
-   mcontains A' A ->
    contains r' r ->
    0 <= r ->
    EP (fun M => exists f, mcontains M f /\ forall t, dom t ->  eval' F f t = 0) (mpolynom_eq_aux F' phi' A' r').  
  Proof.
-   move => HF Hphi HA Hr Hr0. rewrite /mpolynom_eq_aux.
+   move => HF Hr0. rewrite /mpolynom_eq_aux.
+   pose proof (Hphi := rmfc phi'). set (phi := eval (map F2R phi')) in *.
+   pose proof (HA := rmfc A'). set (A := eval (map F2R A')) in *.
    case magE => [lambda' lambda clambda Hlambda | ] => [ | //].
    case magE => [ d' d cd Hd | ] => [ | //].
    case is_ltE => [Hl1|]=>[|//].
@@ -808,23 +815,17 @@ Canonical Structure MOps0: Ops0 :=
  (** [mpolynom_eq] essentially is an instance of [mpolynom_eq_aux] *)
  Lemma mpolynom_eq_link d n radius F phi0:
    correct_radius radius ->
-   EP (fun M => exists phi' phi A' A R r,
-           ret M = mpolynom_eq_aux F phi' A' R /\
-             mcontains phi' phi /\
-             mcontains A' A /\
-             contains R r /\
-             0 <= r)
+   EP (fun M => exists phi A r' r, ret M = mpolynom_eq_aux F phi A r' /\ contains r' r /\ 0 <= r)
       (mpolynom_eq d n radius F phi0).
  Proof.
    move => HR. rewrite /mpolynom_eq.
-   set (A' := mfc _). set (phi' := mfc _). set (m := mag _).
-   case_eq m=>//c Hc. case HR=>//= l.
+   set (A' := interpolate _ _). set (A := mfc _).
+   set (phi' := polynom_eq_oracle _ _ _ _). set (phi := mfc _).
+   set (m := mag _). case_eq m=>//c Hc. case HR=>//= l.
    intros (r&rr&Hr&Hl&Hrr&Hl1&Hlr). constructor.
    unfold mpolynom_eq_aux.
-   exists phi'. eexists.
-   exists A'. eexists.
-   exists r. eexists. 
-   fold m. rewrite Hc Hl Hl1 Hlr.
+   exists phi', A', r, rr. 
+   rewrite -/A -/phi -/m Hc Hl Hl1 Hlr.
    eauto using rmfc. 
  Qed.
 
@@ -836,7 +837,7 @@ Canonical Structure MOps0: Ops0 :=
       (mpolynom_eq d n radius F' phi0).
  Proof.
    move => HR HF. case (mpolynom_eq_link _ _ _ _ HR)=>//M.
-   intros (phi'&phi&A'&A&R&r&->&?&?&?&?). eapply rmpolynom_eq_aux; eauto. 
+   intros (phi&A&R&r&->&?&?). eapply rmpolynom_eq_aux; eauto. 
  Qed.
 
  (** correctness of the heuristics for finding radiuses *)

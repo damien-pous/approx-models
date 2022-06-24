@@ -48,8 +48,8 @@ Module sqrt_cheb.
   (** manual validation of this refined solution (d is the degree for the contracting operator) *)
   Definition valid_aux_s d : E Model :=
     let DF := eval' (taylor.derive F') phi in
-    let A := mfc (interpolate d (fun x => 1 / eval' DF x)) in
-    mpolynom_eq_aux F (mfc phi) A (fromQ 0.3).
+    let A := interpolate d (fun x => 1 / eval' DF x) in
+    mpolynom_eq_aux F phi A (fromQ 0.3).
   Eval vm_compute in valid_aux_s 40.
   
 End sqrt_cheb.
@@ -86,6 +86,7 @@ Module oval_fourier.
 
   (** system of polynomial equations *)
   Definition F : list Model := ssub H [h].
+  Definition F' := map mcf F.
   Eval vm_compute in F.
 
   (** (bad) initial candidate solution *)
@@ -104,14 +105,14 @@ Module oval_fourier.
   Time Eval vm_compute in oval_valid 25 10. (* [[-0.0031...; 0.0031...]]; / 2.3s*)
   
   Time Eval vm_compute in oval_valid 30 10. (* [[-0.00107...; 0.00107...]] / 3.9s *)
-  Time Eval vm_compute in polynom_eq_oracle 30 10 (map mcf F) phi0. (* 1.2s -> 2.7s for the certification *)
+  Time Eval vm_compute in polynom_eq_oracle 30 10 F' phi0. (* 1.2s -> 2.7s for the certification *)
   
   Time Eval vm_compute in oval_valid 50 10. (* e-05 / 18.9s *)
-  Time Eval vm_compute in polynom_eq_oracle 50 10 (map mcf F) phi0. (* 3.3s -> 15.6s for the certification *)
+  Time Eval vm_compute in polynom_eq_oracle 50 10 F' phi0. (* 3.3s -> 15.6s for the certification *)
 
   (** manual computation *)
   (** refined solution, with degree [d] for the oracle, and [n] Newton iterations for each point  *)
-  Definition phi d n: Model := mfc (polynom_eq_oracle d n (map mcf F) phi0).
+  Definition phi d n: Model := mfc (polynom_eq_oracle d n F' phi0).
   Eval vm_compute in mrange (sub (phi 20 10) (phi 30 10)). (* 0.002 *)
   
  End s.
