@@ -208,11 +208,11 @@ Global Hint Resolve rdivN: rel.
 (** ** neighborhoods (effective abstractions for real numbers) *)
 
 (** utilities for specifications  *)
-Inductive minmax_spec A le (contains: A -> R -> Prop) (a: A): option A -> Prop :=
+Variant minmax_spec A le (contains: A -> R -> Prop) (a: A): option A -> Prop :=
 | minmax_spec_some: forall m b, contains m b -> contains a b -> (forall x, contains a x -> le x b) -> minmax_spec le contains a (Some m)
 | minmax_spec_none: (forall x y, contains a x -> le x y -> contains a y)-> minmax_spec le contains a None.
 
-Inductive wreflect (P : Prop): bool -> Prop :=
+Variant wreflect (P : Prop): bool -> Prop :=
  | wReflectT: P -> wreflect P true | wReflectF: wreflect P false.
 Lemma wreflectE {P b}: wreflect P b -> b -> P.
 Proof. by case. Qed.
@@ -257,7 +257,7 @@ Coercion II: NBH >-> Ops1.
 Definition mag {N: NBH} x: option II := max (abs x).
 Definition sym {N: NBH} x: II := let x := abs x in bnd (0-x) x.
 
-Inductive mag_spec A (contains: A -> R -> Prop) (a: A): option A -> Prop :=
+Variant mag_spec A (contains: A -> R -> Prop) (a: A): option A -> Prop :=
 | mag_spec_some: forall m b, contains m b -> (forall x, contains a x -> Rabs x <= b) -> mag_spec contains a (Some m)
 | mag_spec_none: mag_spec contains a None.
 
@@ -284,7 +284,7 @@ Proof. rewrite /is_ge. case is_leE=>[H|]; constructor; auto using Rle_ge. Qed.
 
 
 (** predicate for specifying bounds of integrals (see [rmintegrate] below) *)
-Inductive ocontains{N: NBH} x: option II -> R -> Prop :=
+Variant ocontains{N: NBH} x: option II -> R -> Prop :=
 | ocontains_some: forall A a, contains A a -> ocontains x (Some A) a
 | ocontains_none: ocontains x None x.
 Global Hint Constructors ocontains: rel.
