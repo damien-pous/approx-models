@@ -230,13 +230,14 @@ Class NBH := {
   (** convexity of intervals  *)
   convex: forall Z x y, contains Z x -> contains Z y -> forall z, x<=z<=y -> contains Z z;
   (** additional operations on intervals *)
-  bnd: II -> II -> II;
+  bnd: II -> II -> II;        (** `directed' convex hull *)
   max: II -> option II;    
   min: II -> option II;    
   bot: II;                   (** [[-oo;+oo]] *)
   is_lt: II -> II -> bool; 
   is_le: II -> II -> bool;
-  (** specification of the above operations *)
+  (** specification of the above operations; 
+      together with convexity, [maxE] and [minE] entail that the elements of II always represent closed intervals *)
   bndE: forall X x, contains X x -> forall Y y, contains Y y -> forall z, x<=z<=y -> contains (bnd X Y) z;
   maxE: forall X, minmax_spec Rle contains X (max X);
   minE: forall X, minmax_spec Rge contains X (min X);

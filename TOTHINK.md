@@ -1,5 +1,7 @@
 ## TODO list
 
+- clean/document fourier.v
+- rename bnd into hull, r... into ...R
 - more examples / more doc in examples.v
 - further improve syntax/reification (degrees, eval)
 - better support for model comparisons in the syntax/tactic 
@@ -18,6 +20,9 @@
   may help a lot to validate solutions of polynomial equations:
   there we use [taylor.eval'] on model ops, so that models may grow significantly
 - modular approach to continuity and/or other properties?
+- uniform notation for containments?
+- reals from mathcomp-analysis -> integration for possibly non-continuous functions
+- model composition?
   
 
 ## usages of certain functions

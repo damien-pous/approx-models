@@ -127,6 +127,14 @@ Goal forall x, 0.111<=x<=0.999 -> x < sqrt x.
   approx (i_deg 60).
 Qed.
 
+Goal 3.46 <= RInt (fun x => sqrt (2+x)) (-1.999) 1 <= 3.47.
+  estimate (RInt (fun x => sqrt (2+x)) (-1.999) 1) (i_deg 52). (* fails *)
+  estimate (RInt (fun x => sqrt (2+x)) (-1.999) 1) (i_deg 53). (* imprecise: [-6; 13] *)
+  estimate (RInt (fun x => sqrt (2+x)) (-1.999) 1) (i_deg 100). (* very imprecise: [-2e+17; 2e+17] *)
+  (* increasing precision works... *)
+  approx (bigint120, i_deg 68).
+Qed.
+
 
 (** testing Fourier basis *)
 Goal True.

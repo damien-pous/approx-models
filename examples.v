@@ -10,7 +10,7 @@ Require taylor chebyshev approx.
     it supports the following operations on reals:
       +, -, *, /, sqrt, cos, abs, 0, 1, pi, fromZ, fromQ
     as well as integration of univariate functions built from
-      +, -, *, /, sqrt, and constant expressions as above
+      +, -, *, /, sqrt, constant expressions as above, and the three functions id x,sin x,cos x
 *)
 Goal 1.4 <= sqrt 2 <= 1.5.
 Proof.
@@ -51,11 +51,11 @@ Qed.
     [taylor] does not support [sqrt] and [div] (yet)
     [fourier] does not support the identity (x), but is the only one to support [cos] and [sin]
  *)
-Goal 0 <= RInt (fun x => x * (2+x)) 0 1.
+Goal 1 <= RInt (fun x => x * (2+x)) 0 1.
 Proof.
   approx taylor.
 Qed.
-Goal 0 <= RInt (fun x => sqrt (2+x)) 0 1.
+Goal 1.5 <= RInt (fun x => sqrt (2+x)) 0 1.
 Proof.
   (** error message is not clear: we lack interpolation for Taylor, so that the oracles simply do not work *)
   Fail approx taylor.
@@ -138,7 +138,7 @@ Proof.
   approx native.
   Restart.
   approx vm.
-  (** the primfloat/bigint120/stdz60... options make it possible to select the floating point implementation (primitive floats, emulated floats with primitive integers or plain stanard relative numbers -- at a certain precision); primfloat by default *)
+  (** the primfloat/bigint120/stdz60... options make it possible to select the floating point implementation (primitive floats, emulated floats with primitive integers or plain standard relative numbers -- at a certain precision); primfloat by default *)
   Restart.
   approx bigint120.
   Restart.
