@@ -375,6 +375,17 @@ Canonical Structure MOps0: Ops0 :=
    rewrite /mrange; replace (f x) with (eval p x + (f x - eval p x)); last by rewrite /=; ring.
    apply radd; auto. by apply eval_srange. 
  Qed.
+
+ Variant mag_mrange_spec f: option II -> Prop :=
+   | mag_mrange_spec_some: forall I b, contains I b -> (forall x, dom x -> Rabs (f x) <= b) -> mag_mrange_spec f (Some I)
+   | mag_mrange_spec_none: mag_mrange_spec f None.
+ Lemma rmag_mrange M f: mcontains M f -> mag_mrange_spec f (mag (mrange M)).
+ Proof.
+   intros Mf. case magE. 2: constructor.
+   intros I b Ib H. econstructor. eassumption.
+   intros. by apply H, eval_mrange.
+ Qed.
+ Arguments rmag_mrange [_]. 
  
  Lemma rmadd: forall M f, mcontains M f -> forall P g, mcontains P g -> mcontains (madd M P) (f+g).
  Proof.
@@ -656,27 +667,19 @@ Canonical Structure MOps0: Ops0 :=
    EP' mcontains (mdiv_aux F G H W) (f_bin Rdiv f g).
  Proof.
    move => Hf Hg. rewrite /mdiv_aux.
-   case magE => [Mu mu MU Hm|]=>//. 
-   case magE => [b c bc Hc|]=>//.
-   case is_ltE => [Hmu|]=>//.
-   specialize (Hmu _ 1 MU (rone _)).
    pose proof (Hh := rmfc H). set (h := eval (map F2R H)) in *.
    pose proof (HW := rmfc W). set (w := eval (map F2R W)) in *.
-   destruct (ssrfun.id Hh) as [_ [p [Hp Hh']]].
+   ecase rmag_mrange=>//; [by eauto using rmsub,rmone,rmmul|]=>Mu mu MU Hm. 
+   ecase rmag_mrange=>//; [by eauto using rmsub,rmone,rmmul|]=>C c Cc Hc.
+   case is_ltE => [Hmu|]=>//.
+   specialize (Hmu _ 1 MU (rone _)).
+   move: (ssrfun.id Hh) => [_ [p [Hp Hh']]].
    have L: forall x, dom x -> g x <> 0 /\ Rabs (h x - f x / g x) <= c / (R1 - mu).
-     move=> x Dx; refine (div.newton _ _ _ _ Dx) => //.
-     + move => t Ht; apply Hm.
-       apply eval_mrange with (f := 1-w*g) =>//.
-         by apply rmsub; [apply rmone|apply rmmul].
-     + move => t Ht; apply Hc. 
-       apply eval_mrange with (f := w*(g*h-f)) =>//.
-         by apply rmmul; last (apply rmsub; first apply rmmul).
-     + lapply (fun H => Hm _ (eval_mrange (f:=1-w*g) H Dx)).
-       move => E; split =>//. rewrite <-E. apply Rabs_pos.
-       apply rmsub. apply rmone. by apply rmmul.
-     + lapply (fun H => Hc _ (eval_mrange (f:=w*(g*h-f)) H Dx)).
-       intros <-. apply Rabs_pos.
-       apply rmmul=>//. apply rmsub=>//. by apply rmmul.
+     move=>x Dx; refine (div.newton _ _ _ _ Dx)=>//.
+     + by intros; apply Hm.
+     + by intros; apply Hc. 
+     + split=>//. rewrite <- (Hm _ Dx). apply Rabs_pos.
+     + rewrite <- (Hc _ Dx). apply Rabs_pos.
    constructor. split.
    - elim:(proj1 Hf)=>[Cf|]; elim:(proj1 Hg)=>[Cg|]; constructor=>x Dx.
      apply continuity_pt_div; auto. by apply L. 
@@ -709,28 +712,21 @@ Canonical Structure MOps0: Ops0 :=
    case is_ltE => [Hwx0|]=>[|//=]. 
    specialize (Hwx0 _ _ (rzer _) (rmeval_unsafe Hw rx0 domx0)).
    simpl negb.
-   case magE => [Mu0 mu0 MU0 Hmu0|]=>[|//=]. 
-   case magE => [Mu1 mu1 MU1 Hmu1|]=>[|//=].
-   case magE => [BB b Bb Hb|]=>[|//=].
+   ecase rmag_mrange=>//; [by eauto using rmsub,rmone,rmmul,rmmulZ|]=>Mu0 mu0 MU0 Hmu0. 
+   ecase rmag_mrange=>//; [by eauto using rmsub,rmmul|]=>Mu1 mu1 MU1 Hmu1. 
+   ecase rmag_mrange=>//; [by eauto using rmsub,rmmul|]=>BB b Bb Hb. 
    case is_ltE =>// Hmu01. specialize (Hmu01 _ _ MU0 (rone _)).
    case is_ltE =>// Hmu0b. 
-   destruct (ssrfun.id Hh) as [_ [p [Hp Hh']]].
+   move: (id Hh) => [_ [p [Hp Hh']]].
    case is_ltE => [Hmu|] =>//.
-   lapply (fun H x Hx => Hmu0 _ (eval_mrange (x:=x) (f:=fun x => 1 - 2 * (w x*h x)) H Hx)); last first.
-    apply rmsub. apply rmone. apply rmmulZ. by apply rmmul.
-    intro Hmu0'. 
-   pose proof (fun x Hx => Hmu1 _ (eval_mrange (x:=x) Hw Hx))as Hmu1'.
-   lapply (fun H x Hx => Hb _ (eval_mrange (x:=x) (f:=w*(h*h-f)) H Hx));
-     last by apply rmmul => //; apply rmsub => //; apply rmmul.
-   intro Hb'. 
    have L: forall x, dom x -> 0 <= f x /\ Rabs (h x - sqrt (f x)) <= sqrt.rmin b mu0 mu1.
      (unshelve eapply (sqrt.newton (w:=w) _ _ _ _ _ _ _ _ _ _ _)) =>//.
-     + move => t Ht; rewrite Rmult_assoc. by apply Hmu0'.
-     + move => t Ht /=; rewrite Rmult_1_r. by apply Hb'.
-     + split=>//. rewrite <-(Hmu0' _ domx0). apply Rabs_pos. 
+     + move => t Ht; rewrite Rmult_assoc. by apply Hmu0.
+     + move => t Ht /=; rewrite Rmult_1_r. by apply Hb.
+     + split=>//. rewrite <-(Hmu0 _ domx0). apply Rabs_pos. 
      + apply Rlt_le_trans with (Rabs (w ((lo+hi)/2))); eauto.
        clear -Hwx0. split_Rabs; simpl in *; lra.
-     + rewrite <- (Hb' _ domx0). apply Rabs_pos.
+     + rewrite <- (Hb _ domx0). apply Rabs_pos.
      + apply Rlt_le, Hmu0b; rel. 
      + apply Hmu; rel. 
      + unfold dom. clear. intros; simpl in *; lra. 
@@ -764,11 +760,11 @@ Canonical Structure MOps0: Ops0 :=
    move => HF Hr0. rewrite /mpolynom_eq_aux.
    pose proof (Hphi := rmfc phi'). set (phi := eval (map F2R phi')) in *.
    pose proof (HA := rmfc A'). set (A := eval (map F2R A')) in *.
-   case magE => [lambda' lambda clambda Hlambda | ] => [ | //].
-   case magE => [ d' d cd Hd | ] => [ | //].
-   case is_ltE => [Hl1|]=>[|//].
-   case is_leE => [Hdlr|] => [|//]. constructor.
-   move : (id Hphi) => [ _ [ p [ Hp1 Hp2 ]]]. 
+   move: (id Hphi) => [ _ [ p [ Hp1 Hp2 ]]]. 
+   case magE=>[lambda' lambda clambda Hlambda|]=>//.
+   ecase rmag_mrange=>//; [by apply rmmul; try apply taylor.reval; eassumption|]=>d' d cd Hd.
+   case is_ltE => [Hl1|]=>//.
+   case is_leE => [Hdlr|]=>//. constructor.
    have Hnewton : exists f, forall t, dom t ->  eval' F f t = 0 /\ Rabs ( f t - phi t ) <= d / (1 - lambda).
    apply polynom_eq.newton with A r.
    + move => s Hs t Dt.
@@ -779,9 +775,7 @@ Canonical Structure MOps0: Ops0 :=
      replace ( _ - _) with ( (phi x - eval p x ) + ( s x - phi x) ) by (simpl;ring).
      apply radd. apply Hp2 => //.
      apply symE with r => //. rewrite Rabs_minus_sym. apply Hs => //. 
-   + move => t Dt.
-     apply Hd.
-     move : t Dt. apply eval_mrange, rmmul => //. apply taylor.reval => //.
+   + by intros; apply Hd.
    + split. 2 : apply Hl1 => //; rel.
      apply Rle_trans with (Rabs ( eval' (derive (polynom_eq.opnewton F A)) phi hi)).
      apply Rabs_pos.   
@@ -791,13 +785,11 @@ Canonical Structure MOps0: Ops0 :=
      move => x Dx /=.
      replace ( _ - _) with ( (phi x - eval p x ) + 0 ) by (simpl;ring).
      apply radd. apply Hp2 => //. apply symE with r => //. by rewrite Rabs_R0. apply domhi.
-   + eapply Rle_trans with (Rabs _). 
-     apply Rabs_pos. apply Hd, eval_mrange. apply rmmul. rel.
-     apply taylor.reval. apply HF. apply Hphi. apply domhi.
+   + rewrite <-(Hd _ domhi). apply Rabs_pos. 
    + by [].
    + apply Hdlr; rel.
 
-   move : Hnewton => [ f Hnewton].
+   move: Hnewton=>[f Hnewton].
    exists f; split. 2 : apply Hnewton.
    split; first constructor.
    exists p; split => //.
