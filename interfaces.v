@@ -16,13 +16,13 @@ Open Scope R_scope.
 (** ** preliminary tools *)
 
 (** instances for setoid_rewriting on Rle *)
-Instance Rle_PreOrder: PreOrder Rle.
+#[export] Instance Rle_PreOrder: PreOrder Rle.
 Proof. constructor; cbv; intros; lra. Qed.
-Instance Rlt_PreOrder: Transitive Rlt. 
+#[export] Instance Rlt_PreOrder: Transitive Rlt. 
 Proof. cbv; intros; lra. Qed.
-Instance Rlt_Rle: subrelation Rlt Rle.
+#[export] Instance Rlt_Rle: subrelation Rlt Rle.
 Proof. cbv. tauto. Qed.
-Instance Rplus_Rle: Proper (Rle ==> Rle ==> Rle) Rplus.
+#[export] Instance Rplus_Rle: Proper (Rle ==> Rle ==> Rle) Rplus.
 Proof. repeat intro. lra. Qed.
 
 (** a few notations for natural numbers *)

@@ -1,5 +1,7 @@
 -arg -w -arg -ambiguous-paths
 -arg -w -arg -undo-batch-mode
+-arg -w -arg -native-compute-disabled
+-arg -w -arg -native-compiler-disabled # for calls to coqinterval tactic in examples.v
 
 -R . ApproxModels
 utils.v

@@ -448,7 +448,7 @@ Proof.
   by case F.classify.
 Qed.
 
-Instance nbh: NBH.
+#[global] Instance nbh: NBH.
 exists IOps1 IRel1 Ibnd' Imax Imin Inan Ilt Ile FOps1 F2I F2R.
 Proof.
   - apply Iconvex.
