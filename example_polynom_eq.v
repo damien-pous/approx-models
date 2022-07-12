@@ -101,6 +101,8 @@ Module oval_fourier.
     mpolynom_eq d n (find_radius 10 0 1) F phi0.
 
   (* timings on Damien's machine, plugged *)
+  (* first with vm_compute *)
+
   Time Eval vm_compute in oval_valid 20 10. (* [[-0.015...; 0.015...]]; / 1.3s *)
   Time Eval vm_compute in oval_valid 25 10. (* [[-0.0031...; 0.0031...]]; / 2.3s*)
   
@@ -109,6 +111,16 @@ Module oval_fourier.
   
   Time Eval vm_compute in oval_valid 50 10. (* e-05 / 18.9s *)
   Time Eval vm_compute in polynom_eq_oracle 50 10 F' phi0. (* 3.3s -> 15.6s for the certification *)
+
+  (* then with native_compute *)
+  Time Eval native_compute in oval_valid 20 10. (* [[-0.015...; 0.015...]]; / .5s *)
+  Time Eval native_compute in oval_valid 25 10. (* [[-0.0031...; 0.0031...]]; / .62s*)
+  
+  Time Eval native_compute in oval_valid 30 10. (* [[-0.00107...; 0.00107...]] / 1s *)
+  Time Eval native_compute in polynom_eq_oracle 30 10 F' phi0. (* .44s -> .56s for the certification *)
+  
+  Time Eval native_compute in oval_valid 50 10. (* e-05 / 4.4s *)
+  Time Eval native_compute in polynom_eq_oracle 50 10 F' phi0. (* 1s -> 3.4s for the certification *)
 
   (** manual computation *)
   (** refined solution, with degree [d] for the oracle, and [n] Newton iterations for each point  *)
