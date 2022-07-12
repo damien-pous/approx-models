@@ -208,11 +208,11 @@ Global Hint Resolve rdivN: rel.
 (** ** neighborhoods (effective abstractions for real numbers) *)
 
 (** utilities for specifications  *)
-Variant minmax_spec A le (contains: A -> R -> Prop) (a: A): option A -> Prop :=
+Inductive minmax_spec A le (contains: A -> R -> Prop) (a: A): option A -> Prop :=
 | minmax_spec_some: forall m b, contains m b -> contains a b -> (forall x, contains a x -> le x b) -> minmax_spec le contains a (Some m)
 | minmax_spec_none: (forall x y, contains a x -> le x y -> contains a y)-> minmax_spec le contains a None.
 
-Variant wreflect (P : Prop): bool -> Prop :=
+Inductive wreflect (P : Prop): bool -> Prop :=
  | wReflectT: P -> wreflect P true | wReflectF: wreflect P false.
 Lemma wreflectE {P b}: wreflect P b -> b -> P.
 Proof. by case. Qed.
