@@ -459,6 +459,7 @@ Proof.
   - apply IltE.
   - apply IleE.
   - exact I.midpoint.
+  - exact Fle.
   - exact width.
   - apply Fsingle.
 Defined.

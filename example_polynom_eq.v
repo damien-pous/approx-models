@@ -32,10 +32,10 @@ Module sqrt_cheb.
   Definition phi0 : list FF := 1. 
 
   (** ** automatic computation of a certified solution 
-     (degree: 60, Newton iterations: 20, recursion depth for finding radius: 5, radius between 0 and 1)
+     (degree: 60, Newton iterations: 20, radius up to .0001)
    *)
   Definition valid_s : E Model :=
-    mpolynom_eq 60 20 (find_radius 5 0 1) F phi0.
+    mpolynom_eq 60 20 0.0001%float F phi0.
   Eval vm_compute in valid_s.
 
 
@@ -95,32 +95,33 @@ Module oval_fourier.
   (** automatic computation of a certified solution 
       - [d]: interpolation degree
       - [n]: Newton iterations
-      - [10]: recursion depth for finding the radius, between 0 and 1
+      - [0.001]: precision for the radius
    *)
-  Definition oval_valid d n: E Model :=
-    mpolynom_eq d n (find_radius 10 0 1) F phi0.
+  Definition oval_valid d n: E float :=
+    LET x ::= mpolynom_eq d n 0.001%float F phi0 
+    IN ret (width (rem x)).
 
   (* timings on Damien's machine, plugged *)
   (* first with vm_compute *)
 
-  Time Eval vm_compute in oval_valid 20 10. (* [[-0.015...; 0.015...]]; / 1.3s *)
-  Time Eval vm_compute in oval_valid 25 10. (* [[-0.0031...; 0.0031...]]; / 2.3s*)
+  Time Eval vm_compute in oval_valid 20 10. (* missed; / 1.2s *)
+  Time Eval vm_compute in oval_valid 25 10. (* 0.001; / 2.2s*)
   
-  Time Eval vm_compute in oval_valid 30 10. (* [[-0.00107...; 0.00107...]] / 3.9s *)
-  Time Eval vm_compute in polynom_eq_oracle 30 10 F' phi0. (* 1.2s -> 2.7s for the certification *)
+  Time Eval vm_compute in oval_valid 30 10. (* 0.0006 / 3.7s *)
+  Time Eval vm_compute in polynom_eq_oracle 30 10 F' phi0. (* 1.2s -> 2.5s for the certification *)
   
-  Time Eval vm_compute in oval_valid 50 10. (* e-05 / 18.9s *)
-  Time Eval vm_compute in polynom_eq_oracle 50 10 F' phi0. (* 3.3s -> 15.6s for the certification *)
+  Time Eval vm_compute in oval_valid 50 10. (* 1.5e-5 / 18.4s *)
+  Time Eval vm_compute in polynom_eq_oracle 50 10 F' phi0. (* 3.3s -> 15.1s for the certification *)
 
   (* then with native_compute *)
-  Time Eval native_compute in oval_valid 20 10. (* [[-0.015...; 0.015...]]; / .5s *)
-  Time Eval native_compute in oval_valid 25 10. (* [[-0.0031...; 0.0031...]]; / .62s*)
+  Time Eval native_compute in oval_valid 20 10. (* missed; / .4s *)
+  Time Eval native_compute in oval_valid 25 10. (* 0.002; / .6s*)
   
-  Time Eval native_compute in oval_valid 30 10. (* [[-0.00107...; 0.00107...]] / 1s *)
-  Time Eval native_compute in polynom_eq_oracle 30 10 F' phi0. (* .44s -> .56s for the certification *)
+  Time Eval native_compute in oval_valid 30 10. (* 0.0006 / .9s *)
+  Time Eval native_compute in polynom_eq_oracle 30 10 F' phi0. (* .4s -> .5s for the certification *)
   
-  Time Eval native_compute in oval_valid 50 10. (* e-05 / 4.4s *)
-  Time Eval native_compute in polynom_eq_oracle 50 10 F' phi0. (* 1s -> 3.4s for the certification *)
+  Time Eval native_compute in oval_valid 50 10. (* 1.5e-5 / 4.2s *)
+  Time Eval native_compute in polynom_eq_oracle 50 10 F' phi0. (* 1s -> 3.2s for the certification *)
 
   (** manual computation *)
   (** refined solution, with degree [d] for the oracle, and [n] Newton iterations for each point  *)

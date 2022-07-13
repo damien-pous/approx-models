@@ -192,10 +192,11 @@ Canonical Structure MOps0: Ops0 :=
  (** solution of polynomial equation : F is a polynom with model coefficients
      - phi, A are given by an oracle, such that F(phi) ~ 0 and A ~ 1 / DF(phi)
      - r is a radius also given by an oracle, such that the Newton operator is stable and lambda contracting on B(phi,r) *) 
- Definition mpolynom_eq_aux (F: list Tube) (phi A: list FF) (r: II): E Tube :=
+ Definition mpolynom_eq_aux (F: list Tube) (phi A: list FF) (r: FF): E Tube :=
    let phi := mfc phi in
    let A := mfc A in
-   let phir := {| pol := pol phi ; rem := rem phi + sym r ; cont := false |} in
+   let r := F2I r in 
+   let phir := {| pol := pol phi ; rem := sym r ; cont := false |} in
    (* TOTHINK: the two occurrences of [eval'] below use model multiplications -> truncate them? *)
    let DN := eval' (derive (polynom_eq.opnewton F A)) phir in
    (* degree (N-1)*(d+d') where N is the degree of F and d' its maximal inner degree *)
@@ -206,10 +207,10 @@ Canonical Structure MOps0: Ops0 :=
      if is_lt lambda 1 then
        if is_le (d + lambda * r) r then
          let eps := d / (1 - lambda) in
-         ret {| pol := pol phi; rem := rem phi + sym eps; cont := false |}
-       else err "mpolyn_eq : missed (d+lambda*r)<=r"
-     else err "mpolyn_eq : missed lambda<1"
-   | _,_ => err "mpolyn_eq: error when checking the ranges of DN/N0"
+         ret {| pol := pol phi; rem := sym eps; cont := false |}
+       else err "mpolynom_eq : missed (d+lambda*r)<=r"
+     else err "mpolynom_eq : missed lambda<1"
+   | _,_ => err "mpolynom_eq: error when checking the ranges of DN/N0"
    end.
 
  (** oracle for solutions of polynomial equations:
@@ -228,72 +229,68 @@ Canonical Structure MOps0: Ops0 :=
    in
    interpolate d f.
  
+ Definition find_radius w (d: FF) (lambda: list FF): E FF :=
+   (* lambda is a polynomial with positive coefficients; d is positive *)
+   let p := d::(lambda-[1]) in
+   let p' := derive p in
+   (* a value such that 0<=p'(max) *)
+   let max :=
+     Fix (fun find_max m =>
+            if Fle (eval' p' m) 0 then m
+            else find_max (mulZ 2 m)) id 1 in
+   (* a value such that p(r)<=0, close to the root of p', if any *)
+   LET r ::= 
+     Fix (fun get_close a b =>     (* [a;b] contains and gets close to the root of p' *)
+            if Fle (eval' p a) 0 then ret a else
+            if Fle (b-a) w then err "could not find a radius" else
+            let c := divZ 2 (a+b) in
+            if Fle 0 (eval' p' c) then get_close a c else get_close c b
+         ) (fun _ _ => err "assert false") 0 max
+   IN
+   (* optimisation of the above value *)
+   Fix (fun optimise a b =>        (* [a;b] contains and gets close to the first root of p *)
+          if Fle (b-a) w then ret b else 
+          let c := divZ 2 (a+b) in
+          if Fle (eval' p c) 0 then optimise a c else optimise c b
+       ) (fun _ _ => err "assert false") 0 r.
+                       
  (** putting everything together, we obtain the following function for computing solutions of polynomial functional equations.
      - [d] is the interpolation degree
      - [n] is the number of Newton iterations to be used at each point
-     - [radius] is a heuristic to find a radius (see below)
+     - [w] is the width at which to stop when looking for a correct radius
      - [phi0] is a temptative solution (from which Newton iterations start with)
-     [radius c lambda] should return [l] such that there is a radius [r] with 0<=r, l=lambda(r)<1 and c+lr<=r (we do not need the radius in itself, but it must exist)
-     NOTE: here we inline the relevant part of [mpolynom_eq_aux]: assuming the radius heuristic is correct, this makes it possible to avoid duplicate computations (see correctness proof below)
+     NOTE: here we inline the relevant part of [mpolynom_eq_aux]: this makes it possible to avoid duplicate computations (see correctness proof below)
   *)
- Definition mpolynom_eq d n
-            (radius: II -> (II -> option II) -> E II)
-            (F: list Tube) (phi0: list FF): E Tube :=
+ Definition mpolynom_eq d n w (F: list Tube) (phi0: list FF): E Tube :=
    let F' := map mcf F in
-   let phi := polynom_eq_oracle d n F' phi0 in
+   let phi' := polynom_eq_oracle d n F' phi0 in
    (* TOTHINK: truncate multiplications (calls to eval', etc)? *)
-   let DF := eval' (derive F') phi in
-   let A := mfc (interpolate d (fun x => 1 / beval DF x)) in
-   let phi := mfc phi in
+   let DF := eval' (derive F') phi' in
+   let A' := interpolate d (fun x => 1 / beval DF x) in
+   let A := mfc A' in
+   let phi := mfc phi' in
+   let frange m := I2F (mrange m) in
    match mag (mrange (A * eval' F phi)) with
    | None => err "mpolynom_eq: could not bound the range of A*F(phi)"
-   | Some c =>         
+   | Some d =>
        let L := derive (polynom_eq.opnewton F A) in
-       let lambda r :=
-         let phir := {| pol := pol phi; rem := rem phi + sym r; cont := false |} in
-         mag (mrange (eval' L phir))
-       in
-       LET l ::= radius c lambda IN
-       let eps := c / (1 - l) in
-       ret {| pol := pol phi; rem := rem phi + sym eps; cont := false |}
-   end.
-
- (** trivial heuristic, where the radius is fixed *)
- Definition fixed_radius r c lambda :=
-   let r := F2I r in
-   match lambda r with
-   | Some l =>
-       if is_le 0 r && is_lt l 1 && is_le (c + l * r) r then ret l
-       else err "invalid (fixed) radius"
-   | None => err "lambda could not be bound for the given (fixed) radius"
-   end.
-
- (** exploration heuristic: 
-     tries to find a radius between [r1] and [r2], 
-     doing at most [2^k] calls to [lambda]
-  *)
- Fixpoint find_radius k r1 r2 c lambda :=
-   match k with
-   | 0 => err "could not find a radius (fuel exhausted)"
-   | S k =>
-       let r := F2I r2 in
-       if is_le 0 r then 
-       match lambda r with
-       | Some l =>
-           if is_lt l 1 then
-             if is_le (c + l * r) r then ret l
-             else
-               let m := divZ 2 (r1+r2) in
-               TRY find_radius k r1 m c lambda
-               CATCH find_radius k m r2 c lambda
-               (* below, departing from Louis' code: 
-                  if lambda(r) is not below 1, we chose the lower branch *)
-           else find_radius k r1 (divZ 2 (r1+r2)) c lambda
-       | None => find_radius k r1 (divZ 2 (r1+r2)) c lambda
+       (* l is an overapproximation of the polynom ||L(phi+X)||*)
+       let l := taylor.comp (map frange L) [frange phi;1] in
+       LET r' ::= find_radius w (I2F d) l IN
+       let r := F2I r' in
+       let phir := {| pol := pol phi; rem := sym r; cont := false |} in
+       let DN := eval' L phir in
+       match mag (mrange DN) with
+       | Some lambda =>
+           if is_lt lambda 1 then
+             if is_le (d + lambda * r) r then
+               let eps := d / (1 - lambda) in ret {| pol := pol phi; rem := sym eps; cont := false |}
+         else err "mpolynom_eq : missed (d+lambda*r)<=r"
+        else err "mpolynom_eq : missed lambda<1"
+       | None => err "mpolynom_eq: could not bound the range of DN"
        end
-       else err "radius should be positive"
-   end.           
-
+   end.
+ 
  (** testing nullability, [d] is the interpolation degree used for conditionning the problem *)
  Definition mne0 d (M: Tube): bool :=
    let p := mcf M in
@@ -750,17 +747,20 @@ Canonical Structure MOps0: Ops0 :=
  (** *** solutions of polynomial functional equations *)
 
  Lemma rmpolynom_eq_aux
-       (F': list Tube) (phi' A': list FF) (r': II)
-       (F: list (R->R)) (r: R):
+       (F': list Tube) (phi' A': list FF) (r': FF)
+       (F: list (R->R)):
    list_rel mcontains F' F ->
-   contains r' r ->
-   0 <= r ->
+   0 <= F2R r' ->
    EP (fun M => exists f, mcontains M f /\ forall t, dom t ->  eval' F f t = 0) (mpolynom_eq_aux F' phi' A' r').  
  Proof.
-   move => HF Hr0. rewrite /mpolynom_eq_aux.
-   pose proof (Hphi := rmfc phi'). set (phi := eval (map F2R phi')) in *.
-   pose proof (HA := rmfc A'). set (A := eval (map F2R A')) in *.
-   move: (id Hphi) => [ _ [ p [ Hp1 Hp2 ]]]. 
+   move => HF Hr0. rewrite /mpolynom_eq_aux/=.
+   pose proof (Hphi := rmfc phi'). 
+   pose proof (HA := rmfc A'). 
+   set r := F2R r'. 
+   set p := map F2R phi' in Hphi. 
+   set phi := eval p in Hphi.
+   set A := eval (map F2R A') in HA.
+   have Hp: scontains (map F2I phi') p by apply list_rel_map; rel. 
    case magE=>[lambda' lambda clambda Hlambda|]=>//.
    ecase rmag_mrange=>//; [by apply rmmul; try apply taylor.reval; eassumption|]=>d' d cd Hd.
    case is_ltE => [Hl1|]=>//.
@@ -770,11 +770,9 @@ Canonical Structure MOps0: Ops0 :=
    + move => s Hs t Dt.
      apply Hlambda, eval_mrange => //. apply taylor.reval. apply taylor.rderive. rel.
      split; first constructor.
-     exists p; split => //.
+     exists p; split => //. 
      move => x Dx /=.
-     replace ( _ - _) with ( (phi x - eval p x ) + ( s x - phi x) ) by (simpl;ring).
-     apply radd. apply Hp2 => //.
-     apply symE with r => //. rewrite Rabs_minus_sym. apply Hs => //. 
+     apply symE with r =>//. rewrite Rabs_minus_sym. apply Hs => //. rel. 
    + by intros; apply Hd.
    + split. 2 : apply Hl1 => //; rel.
      apply Rle_trans with (Rabs ( eval' (derive (polynom_eq.opnewton F A)) phi hi)).
@@ -783,22 +781,22 @@ Canonical Structure MOps0: Ops0 :=
      split ; first constructor.
      exists p; split => //=.
      move => x Dx /=.
-     replace ( _ - _) with ( (phi x - eval p x ) + 0 ) by (simpl;ring).
-     apply radd. apply Hp2 => //. apply symE with r => //. by rewrite Rabs_R0. apply domhi.
+     replace ( _ - _) with 0%R by (unfold phi; simpl;ring).
+     apply symE with r => //. by rewrite Rabs_R0. rel. apply domhi.
    + rewrite <-(Hd _ domhi). apply Rabs_pos. 
    + by [].
-   + apply Hdlr; rel.
+   + apply Hdlr; rel. 
 
    move: Hnewton=>[f Hnewton].
    exists f; split. 2 : apply Hnewton.
    split; first constructor.
    exists p; split => //.
    move => x Dx /=.
-   replace (_ - _) with ((phi x - eval p x) +  (f x - phi x )) by (simpl;ring).
-   apply radd. by apply Hp2.
    eapply symE. 2: rel.
    by apply Hnewton.
  Qed.
+
+ (* WAITING FOR NEW RADIUS COMPUTATION
 
  Definition correct_radius (radius: II -> (II -> option II) -> E II) :=
    forall c lambda, EP (fun l => exists r rr, contains r rr /\ lambda r = Some l /\ 0<=rr /\ is_lt l 1 /\ is_le (c+l*r) r)
@@ -807,7 +805,7 @@ Canonical Structure MOps0: Ops0 :=
  (** [mpolynom_eq] essentially is an instance of [mpolynom_eq_aux] *)
  Lemma mpolynom_eq_link d n radius F phi0:
    correct_radius radius ->
-   EP (fun M => exists phi A r' r, ret M = mpolynom_eq_aux F phi A r' /\ contains r' r /\ 0 <= r)
+   EP (fun M => exists phi A r, ret M = mpolynom_eq_aux F phi A r /\ 0 <= F2R r)
       (mpolynom_eq d n radius F phi0).
  Proof.
    move => HR. rewrite /mpolynom_eq.
@@ -857,7 +855,8 @@ Canonical Structure MOps0: Ops0 :=
      apply Hr2. rel. apply F2IE.
    - case IHk=>//=. by constructor.  
  Qed. 
-
+  *)
+ 
  (** *** non-nullability test *)
  Lemma rmne0 n M f: mcontains M f -> mne0 n M -> forall x, dom x -> f x <> 0.
  Proof.
