@@ -271,15 +271,15 @@ Canonical Structure MOps0: Ops0 :=
    let phi := mfc phi' in
    (* let mnorm := map (fun M => match mag (mrange M) with Some m => I2F m | None => 0 end) in *)
    (* let mnorm := map (fun M => fnorm (map I2F (pol M+[rem M]))) in *)
-   (* let fnorm M := match mag (mrange M) with Some m => I2F m | None => I2F (fromQ 280000%Q) end in *)
-   let frange M := I2F (mrange M) in
+   let fnorm M := match mag (mrange M) with Some m => I2F m | None => I2F (fromQ 280000%Q) end in
+   (* let frange M := I2F (mrange M) in *)
    match mag (mrange (A * eval' F phi)) with
    | None => err "mpolynom_eq: could not bound the range of A*F(phi)"
    | Some d =>
        let L := derive (polynom_eq.opnewton F A) in
        (* l is an overapproximation of the polynom ||L(phi+X)||*)
        (* TOTHINK: using frange rather than fnorm seems to work, but is really suspicious *)
-       let l := taylor.comp (map frange L) [frange phi;1] in
+       let l := taylor.comp (map fnorm L) [fnorm phi;1] in
        LET r' ::= find_radius w (I2F d) l IN
        let r := F2I r' in
        if negb (is_le 0 r) then err "mpolynom_eq: negative radius" else

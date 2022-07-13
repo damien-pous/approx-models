@@ -34,9 +34,10 @@ Module sqrt_cheb.
   (** ** automatic computation of a certified solution 
      (degree: 60, Newton iterations: 20, radius up to .0001)
    *)
-  Definition valid_s : E Model :=
-    mpolynom_eq 60 20 0.0001%float F phi0.
-  Eval vm_compute in valid_s.
+  Definition valid_s : E float :=
+    LET M ::= mpolynom_eq 60 20 0.0001%float F phi0 
+    IN ret (width (rem M)).
+  Eval native_compute in valid_s.
 
 
   (** ** manual computation *)
