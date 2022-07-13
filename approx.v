@@ -208,9 +208,9 @@ Canonical Structure MOps0: Ops0 :=
        if is_le (d + lambda * r) r then
          let eps := d / (1 - lambda) in
          ret {| pol := pol phi; rem := sym eps; cont := false |}
-       else err "mpolynom_eq : missed (d+lambda*r)<=r"
-     else err "mpolynom_eq : missed lambda<1"
-   | _,_ => err "mpolynom_eq: error when checking the ranges of DN/N0"
+       else err "mpolynom_eq_aux : missed (d+lambda*r)<=r"
+     else err "mpolynom_eq_aux : missed lambda<1"
+   | _,_ => err "mpolynom_eq_aux: error when checking the ranges of DN/N0"
    end.
 
  (** oracle for solutions of polynomial equations:
@@ -236,7 +236,7 @@ Canonical Structure MOps0: Ops0 :=
    (* a value such that 0<=p'(max) *)
    let max :=
      Fix (fun find_max m =>
-            if Fle (eval' p' m) 0 then m
+            if Fle 0 (eval' p' m) then m
             else find_max (mulZ 2 m)) id 1 in
    (* a value such that p(r)<=0, close to the root of p', if any *)
    LET r ::= 
@@ -257,7 +257,7 @@ Canonical Structure MOps0: Ops0 :=
  (** putting everything together, we obtain the following function for computing solutions of polynomial functional equations.
      - [d] is the interpolation degree
      - [n] is the number of Newton iterations to be used at each point
-     - [w] is the width at which to stop when looking for a correct radius
+     - [w] is the precision when looking for the radius
      - [phi0] is a temptative solution (from which Newton iterations start with)
      NOTE: here we inline the relevant part of [mpolynom_eq_aux]: this makes it possible to avoid duplicate computations (see correctness proof below)
   *)
@@ -269,15 +269,20 @@ Canonical Structure MOps0: Ops0 :=
    let A' := interpolate d (fun x => 1 / beval DF x) in
    let A := mfc A' in
    let phi := mfc phi' in
-   let frange m := I2F (mrange m) in
+   (* let mnorm := map (fun M => match mag (mrange M) with Some m => I2F m | None => 0 end) in *)
+   (* let mnorm := map (fun M => fnorm (map I2F (pol M+[rem M]))) in *)
+   (* let fnorm M := match mag (mrange M) with Some m => I2F m | None => I2F (fromQ 280000%Q) end in *)
+   let frange M := I2F (mrange M) in
    match mag (mrange (A * eval' F phi)) with
    | None => err "mpolynom_eq: could not bound the range of A*F(phi)"
    | Some d =>
        let L := derive (polynom_eq.opnewton F A) in
        (* l is an overapproximation of the polynom ||L(phi+X)||*)
+       (* TOTHINK: using frange rather than fnorm seems to work, but is really suspicious *)
        let l := taylor.comp (map frange L) [frange phi;1] in
        LET r' ::= find_radius w (I2F d) l IN
        let r := F2I r' in
+       if negb (is_le 0 r) then err "mpolynom_eq: negative radius" else
        let phir := {| pol := pol phi; rem := sym r; cont := false |} in
        let DN := eval' L phir in
        match mag (mrange DN) with
@@ -796,66 +801,37 @@ Canonical Structure MOps0: Ops0 :=
    by apply Hnewton.
  Qed.
 
- (* WAITING FOR NEW RADIUS COMPUTATION
-
- Definition correct_radius (radius: II -> (II -> option II) -> E II) :=
-   forall c lambda, EP (fun l => exists r rr, contains r rr /\ lambda r = Some l /\ 0<=rr /\ is_lt l 1 /\ is_le (c+l*r) r)
-                  (radius c lambda).
-
  (** [mpolynom_eq] essentially is an instance of [mpolynom_eq_aux] *)
- Lemma mpolynom_eq_link d n radius F phi0:
-   correct_radius radius ->
+ Lemma mpolynom_eq_link d n w F phi0:
    EP (fun M => exists phi A r, ret M = mpolynom_eq_aux F phi A r /\ 0 <= F2R r)
-      (mpolynom_eq d n radius F phi0).
+      (mpolynom_eq d n w F phi0).
  Proof.
-   move => HR. rewrite /mpolynom_eq.
-   set (A' := interpolate _ _). set (A := mfc _).
-   set (phi' := polynom_eq_oracle _ _ _ _). set (phi := mfc _).
-   set (m := mag _). case_eq m=>//c Hc. case HR=>//= l.
-   intros (r&rr&Hr&Hl&Hrr&Hl1&Hlr). constructor.
+   rewrite /mpolynom_eq.
+   set A' := interpolate _ _. set A := mfc _.
+   set phi' := polynom_eq_oracle _ _ _ _. set phi := mfc _.
+   set m := mag _. case_eq m=>//c Hc.
+   case find_radius=>//= r'.
+   case is_leE=>//= Hr. 
+   set lambda := mag _. case_eq lambda=>//l Hl.
+   case_eq (is_lt l 1)=>//= Hl1.
+   set r := F2I r'.
+   case_eq (is_le (c+l*r) r)=>//= Hlr.
+   constructor. 
+   exists phi', A', r'. split. 
    unfold mpolynom_eq_aux.
-   exists phi', A', r, rr. 
-   rewrite -/A -/phi -/m Hc Hl Hl1 Hlr.
-   eauto using rmfc. 
+   by rewrite -/A -/phi -/m -/lambda Hc Hl Hl1 Hlr.
+   apply Hr; rel. 
  Qed.
 
  (** whence its correctness *)
- Lemma rmpolynom_eq d n radius F' F phi0:
-   correct_radius radius ->
+ Lemma rmpolynom_eq d n w F' F phi0:
    list_rel mcontains F' F ->  
    EP (fun M => exists f, mcontains M f /\ forall t, dom t ->  eval' F f t = 0)
-      (mpolynom_eq d n radius F' phi0).
+      (mpolynom_eq d n w F' phi0).
  Proof.
-   move => HR HF. case (mpolynom_eq_link _ _ _ _ HR)=>//M.
-   intros (phi&A&R&r&->&?&?). eapply rmpolynom_eq_aux; eauto. 
+   move=> HF. case mpolynom_eq_link=>//M.
+   intros (phi&A&r&->&Hr). eapply rmpolynom_eq_aux; eauto. 
  Qed.
-
- (** correctness of the heuristics for finding radiuses *)
- Lemma correct_fixed_radius r: correct_radius (fixed_radius r).
- Proof.
-   intros c lambda. unfold fixed_radius.
-   case_eq (lambda (F2I r))=>//l.
-   set (P := _ && _). case_eq P=>// HP Hl. constructor.
-   do 2 eexists. split. apply F2IE. split. eassumption.
-   subst P. move:HP=>/andP[/andP[Hr Hl1] Hcl]. intuition.
-   move:Hr. case is_leE=>//H _. apply H. rel. apply F2IE.
- Qed.
-
- Lemma correct_find_radius k r1 r2:
-   correct_radius (find_radius k r1 r2).
- Proof.
-   intros c lambda. revert r1 r2. 
-   induction k=>/=r1 r2. constructor.
-   case is_leE=>//. move=>Hr2.
-   case_eq (lambda (F2I r2))=>//l Hl.
-   case_eq (is_lt l 1)=>//Hl1.
-   case_eq (is_le (c + l * F2I r2) (F2I r2))=>Hcl.
-   - constructor.
-     exists (F2I r2). eexists. split. apply F2IE. intuition.
-     apply Hr2. rel. apply F2IE.
-   - case IHk=>//=. by constructor.  
- Qed. 
-  *)
  
  (** *** non-nullability test *)
  Lemma rmne0 n M f: mcontains M f -> mne0 n M -> forall x, dom x -> f x <> 0.
