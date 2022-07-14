@@ -232,15 +232,15 @@ Canonical Structure MOps0: Ops0 :=
  Definition find_radius w (d: FF) (L: list Tube) (phi: Tube): E FF :=
    (* l[X] over-approximate ||L(phi+X)|| *)
    LET l ::=
-     Fix (fun lambda L => 
+     Fix (fun lambda n L => 
           match L with
           | [] => ret []
           (* TOTHINK: truncate multiplications in calls to eval'? *)
           | _ => match mag (mrange (eval' L phi)) with
-                | Some r => LET q ::= lambda (derive L) IN ret (I2F r::q)
+                | Some r => LET q ::= lambda (Z.succ n) (map (divZ n) (derive L)) IN ret (I2F r::q)
                 | None => err "find_radius: could not bound the range of L(phi)"
                 end
-          end) (fun _ => err "assert false") L
+          end) (fun _ _ => err "assert false") 1%Z L
    IN
    (* l is a polynomial with positive coefficients; d is positive; thus p is convex *)
    let p := d::(l-[1]) in

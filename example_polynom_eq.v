@@ -106,23 +106,23 @@ Module oval_fourier.
   (* first with vm_compute *)
 
   Time Eval vm_compute in oval_valid 20 10. (* missed; / 1.2s *)
-  Time Eval vm_compute in oval_valid 25 10. (* 0.001; / 2.2s*)
+  Time Eval vm_compute in oval_valid 25 10. (* 0.002; / 2.2s*)
   
   Time Eval vm_compute in oval_valid 30 10. (* 0.0006 / 3.7s *)
   Time Eval vm_compute in polynom_eq_oracle 30 10 F' phi0. (* 1.2s -> 2.5s for the certification *)
   
-  Time Eval vm_compute in oval_valid 50 10. (* 1.5e-5 / 18.4s *)
-  Time Eval vm_compute in polynom_eq_oracle 50 10 F' phi0. (* 3.3s -> 15.1s for the certification *)
+  Time Eval vm_compute in oval_valid 50 10. (* 1.4e-5 / 18.6s *)
+  Time Eval vm_compute in polynom_eq_oracle 50 10 F' phi0. (* 3.3s -> 15.3s for the certification *)
 
   (* then with native_compute *)
-  Time Eval native_compute in oval_valid 20 10. (* missed; / .4s *)
+  Time Eval native_compute in oval_valid 20 10. (* missed; / .5s *)
   Time Eval native_compute in oval_valid 25 10. (* 0.002; / .6s*)
   
   Time Eval native_compute in oval_valid 30 10. (* 0.0006 / .9s *)
   Time Eval native_compute in polynom_eq_oracle 30 10 F' phi0. (* .4s -> .5s for the certification *)
   
-  Time Eval native_compute in oval_valid 50 10. (* 1.5e-5 / 4.2s *)
-  Time Eval native_compute in polynom_eq_oracle 50 10 F' phi0. (* 1s -> 3.2s for the certification *)
+  Time Eval native_compute in oval_valid 50 10. (* 1.4e-5 / 4.3s *)
+  Time Eval native_compute in polynom_eq_oracle 50 10 F' phi0. (* 1s -> 3.3s for the certification *)
 
   (** manual computation *)
   (** refined solution, with degree [d] for the oracle, and [n] Newton iterations for each point  *)
