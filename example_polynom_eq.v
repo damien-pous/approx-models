@@ -2,7 +2,7 @@
 
 Require Import interfaces.
 Require Import vectorspace taylor approx.
-Require Import utils intervals String.
+Require Import intervals String.
 Require fourier chebyshev.
 
 Set Implicit Arguments.
@@ -32,10 +32,10 @@ Module sqrt_cheb.
   Definition phi0 : list FF := 1. 
 
   (** ** automatic computation of a certified solution 
-     (degree: 60, Newton iterations: 20, radius up to .0001)
+     (degree: 60, Newton iterations: 20, radius up to ~.001)
    *)
   Definition valid_s : E float :=
-    LET M ::= mpolynom_eq 60 20 0.0001%float F phi0 
+    LET M ::= mpolynom_eq 60 20 0x1p-10%float F phi0 
     IN ret (width (rem M)).
   Eval native_compute in valid_s.
 
@@ -99,7 +99,7 @@ Module oval_fourier.
       - [0.001]: precision for the radius
    *)
   Definition oval_valid d n: E float :=
-    LET x ::= mpolynom_eq d n 0.001%float F phi0 
+    LET x ::= mpolynom_eq d n 0x1p-15%float F phi0 
     IN ret (width (rem x)).
 
   (* timings on Damien's machine, plugged *)

@@ -228,11 +228,24 @@ Canonical Structure MOps0: Ops0 :=
      newton n P (derive P) (beval phi0 t)
    in
    interpolate d f.
- 
- Definition find_radius w (d: FF) (lambda: list FF): E FF :=
-   (* lambda is a polynomial with positive coefficients; d is positive *)
-   let p := d::(lambda-[1]) in
+
+ Definition find_radius w (d: FF) (L: list Tube) (phi: Tube): E FF :=
+   (* l[X] over-approximate ||L(phi+X)|| *)
+   LET l ::=
+     Fix (fun lambda L => 
+          match L with
+          | [] => ret []
+          (* TOTHINK: truncate multiplications in calls to eval'? *)
+          | _ => match mag (mrange (eval' L phi)) with
+                | Some r => LET q ::= lambda (derive L) IN ret (I2F r::q)
+                | None => err "find_radius: could not bound the range of L(phi)"
+                end
+          end) (fun _ => err "assert false") L
+   IN
+   (* l is a polynomial with positive coefficients; d is positive; thus p is convex *)
+   let p := d::(l-[1]) in
    let p' := derive p in
+   (* BELOW: replace with a simpler Newton method ? *)
    (* a value such that 0<=p'(max) *)
    let max :=
      Fix (fun find_max m =>
@@ -253,7 +266,7 @@ Canonical Structure MOps0: Ops0 :=
           let c := divZ 2 (a+b) in
           if Fle (eval' p c) 0 then optimise a c else optimise c b
        ) (fun _ _ => err "assert false") 0 r.
-                       
+ 
  (** putting everything together, we obtain the following function for computing solutions of polynomial functional equations.
      - [d] is the interpolation degree
      - [n] is the number of Newton iterations to be used at each point
@@ -269,18 +282,11 @@ Canonical Structure MOps0: Ops0 :=
    let A' := interpolate d (fun x => 1 / beval DF x) in
    let A := mfc A' in
    let phi := mfc phi' in
-   (* let mnorm := map (fun M => match mag (mrange M) with Some m => I2F m | None => 0 end) in *)
-   (* let mnorm := map (fun M => fnorm (map I2F (pol M+[rem M]))) in *)
-   let fnorm M := match mag (mrange M) with Some m => I2F m | None => I2F (fromQ 280000%Q) end in
-   (* let frange M := I2F (mrange M) in *)
    match mag (mrange (A * eval' F phi)) with
    | None => err "mpolynom_eq: could not bound the range of A*F(phi)"
    | Some d =>
        let L := derive (polynom_eq.opnewton F A) in
-       (* l is an overapproximation of the polynom ||L(phi+X)||*)
-       (* TOTHINK: using frange rather than fnorm seems to work, but is really suspicious *)
-       let l := taylor.comp (map fnorm L) [fnorm phi;1] in
-       LET r' ::= find_radius w (I2F d) l IN
+       LET r' ::= find_radius w (I2F d) L phi IN
        let r := F2I r' in
        if negb (is_le 0 r) then err "mpolynom_eq: negative radius" else
        let phir := {| pol := pol phi; rem := sym r; cont := false |} in
