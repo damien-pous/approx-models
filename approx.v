@@ -246,7 +246,10 @@ Canonical Structure MOps0: Ops0 :=
 
  Definition fnorm M := e_map I2F (mnorm M).
  
- (** || L(phi+r) || = || \sum_i L^(i)(phi)/!i r^i || <= \sum_i ||L^(i)(phi)/!i|| r^i *)
+ (** || L(phi+r) || = || \sum_i L^(i)(phi)/!i r^i || <= \sum_i ||L^(i)(phi)/!i|| r^i 
+     rather fine, but O(d^2) model multiplications,
+     and possibly too fine (finer than what is used in validation, cf. oval example at degree 20)
+  *)
  Definition polynom_for_lambda1 (L: list Tube) (phi: Tube): E (list FF) :=
    LET l ::=
      Fix (fun lambda L => 
@@ -259,7 +262,9 @@ Canonical Structure MOps0: Ops0 :=
        end) (fun _ => err "assert false") L
    IN ret (taylorise 0 1 l).
 
- (** ... <= ||L(phi)|| + \sum_i>0 ||L||^(i)(||phi||)/!i r^i *)
+ (** ... <= ||L(phi)|| + \sum_i>0 ||L||^(i)(||phi||)/!i r^i 
+     only O(d) model multiplications, and probably closer to the estimation used during validation
+  *)
  Definition polynom_for_lambda2 (L: list Tube) (phi: Tube): E (list FF) :=
    LET l0 ::= fnorm (eval' L phi) IN 
    LET Nphi ::= fnorm phi IN
@@ -274,7 +279,7 @@ Canonical Structure MOps0: Ops0 :=
  
  Definition find_radius w (d: FF) (L: list Tube) (phi: Tube): E FF :=
    (* l[X] over-approximate ||L(phi+X)|| *)
-   LET l ::= polynom_for_lambda1 L phi IN
+   LET l ::= polynom_for_lambda2 L phi IN
    (* l is a polynomial with positive coefficients; d is positive; thus p is convex *)
    let p := d::(l-[1]) in
    let p' := derive p in

@@ -105,7 +105,7 @@ Module oval_fourier.
     IN ret (width (rem x)).
 
   (* timings on Damien's machine, plugged *)
-  Time Eval native_compute in oval_valid 20 10. (* missed; / .4s *)
+  Time Eval native_compute in oval_valid 20 10. (* 0.006 / .5s *)
   Time Eval native_compute in oval_valid 25 10. (* 0.002; / .6s*)
   
   Time Eval native_compute in oval_valid 30 10. (* 0.0006 / .9s *)
