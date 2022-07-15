@@ -5,6 +5,8 @@ Require Import vectorspace taylor approx.
 Require Import intervals String.
 Require fourier chebyshev.
 
+From ReductionEffect Require Import PrintingEffect.
+
 Set Implicit Arguments.
 Unset Strict Implicit.
 Unset Printing Implicit Defensive.

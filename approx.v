@@ -5,6 +5,8 @@ Require Import vectorspace.
 Require div sqrt polynom_eq.
 Require Import utils.
 
+From ReductionEffect Require Import PrintingEffect.
+
 Set Implicit Arguments.
 Unset Strict Implicit.
 Unset Printing Implicit Defensive.  
@@ -283,6 +285,7 @@ Canonical Structure MOps0: Ops0 :=
             if Fle 0 (eval' p' m) then m
             else find_max (mulZ 2 m)) id 1 in
    (* a value such that p(r)<=0, close to the root of p', if any *)
+   let _ := print max in
    LET r ::= 
      Fix (fun get_close a b =>     (* [a;b] contains and gets close to the root of p' *)
             if Fle (eval' p a) 0 then ret a else
@@ -291,13 +294,19 @@ Canonical Structure MOps0: Ops0 :=
             if Fle 0 (eval' p' c) then get_close a c else get_close c b
          ) (fun _ _ => err "assert false") 0 max
    IN
+   let _ := print r in
    (* optimisation of the above value *)
+   LET r ::= 
    Fix (fun optimise a b =>        (* [a;b] contains and gets close to the first root of p *)
           if Fle (b-a) w then ret b else 
           let c := divZ 2 (a+b) in
           if Fle (eval' p c) 0 then optimise a c else optimise c b
-       ) (fun _ _ => err "assert false") 0 r.
- 
+       ) (fun _ _ => err "assert false") 0 r
+   IN 
+   let _ := print "final radius and associated bound on lambda"%string in
+   let _ := print (r, eval' l r) in
+   ret r.
+
  (** putting everything together, we obtain the following function for computing solutions of polynomial functional equations.
      - [d] is the interpolation degree
      - [n] is the number of Newton iterations to be used at each point
@@ -324,6 +333,8 @@ Canonical Structure MOps0: Ops0 :=
        let DN := eval' L phir in
        match mag (mrange DN) with
        | Some lambda =>
+           let _ := print "validated lambda"%string in
+           let _ := print lambda in
            if is_lt lambda 1 then
              if is_le (d + lambda * r) r then
                let eps := d / (1 - lambda) in ret {| pol := pol phi; rem := sym eps; cont := false |}
