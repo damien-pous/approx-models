@@ -1323,9 +1323,10 @@ Global Hint Resolve rcons0 rcons00 rpmul rpone rpcst rfast_eval rprim_ rintegrat
 Section i.
  Import interfaces.
  Context {C: Ops1}.
- Variable n: Z.
+ Variable d: nat.
  Variable f: C -> C.
 
+ Let n := Z.of_nat d.
  Let sn: Z := n+1.
  Let sdn: Z := 2*n+1.
  Let osdn: C := divZ sdn 1.

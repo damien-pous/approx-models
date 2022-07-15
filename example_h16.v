@@ -17,7 +17,6 @@ Section s.
   *)
  Variable N: nat.
 
- Let N' := Z.of_nat N.
  Let r: II := fromQ r_.
  Let x0: II := fromQ 0.9.
  Let y0: II := fromQ 1.1.
@@ -44,20 +43,20 @@ Section s.
  Definition calcul :=
    LET midx ::= mid IN
    LET midy ::= mid IN
-   LET deltay ::= msqrt N' (mcst r2 - sqrx (sqrx midx - mcst x0)) IN
-   LET deltax ::= msqrt N' (mcst r2 - sqry (sqry midy - mcst y0)) IN
-   LET ydown ::= msqrt N' (mcst y0 - deltay) IN
-   LET yup ::= msqrt N' (mcst y0 + deltay) IN
+   LET deltay ::= msqrt N (mcst r2 - sqrx (sqrx midx - mcst x0)) IN
+   LET deltax ::= msqrt N (mcst r2 - sqry (sqry midy - mcst y0)) IN
+   LET ydown ::= msqrt N (mcst y0 - deltay) IN
+   LET yup ::= msqrt N (mcst y0 + deltay) IN
    LET yupdown ::= 
-     LET a ::= mdiv N' 1 yup IN
-     LET b ::= mdiv N' 1 ydown IN
+     LET a ::= mdiv N 1 yup IN
+     LET b ::= mdiv N 1 ydown IN
      ret (a-b)
    IN
-   LET xleft ::= msqrt N' (mcst x0 - deltax) IN
-   LET xright ::= msqrt N' (mcst x0 + deltax) IN
+   LET xleft ::= msqrt N (mcst x0 - deltax) IN
+   LET xright ::= msqrt N (mcst x0 + deltax) IN
    LET xleftright ::=
-     LET a ::= mdiv N' 1 (xleft * deltax) IN
-     LET b ::= mdiv N' 1 (xright * deltax) IN
+     LET a ::= mdiv N 1 (xleft * deltax) IN
+     LET b ::= mdiv N 1 (xright * deltax) IN
      ret (a+b)
    IN
    let integrand1 (i j : nat) :=
@@ -69,7 +68,7 @@ Section s.
    let integrand2 (i j : nat) :=
        match i with
        | 0 => ret (xleftright * (midy ^y j * (midy ^y 2 - mcst y0)))
-       | S i' => mdiv N' ((xleft ^y i' + xright ^y i') * midy ^y j * (midy ^y 2 - mcst y0)) deltax
+       | S i' => mdiv N ((xleft ^y i' + xright ^y i') * midy ^y j * (midy ^y 2 - mcst y0)) deltax
        end
    in
    let Integral1 (i j : nat) := mintegrate (integrand1 i j) None None in

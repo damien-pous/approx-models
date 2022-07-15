@@ -255,7 +255,7 @@ Class BasisOps_on (C: Type) := {
   bintegrate: list C -> C -> C -> C;
   (* range is an optional operation (implemented locally if absent, e.g., for Taylor models) *)
   brange: option (list C -> C*C); 
-  interpolate: Z -> (C -> C) -> list C;
+  interpolate: nat -> (C -> C) -> list C;
 }.
 
 (** Basis operations immediately give an Ops0 structure on [list C] *)

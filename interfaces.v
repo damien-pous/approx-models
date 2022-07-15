@@ -318,8 +318,8 @@ Class ModelOps {N: NBH} := {
   (** division and square root: we use an certification a posteriori, the first argument is supposed to be the interpolation degree for the oracles 
       may raise errors, in case the oracles do not provide appropriate approximations
    *)
-  mdiv: Z -> MM -> MM -> E MM;
-  msqrt: Z -> MM -> E MM;
+  mdiv: nat -> MM -> MM -> E MM;
+  msqrt: nat -> MM -> E MM;
   (** [truncate] acts as the identity *)
   mtruncate: nat -> MM -> MM;
   (** [mrange] returns an approximation of the range of the model on the considered domain *)
@@ -327,8 +327,8 @@ Class ModelOps {N: NBH} := {
   (** nullability/positivity test, first argument is supposed to be the interpolation degree for computing the inverse of the model in order get a well-conditionned problem 
       positivity test may raise an error, in case the given model is not declared as continuous
    *)
-  mne0: Z -> MM -> bool;
-  mgt0: Z -> MM -> E bool;
+  mne0: nat -> MM -> bool;
+  mgt0: nat -> MM -> E bool;
 }.
 Coercion MM: ModelOps >-> Ops0.
 

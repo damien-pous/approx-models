@@ -310,7 +310,7 @@ Section s.
 Context {N: NBH} (MO: ModelOps) lo hi (M: Model MO lo hi). 
 
 (** interpolation degree for divisions, square roots, and truncations *)
-Variable deg: Z.
+Variable deg: nat.
 
 
 (** interpretation of expressions using intervals / models / booleans *)
@@ -353,7 +353,7 @@ Fixpoint Sem S (t: @term sval S): sval S :=
   | f_cos => mcos
   | f_sin => msin
   | f_cst e => e_map mcst (Sem e)
-  | f_trunc e => e_map (mtruncate (Z.to_nat deg)) (Sem e)
+  | f_trunc e => e_map (mtruncate deg) (Sem e)
   | b_le e f => e_map2 is_le (Sem e) (Sem f)
   | b_ge e f => e_map2 is_ge (Sem e) (Sem f)
   | b_lt e f => e_map2 is_lt (Sem e) (Sem f)
@@ -454,7 +454,7 @@ Section s.
 Context {N: NBH} (MO: II -> II -> ModelOps) (M: forall D: Domain, Model (MO dlo dhi) dlo dhi).
 
 (** interpolation degree for divisions and square roots *)
-Variable deg: Z.
+Variable deg: nat.
 
 (** interpretation of expressions using intervals / models / booleans *)
 Definition sval S :=
@@ -497,7 +497,7 @@ Fixpoint Sem S (t: @term sval S): sval S :=
   | f_cos => fun MO => mcos
   | f_sin => fun MO => msin
   | f_cst e => fun MO => e_map mcst (Sem e)
-  | f_trunc e => fun MO => e_map (mtruncate (Z.to_nat deg)) (Sem e MO)
+  | f_trunc e => fun MO => e_map (mtruncate deg) (Sem e MO)
   | b_le e f => e_map2 is_le (Sem e) (Sem f)
   | b_ge e f => e_map2 is_ge (Sem e) (Sem f)
   | b_lt e f => e_map2 is_lt (Sem e) (Sem f)

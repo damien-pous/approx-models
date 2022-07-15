@@ -144,7 +144,7 @@ Definition wrem (x: E (Tube II)) := x >>= fun x => ret (width (rem x)).
     parameterised by 
     - [deg]: the interpolation degree for square root
     - [eps]: the smaller the better *)
-Definition NearAbs (MM: ModelOps) (deg: Z) (eps: Q): E MM :=
+Definition NearAbs (MM: ModelOps) (deg: nat) (eps: Q): E MM :=
   LET mid ::= mid IN
   msqrt deg (mcst (fromQ (eps*eps)) + mid * mid). 
 
@@ -256,7 +256,7 @@ Abort.
 
 
 (** ** computing the error between [NearAbs deg eps] and [abs] on [[0;1]], directly *)
-Definition NearAbsErr01 (deg : Z) (eps: Q) :=
+Definition NearAbsErr01 (deg : nat) (eps: Q) :=
   LET mid ::= mid IN
   LET G ::= @NearAbs F01 deg eps IN
   ret (width (mrange (G - mid))).
