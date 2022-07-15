@@ -12,7 +12,7 @@ Unset Printing Implicit Defensive.
     - functions on closed real intervals
     - (conjunctions/disjunctions of combinations of) comparison of reals
  *)
-Inductive sort := REAL | FUN | BOOL.
+Variant sort := REAL | FUN | BOOL.
 
 (** syntax for the expressions we know how to approximate 
     we use parameterised higher order abstract syntax (PHOAS) in order to have a let..in construct and be able to share subexpressions

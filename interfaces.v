@@ -207,12 +207,12 @@ Global Hint Resolve rdivN: rel.
 
 (** ** neighborhoods (effective abstractions for real numbers) *)
 
-(** utilities for specifications  *)
-Inductive minmax_spec A le (contains: A -> R -> Prop) (a: A): option A -> Prop :=
+(** utilities for specifications *)
+Variant minmax_spec A le (contains: A -> R -> Prop) (a: A): option A -> Prop :=
 | minmax_spec_some: forall m b, contains m b -> contains a b -> (forall x, contains a x -> le x b) -> minmax_spec le contains a (Some m)
 | minmax_spec_none: (forall x y, contains a x -> le x y -> contains a y)-> minmax_spec le contains a None.
 
-Inductive wreflect (P : Prop): bool -> Prop :=
+Variant wreflect (P : Prop): bool -> Prop :=
  | wReflectT: P -> wreflect P true | wReflectF: wreflect P false.
 Lemma wreflectE {P b}: wreflect P b -> b -> P.
 Proof. by case. Qed.
@@ -265,7 +265,7 @@ Variant mag_spec A (contains: A -> R -> Prop) (a: A): option A -> Prop :=
 | mag_spec_none: mag_spec contains a None.
 
 Lemma magE {N: NBH} X: mag_spec contains X (mag X).
-Proof. rewrite /mag. elim: maxE; econstructor; eauto; rel. Qed.
+Proof. rewrite /mag. case: maxE; econstructor; eauto; rel. Qed.
 
 Lemma symE {N: NBH} x y I: Rabs x <= y -> contains I y -> contains (sym I) x.
 Proof.

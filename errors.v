@@ -4,7 +4,7 @@ Require Import String.
 Set Implicit Arguments.
 
 (** monadic values *)
-Inductive E A := ret(a: A) | err(e: string).
+Variant E A := ret(a: A) | err(e: string).
 Arguments err {_} _.
 
 Declare Scope error_scope.

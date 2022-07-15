@@ -33,7 +33,7 @@ End s.
 
 (** ** tactic parameters *)
 (** in each group, default value comes first *)
-Inductive param :=
+Variant param :=
 (** interpolation degree (default: 10) *)
 | i_deg of Z
 (** floating point implementation *)

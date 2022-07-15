@@ -369,7 +369,7 @@ Canonical Structure MOps0: Ops0 :=
  Lemma mcontains_ext M f g : (forall x, (* dom x -> *) f x = g x) -> mcontains M f -> mcontains M g.
  Proof.
    move => Hfg [Cf [f0 [Hf0 Hf]]]. split.
-   - elim: Cf=>[Cf|]; constructor=>x Dx. 
+   - case: Cf=>[Cf|]; constructor=>x Dx. 
      eapply continuity_pt_ext_loc. 2: apply Cf. 2: apply Dx.
      by exists posreal_one.     (* works because HFg is not constrained to the domain *)
    - exists f0; split => // x Hx.
@@ -430,7 +430,7 @@ Canonical Structure MOps0: Ops0 :=
  Lemma rmadd: forall M f, mcontains M f -> forall P g, mcontains P g -> mcontains (madd M P) (f+g).
  Proof.
    move=> M f [Cf [p [Hp Hf]]] P g [Cg [q [Hq Hg]]]. split.
-   cbn. elim:Cf=>[Cf|]; elim:Cg=>[Cg|]; constructor=>x Dx.
+   cbn. case:Cf=>[Cf|]; case:Cg=>[Cg|]; constructor=>x Dx.
    now apply continuity_pt_plus; auto. 
    exists (p+q); split. by apply rsadd.
    move=> x Hx. replace (_-_) with ((f x - eval p x) + (g x - eval q x)).
@@ -440,7 +440,7 @@ Canonical Structure MOps0: Ops0 :=
  Lemma rmsub: forall M f, mcontains M f -> forall P g, mcontains P g -> mcontains (msub M P) (f-g).
  Proof.
    move=> M f [Cf [p [Hp Hf]]] P g [Cg [q [Hq Hg]]]. split.
-   cbn. elim:Cf=>[Cf|]; elim:Cg=>[Cg|]; constructor=>x Dx.
+   cbn. case:Cf=>[Cf|]; case:Cg=>[Cg|]; constructor=>x Dx.
    now apply continuity_pt_minus; auto. 
    exists (p-q); split. by apply rssub.
    move=> x Hx. replace (_-_) with ((f x - eval p x) - (g x - eval q x)).
@@ -450,7 +450,7 @@ Canonical Structure MOps0: Ops0 :=
  Lemma rmscal: forall C c, contains C c -> forall M f, mcontains M f -> mcontains (mscal C M) (fun x => c * f x). 
  Proof.
    move=> C c Hc M f [Cf [p [Hp Hf]]]. split.
-   cbn. elim:Cf=>[Cf|]; constructor=>x Dx.
+   cbn. case:Cf=>[Cf|]; constructor=>x Dx.
    apply continuity_pt_mult; auto. now apply continuity_pt_const.
    exists (sscal c p); split. by apply rsscal.
    move=> x Hx. replace (_-_) with (c*(f x - eval p x)).
@@ -460,7 +460,7 @@ Canonical Structure MOps0: Ops0 :=
  Lemma rmmulZ: forall z M f, mcontains M f -> mcontains (mmulZ z M) (mulZ z f). 
  Proof.
    move=> z M f [Cf [p [Hp Hf]]]. split.
-   cbn. elim:Cf=>[Cf|]; constructor=>x Dx.
+   cbn. case:Cf=>[Cf|]; constructor=>x Dx.
    apply continuity_pt_mult; auto. now apply continuity_pt_const.
    exists (smulZ z p); split. by apply rsmulZ.
    move=> x Hx. replace (_-_) with (mulZ z (f x - eval p x)).
@@ -470,7 +470,7 @@ Canonical Structure MOps0: Ops0 :=
  Lemma rmdivZ: forall z M f, mcontains M f -> mcontains (mdivZ z M) (divZ z f). 
  Proof.
    move=> z M f [Cf [p [Hp Hf]]]. split.
-   cbn. elim:Cf=>[Cf|]; constructor=>x Dx.
+   cbn. case:Cf=>[Cf|]; constructor=>x Dx.
    apply continuity_pt_mult; auto. now apply continuity_pt_const.
    exists (sdivZ z p); split. by apply rsdivZ.
    move=> x Hx. replace (_-_) with (divZ z (f x - eval p x)).
@@ -480,7 +480,7 @@ Canonical Structure MOps0: Ops0 :=
  Lemma rmmul: forall M f, mcontains M f -> forall P g, mcontains P g -> mcontains (mmul M P) (f*g).
  Proof.
    move=> M f [Cf [p [Hp Hf]]] P g [Cg [q [Hq Hg]]]. split.
-   cbn. elim:Cf=>[Cf|]; elim:Cg=>[Cg|]; constructor=>x Dx.
+   cbn. case:Cf=>[Cf|]; case:Cg=>[Cg|]; constructor=>x Dx.
    now apply continuity_pt_mult; auto. 
    exists (p*q); split. by apply rbmul.
    move=> x Hx.
@@ -685,7 +685,7 @@ Canonical Structure MOps0: Ops0 :=
  Proof.
    intros M f Mf A a Aa D d Dd.
    rewrite /mintegrate.
-   elim:(proj1 Mf)=>[Cf|]. 2: constructor.
+   case:(proj1 Mf)=>[Cf|]. 2: constructor.
    destruct Aa as [Aa|]; destruct Dd as [Dd|].
    - case DomE=>//= Da. case DomE=>//= Db. 
      constructor. now apply rmintegrate_unsafe; auto.
@@ -722,7 +722,7 @@ Canonical Structure MOps0: Ops0 :=
      + split=>//. rewrite <- (Hm _ Dx). apply Rabs_pos.
      + rewrite <- (Hc _ Dx). apply Rabs_pos.
    constructor. split.
-   - elim:(proj1 Hf)=>[Cf|]; elim:(proj1 Hg)=>[Cg|]; constructor=>x Dx.
+   - case:(proj1 Hf)=>[Cf|]; case:(proj1 Hg)=>[Cg|]; constructor=>x Dx.
      apply continuity_pt_div; auto. by apply L. 
    - exists p; split=>//.
      move => x Hx. rewrite /f_bin.
@@ -772,7 +772,7 @@ Canonical Structure MOps0: Ops0 :=
      + unfold dom. clear. intros; simpl in *; lra. 
      + exists ((lo+hi)/2). split. apply domx0. apply Hwx0. 
    constructor. split. 
-   - elim:(proj1 Hf)=>[Cf|]; constructor=>x Dx.
+   - case:(proj1 Hf)=>[Cf|]; constructor=>x Dx.
      apply (continuity_pt_comp f). apply Cf, Dx. 
      apply continuity_pt_sqrt. by apply L. 
    - exists p; split =>// x Hx.
