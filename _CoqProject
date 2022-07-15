@@ -3,6 +3,8 @@
 -arg -w -arg -native-compute-disabled
 -arg -w -arg -native-compiler-disabled # for calls to coqinterval tactic in examples.v
 
+-native-compiler no
+
 -R . ApproxModels
 utils.v
 posreal_complements.v
