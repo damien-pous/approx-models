@@ -22,6 +22,12 @@ Definition e_map {A B} (f: A -> B) (x: E A): E B :=
 Definition e_map2 {A B C} (f: A -> B -> C) (x: E A) (y: E B): E C :=
   x >>= fun a => y >>= fun b => ret (f a b).
 
+Fixpoint emap {A B} (f: A -> E B) (l: list A): E (list B) :=
+  match l with
+  | nil => ret nil
+  | cons x q => LET x ::= f x IN LET q ::= emap f q IN ret (cons x q)
+  end.
+
 Definition assert (b: bool) (e: string): E (is_true b) :=
   if b return E (is_true b) then ret eq_refl else err e.
 Notation "'ASSERT' b 'AS' x 'MSG' e 'IN' g" := (e_bind (assert b e) (fun x => g)) (at level 200, x binder, right associativity): error_scope.

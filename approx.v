@@ -118,6 +118,10 @@ Canonical Structure MOps0: Ops0 :=
  (** range *)
  Definition mrange (M: Tube): II := srange (pol M) + rem M.
 
+ (** infinite norm *)
+ Definition mnorm (M: Tube): E II :=
+   match mag (mrange M) with Some m => ret m | None => err "not bounded" end.
+
  (** truncation of a model *)
  Definition mtruncate (n: nat) (M: Tube): Tube :=
    let (p,q) := split_list n (pol M) in 
@@ -229,19 +233,46 @@ Canonical Structure MOps0: Ops0 :=
    in
    interpolate d f.
 
+ Fixpoint taylorise {C: Ops0} n fn l: list C :=
+   match l with
+   | [] => []
+   | x::q =>
+       let n := Z.succ n in 
+       divZ fn x :: taylorise n (Z.mul n fn) q
+   end.
+ (* Eval simpl in fun a b c d => xtaylorise 0 1 [a;b;c;d]. *)
+
+ Definition fnorm M := e_map I2F (mnorm M).
+ 
+ (** || L(phi+r) || = || \sum_i L^(i)(phi)/!i r^i || <= \sum_i ||L^(i)(phi)/!i|| r^i *)
+ Definition polynom_for_lambda1 (L: list Tube) (phi: Tube): E (list FF) :=
+   LET l ::=
+     Fix (fun lambda L => 
+       match L with
+       | [] => ret []
+       (* TOTHINK: truncate multiplications in calls to eval'? *)
+       | _ => LET r ::= fnorm (eval' L phi) IN
+              LET q ::= lambda (derive L) IN 
+              ret (r::q)
+       end) (fun _ => err "assert false") L
+   IN ret (taylorise 0 1 l).
+
+ (** ... <= ||L(phi)|| + \sum_i>0 ||L||^(i)(||phi||)/!i r^i *)
+ Definition polynom_for_lambda2 (L: list Tube) (phi: Tube): E (list FF) :=
+   LET l0 ::= fnorm (eval' L phi) IN 
+   LET Nphi ::= fnorm phi IN
+   LET NL ::= emap fnorm L IN
+   let l' :=
+     Fix (fun lambda NL => 
+       match NL with
+       | [] => []
+       | _ => eval' NL Nphi :: lambda (derive NL)
+       end) (fun _ => 0) (derive NL)
+   in ret (l0 :: taylorise 1 1 l'). 
+ 
  Definition find_radius w (d: FF) (L: list Tube) (phi: Tube): E FF :=
    (* l[X] over-approximate ||L(phi+X)|| *)
-   LET l ::=
-     Fix (fun lambda n L => 
-          match L with
-          | [] => ret []
-          (* TOTHINK: truncate multiplications in calls to eval'? *)
-          | _ => match mag (mrange (eval' L phi)) with
-                | Some r => LET q ::= lambda (Z.succ n) (map (divZ n) (derive L)) IN ret (I2F r::q)
-                | None => err "find_radius: could not bound the range of L(phi)"
-                end
-          end) (fun _ _ => err "assert false") 1%Z L
-   IN
+   LET l ::= polynom_for_lambda1 L phi IN
    (* l is a polynomial with positive coefficients; d is positive; thus p is convex *)
    let p := d::(l-[1]) in
    let p' := derive p in

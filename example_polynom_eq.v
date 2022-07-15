@@ -32,12 +32,12 @@ Module sqrt_cheb.
   Definition phi0 : list FF := 1. 
 
   (** ** automatic computation of a certified solution 
-     (degree: 60, Newton iterations: 20, radius up to ~.001)
+     (degree: 60, Newton iterations: 20, radius up to .001)
    *)
   Definition valid_s : E float :=
-    LET M ::= mpolynom_eq 60 20 0x1p-10%float F phi0 
+    LET M ::= mpolynom_eq 60 20 (fromQ 0.001) F phi0 
     IN ret (width (rem M)).
-  Eval native_compute in valid_s.
+  Eval vm_compute in valid_s.
 
 
   (** ** manual computation *)
@@ -99,23 +99,11 @@ Module oval_fourier.
       - [0.001]: precision for the radius
    *)
   Definition oval_valid d n: E float :=
-    LET x ::= mpolynom_eq d n 0x1p-15%float F phi0 
+    LET x ::= mpolynom_eq d n (fromQ 0.001) F phi0 
     IN ret (width (rem x)).
 
   (* timings on Damien's machine, plugged *)
-  (* first with vm_compute *)
-
-  Time Eval vm_compute in oval_valid 20 10. (* missed; / 1.2s *)
-  Time Eval vm_compute in oval_valid 25 10. (* 0.002; / 2.2s*)
-  
-  Time Eval vm_compute in oval_valid 30 10. (* 0.0006 / 3.7s *)
-  Time Eval vm_compute in polynom_eq_oracle 30 10 F' phi0. (* 1.2s -> 2.5s for the certification *)
-  
-  Time Eval vm_compute in oval_valid 50 10. (* 1.4e-5 / 18.6s *)
-  Time Eval vm_compute in polynom_eq_oracle 50 10 F' phi0. (* 3.3s -> 15.3s for the certification *)
-
-  (* then with native_compute *)
-  Time Eval native_compute in oval_valid 20 10. (* missed; / .5s *)
+  Time Eval native_compute in oval_valid 20 10. (* missed; / .4s *)
   Time Eval native_compute in oval_valid 25 10. (* 0.002; / .6s*)
   
   Time Eval native_compute in oval_valid 30 10. (* 0.0006 / .9s *)
