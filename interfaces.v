@@ -52,6 +52,7 @@ Record Ops0 := {
   add: car -> car -> car;
   sub: car -> car -> car;
   mul: car -> car -> car;
+  mul': nat -> car -> car -> car;    (* (potentially) truncated multiplication *)
   zer: car;
   one: car;
   mulZ: Z -> car -> car;
@@ -76,6 +77,7 @@ Declare Scope RO_scope.
 Bind Scope RO_scope with car.
 Infix "+" := add: RO_scope. 
 Infix "*" := mul: RO_scope.
+Notation "a *[ d  ] b" := (mul' d a b) (at level 40, left associativity): RO_scope.
 Infix "-" := sub: RO_scope.
 Infix "/" := div: RO_scope.
 Notation "0" := (zer _): RO_scope.
@@ -114,6 +116,7 @@ Canonical Structure f_Ops0 (A: Type) (C: Ops0): Ops0 := {|
   add := f_bin (@add C);
   sub := f_bin (@sub C);
   mul := f_bin (@mul C);
+  mul' z := f_bin (mul' z);
   zer := f_cst (@zer C);
   one := f_cst (@one C);
   mulZ z := f_unr (mulZ z);
@@ -126,6 +129,7 @@ Canonical Structure ROps0 := {|
   add := Rplus;
   sub := Rminus;
   mul := Rmult;
+  mul' _ := Rmult;
   zer := R0;
   one := R1;
   mulZ z x := Rmult (IZR z) x;
@@ -164,6 +168,7 @@ Record Rel0 (R S: Ops0) := {
   radd: forall x y, rel x y -> forall x' y', rel x' y' -> rel (x+x') (y+y');
   rsub: forall x y, rel x y -> forall x' y', rel x' y' -> rel (x-x') (y-y');
   rmul: forall x y, rel x y -> forall x' y', rel x' y' -> rel (x*x') (y*y');
+  rmul': forall d x y, rel x y -> forall x' y', rel x' y' -> rel (x*[d]x') (y*[d]y');
   rzer: rel 0 0;
   rone: rel 1 1;
   rmulZ: forall z x y, rel x y -> rel (mulZ z x) (mulZ z y);
@@ -180,7 +185,7 @@ Record Rel1 (R S: Ops1) := {
   rpi: rel0 pi pi;
 }.
 Create HintDb rel discriminated.
-Global Hint Resolve radd rsub rmul rfromZ rmulZ rdivZ rzer rone rdiv rsqrt rabs rcos rsin rpi: rel.
+Global Hint Resolve radd rsub rmul rmul' rfromZ rmulZ rdivZ rzer rone rdiv rsqrt rabs rcos rsin rpi: rel.
 Ltac rel := by eauto 100 with rel.
 
 (** parametricity of derived operations *)

@@ -26,12 +26,18 @@ Section n.
  Notation Tube := (Tube (car (ops0 (@II N)))).
  Notation eval' := taylor.eval'.
  Notation derive := taylor.derive.
+ 
  (** range of a polynomial *)
  Definition srange p: II :=
    match brange with
    | None => beval p (bnd lo hi)
    | Some range => let (m,M):=range p in bnd m M
    end.
+
+ (** truncation of a model *)
+ Definition mtruncate (n: nat) (M: Tube): Tube :=
+   let (p,q) := split_list n (pol M) in 
+   {| pol := p; rem := rem M + srange q; cont := cont M |}.
 
  (** model with empty remainder *)
  Definition msingle p: Tube := {| pol := p; rem := 0; cont := true |}.
@@ -60,21 +66,22 @@ Section n.
    {| pol := sscal x (pol M);
       rem := x * rem M;
      cont := cont M; |}.
- (* TOTHINK: should we always truncate to the max degree of the arguments? *)
  Definition mmul (M N: Tube): Tube :=
    {| pol := pol M * pol N;
       rem := srange (pol M) * rem N + srange (pol N) * rem M + rem M * rem N;
       cont := cont M && cont N; |}.
  Definition mzer: Tube := msingle 0.
  Definition mone: Tube := msingle 1.
+ Definition mmul' d M N := mtruncate d (mmul M N).
 
  (** by defining this structure, we get nice notations for the above operations on models *)
-Canonical Structure MOps0: Ops0 :=
+ Canonical Structure MOps0: Ops0 :=
    {|
      car:=Tube;
      add:=madd;
      sub:=msub;
      mul:=mmul;
+     mul':=mmul';
      zer:=mzer;
      one:=mone;
      mulZ:=mmulZ;
@@ -123,11 +130,6 @@ Canonical Structure MOps0: Ops0 :=
  (** infinite norm *)
  Definition mnorm (M: Tube): E II :=
    match mag (mrange M) with Some m => ret m | None => err "not bounded" end.
-
- (** truncation of a model *)
- Definition mtruncate (n: nat) (M: Tube): Tube :=
-   let (p,q) := split_list n (pol M) in 
-   {| pol := p; rem := rem M + srange q; cont := cont M |}.
 
  (** asserting continuity 'by hand' (see specification [rmcontinuous] below)*)
  Definition mcontinuous (M: Tube): Tube :=
@@ -546,18 +548,6 @@ Canonical Structure MOps0: Ops0 :=
    intros. apply botE.
  Qed.
 
- Canonical Structure mcontains_Rel0: Rel0 MOps0 (f_Ops0 R ROps0) :=
-   {|
-     rel := mcontains;
-     radd := rmadd;
-     rsub := rmsub;
-     rmul := rmmul;
-     rzer := rmzer;
-     rone := rmone;    
-     rmulZ := rmmulZ;
-     rdivZ := rmdivZ;
-   |}.
-
  Lemma rmtruncate n: forall F f, mcontains F f -> mcontains (mtruncate n F) f.
  Proof.
    intros F f [Cf (p&Hp&H)]. unfold mtruncate.
@@ -571,6 +561,22 @@ Canonical Structure MOps0: Ops0 :=
    replace (_-_) with ((f x - eval p x) + eval p2 x) by (rewrite E; simpl; ring).
    apply radd. by apply H. by apply eval_srange.
  Qed.
+
+ Lemma rmmul': forall d M f, mcontains M f -> forall P g, mcontains P g -> mcontains (mmul' d M P) (mul' d f g).
+ Proof. intros. by apply rmtruncate, rmmul. Qed.
+
+ Canonical Structure mcontains_Rel0: Rel0 MOps0 (f_Ops0 R ROps0) :=
+   {|
+     rel := mcontains;
+     radd := rmadd;
+     rsub := rmsub;
+     rmul := rmmul;
+     rmul' := rmmul';
+     rzer := rmzer;
+     rone := rmone;    
+     rmulZ := rmmulZ;
+     rdivZ := rmdivZ;
+   |}.
 
  Lemma rmcontinuous: forall F f,
      (forall x, dom x -> continuity_pt f x) -> mcontains F f -> mcontains (mcontinuous F) f.

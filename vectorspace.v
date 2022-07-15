@@ -263,6 +263,7 @@ Canonical Structure listOps0 (C: Ops1) (B: BasisOps_on C) := {|
   car := list C;
   add := sadd;
   mul := bmul;
+  mul' _ := bmul;
   sub := ssub;
   zer := szer;
   one := bone;
