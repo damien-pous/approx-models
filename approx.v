@@ -146,14 +146,10 @@ Canonical Structure MOps0: Ops0 :=
    (* TOTHINK: truncate multiplications? *)
    let K1 := 1 - W*G in
    let K2 := W*(G*H - F) in
-   match mag (mrange K1), mag (mrange K2) with
-   | Some mu, Some b =>
-       if is_lt mu 1 then ret {| pol := pol H;
-                                 rem := rem H + sym (b / (1 - mu));
-                                 cont := cont F && cont G; |}
-     else err "mdiv: non contractive operator"
-   | _,_ => err "mdiv: error when checking the ranges of k1/k2"
-   end.
+   LET mu ::= mnorm K1 IN
+   LET b ::= mnorm K2 IN
+   if is_lt mu 1 then ret {| pol := pol H; rem := sym (b / (1 - mu)); cont := cont F && cont G; |}
+   else err "mdiv: missed mu<1".
 
  (** square root: H and W are given by an oracle 
     H ~ sqrt F
@@ -167,19 +163,18 @@ Canonical Structure MOps0: Ops0 :=
    (* TOTHINK: truncate multiplications? *)
    let K1 := 1 - (mmulZ 2 (W*H)) in
    let K2 := W*(H*H - F) in
-   match mag (mrange K1), mag (mrange W), mag (mrange K2) with
-   | Some mu0, Some mu1, Some b =>
-     let delta := pow 2 (1 - mu0) - mulZ 8 b * mu1 in
+   LET mu0 ::= mnorm K1 IN
+   LET mu1 ::= mnorm W IN
+   LET b ::= mnorm K2 IN
+   let delta := pow 2 (1 - mu0) - mulZ 8 b * mu1 in
      if is_lt mu0 1 then
        if is_lt 0 delta then
          let rmin := (1 - mu0 - sqrt delta)/(mulZ 4 mu1) in
          let mu := mu0 + mulZ 2 mu1 * rmin in
-         if is_lt mu 1 then ret {| pol := pol H; rem:=rem H + sym rmin; cont := cont F |}             
+         if is_lt mu 1 then ret {| pol := pol H; rem:=sym rmin; cont := cont F |}             
          else err "msqrt: missed mu<1"
        else err "msqrt: missed 0<delta"
-     else err "msqrt: missed mu0<1"
-   | _,_,_ => err "msqrt: error when checking the ranges of K1/W/K2"
-   end.
+     else err "msqrt: missed mu0<1".
 
  (** division and square root, using interpolation as oracle ; [d] is the interpolation degree *)
  Definition mdiv d (M N: Tube): E Tube :=
@@ -208,16 +203,14 @@ Canonical Structure MOps0: Ops0 :=
    (* degree (N-1)*(d+d') where N is the degree of F and d' its maximal inner degree *)
    let N0 := A * eval' F phi in
    (* degree (N+1)*(d+d') *)
-   match mag (mrange DN) , mag (mrange N0) with
-   | Some lambda , Some d =>
-     if is_lt lambda 1 then
-       if is_le (d + lambda * r) r then
-         let eps := d / (1 - lambda) in
-         ret {| pol := pol phi; rem := sym eps; cont := false |}
-       else err "mpolynom_eq_aux : missed (d+lambda*r)<=r"
-     else err "mpolynom_eq_aux : missed lambda<1"
-   | _,_ => err "mpolynom_eq_aux: error when checking the ranges of DN/N0"
-   end.
+   LET lambda ::= mnorm DN IN
+   LET d ::= mnorm N0 IN
+   if is_lt lambda 1 then
+     if is_le (d + lambda * r) r then
+       let eps := d / (1 - lambda) in
+       ret {| pol := pol phi; rem := sym eps; cont := false |}
+     else err "mpolynom_eq_aux : missed (d+lambda*r)<=r"
+   else err "mpolynom_eq_aux : missed lambda<1".
 
  (** oracle for solutions of polynomial equations:
      by interpolation, using Newton's method to approximate the solution at the interpolation points
@@ -327,27 +320,21 @@ Canonical Structure MOps0: Ops0 :=
    let A' := interpolate d (fun x => 1 / beval DF x) in
    let A := mfc A' in
    let phi := mfc phi' in
-   match mag (mrange (A * eval' F phi)) with
-   | None => err "mpolynom_eq: could not bound the range of A*F(phi)"
-   | Some d =>
-       let L := derive (polynom_eq.opnewton F A) in
-       LET r' ::= find_radius w (I2F d) L phi IN
-       let r := F2I r' in
-       if negb (is_le 0 r) then err "mpolynom_eq: negative radius" else
-       let phir := {| pol := pol phi; rem := sym r; cont := false |} in
-       let DN := eval' L phir in
-       match mag (mrange DN) with
-       | Some lambda =>
-           let _ := print "validated lambda"%string in
-           let _ := print lambda in
-           if is_lt lambda 1 then
-             if is_le (d + lambda * r) r then
-               let eps := d / (1 - lambda) in ret {| pol := pol phi; rem := sym eps; cont := false |}
-         else err "mpolynom_eq : missed (d+lambda*r)<=r"
-        else err "mpolynom_eq : missed lambda<1"
-       | None => err "mpolynom_eq: could not bound the range of DN"
-       end
-   end.
+   LET d ::= mnorm (A * eval' F phi) IN
+   let L := derive (polynom_eq.opnewton F A) in
+   LET r' ::= find_radius w (I2F d) L phi IN
+   let r := F2I r' in
+   if negb (is_le 0 r) then err "mpolynom_eq: negative radius" else
+   let phir := {| pol := pol phi; rem := sym r; cont := false |} in
+   let DN := eval' L phir in
+   LET lambda ::= mnorm DN IN
+   let _ := print "validated lambda"%string in
+   let _ := print lambda in
+   if is_lt lambda 1 then
+     if is_le (d + lambda * r) r then
+       let eps := d / (1 - lambda) in ret {| pol := pol phi; rem := sym eps; cont := false |}
+     else err "mpolynom_eq : missed (d+lambda*r)<=r"
+   else err "mpolynom_eq : missed lambda<1".
  
  (** testing nullability, [d] is the interpolation degree used for conditionning the problem *)
  Definition mne0 d (M: Tube): bool :=
@@ -431,16 +418,14 @@ Canonical Structure MOps0: Ops0 :=
    apply radd; auto. by apply eval_srange. 
  Qed.
 
- Variant mag_mrange_spec f: option II -> Prop :=
-   | mag_mrange_spec_some: forall I b, contains I b -> (forall x, dom x -> Rabs (f x) <= b) -> mag_mrange_spec f (Some I)
-   | mag_mrange_spec_none: mag_mrange_spec f None.
- Lemma rmag_mrange M f: mcontains M f -> mag_mrange_spec f (mag (mrange M)).
+ Lemma rmnorm M f: mcontains M f ->
+                   EP (fun I => exists b, contains I b /\ forall x, dom x -> Rabs (f x) <= b) (mnorm M).
  Proof.
-   intros Mf. case magE. 2: constructor.
-   intros I b Ib H. econstructor. eassumption.
+   rewrite /mnorm=>Mf. case magE=>//= I b Ib H.
+   constructor. eexists; split. eassumption.
    intros. by apply H, eval_mrange.
  Qed.
- Arguments rmag_mrange [_]. 
+ Arguments rmnorm [_]. 
  
  Lemma rmadd: forall M f, mcontains M f -> forall P g, mcontains P g -> mcontains (madd M P) (f+g).
  Proof.
@@ -721,14 +706,15 @@ Canonical Structure MOps0: Ops0 :=
    mcontains F f -> mcontains G g ->
    EP' mcontains (mdiv_aux F G H W) (f_bin Rdiv f g).
  Proof.
-   move => Hf Hg. rewrite /mdiv_aux.
-   pose proof (Hh := rmfc H). set (h := eval (map F2R H)) in *.
+   rewrite /mdiv_aux=>Hf Hg. 
+   pose proof (Hh := rmfc H).
+   set p := map F2R H in Hh. set h := eval p in Hh.
+   have Hp: scontains (map F2I H) p by apply list_rel_map; rel.
    pose proof (HW := rmfc W). set (w := eval (map F2R W)) in *.
-   ecase rmag_mrange=>//; [by eauto using rmsub,rmone,rmmul|]=>Mu mu MU Hm. 
-   ecase rmag_mrange=>//; [by eauto using rmsub,rmone,rmmul|]=>C c Cc Hc.
+   ecase rmnorm=>//=; [by eauto using rmsub,rmone,rmmul|]=>Mu [mu [MU Hm]]. 
+   ecase rmnorm=>//=; [by eauto using rmsub,rmone,rmmul|]=>C [c [Cc Hc]].
    case is_ltE => [Hmu|]=>//.
    specialize (Hmu _ 1 MU (rone _)).
-   move: (ssrfun.id Hh) => [_ [p [Hp Hh']]].
    have L: forall x, dom x -> g x <> 0 /\ Rabs (h x - f x / g x) <= c / (R1 - mu).
      move=>x Dx; refine (div.newton _ _ _ _ Dx)=>//.
      + by intros; apply Hm.
@@ -738,12 +724,10 @@ Canonical Structure MOps0: Ops0 :=
    constructor. split.
    - elim:(proj1 Hf)=>[Cf|]; elim:(proj1 Hg)=>[Cg|]; constructor=>x Dx.
      apply continuity_pt_div; auto. by apply L. 
-   - exists p; split=>//=.
+   - exists p; split=>//.
      move => x Hx. rewrite /f_bin.
-     replace (_-_) with ((h x - eval p x) + -(h x - f x / g x)); last by rewrite /=; ring.
-     apply radd. by apply Hh'.
      apply symE with (c / (1 - mu)) => /=; last by rel. 
-     rewrite Rabs_Ropp. by apply L. 
+     rewrite Rabs_minus_sym. by apply L.
  Qed.
 
  Lemma rmdiv d:
@@ -757,8 +741,10 @@ Canonical Structure MOps0: Ops0 :=
    mcontains F f -> 
    EP' mcontains (msqrt_aux F H W) (fun x => R_sqrt.sqrt (f x)).
  Proof.
-   move => Hf. rewrite /msqrt_aux.
-   pose proof (Hh := rmfc H). set (h := eval (map F2R H)) in *.
+   rewrite /msqrt_aux=>Hf.
+   pose proof (Hh := rmfc H).
+   set p := map F2R H in Hh. set h := eval p in Hh.
+   have Hp: scontains (map F2I H) p by apply list_rel_map; rel.
    pose proof (Hw := rmfc W).
    pose proof (Hwcont := eval_cont (map F2R W)). set (w := eval (map F2R W)) in *.
    set (x0:=(lo+hi)//2).
@@ -767,12 +753,11 @@ Canonical Structure MOps0: Ops0 :=
    case is_ltE => [Hwx0|]=>[|//=]. 
    specialize (Hwx0 _ _ (rzer _) (rmeval_unsafe Hw rx0 domx0)).
    simpl negb.
-   ecase rmag_mrange=>//; [by eauto using rmsub,rmone,rmmul,rmmulZ|]=>Mu0 mu0 MU0 Hmu0. 
-   ecase rmag_mrange=>//; [by eauto using rmsub,rmmul|]=>Mu1 mu1 MU1 Hmu1. 
-   ecase rmag_mrange=>//; [by eauto using rmsub,rmmul|]=>BB b Bb Hb. 
+   ecase rmnorm=>//=; [by eauto using rmsub,rmone,rmmul,rmmulZ|]=>Mu0 [mu0 [MU0 Hmu0]]. 
+   ecase rmnorm=>//=; [by eauto using rmsub,rmmul|]=>Mu1 [mu1 [MU1 Hmu1]]. 
+   ecase rmnorm=>//=; [by eauto using rmsub,rmmul|]=>BB [b [Bb Hb]]. 
    case is_ltE =>// Hmu01. specialize (Hmu01 _ _ MU0 (rone _)).
    case is_ltE =>// Hmu0b. 
-   move: (id Hh) => [_ [p [Hp Hh']]].
    case is_ltE => [Hmu|] =>//.
    have L: forall x, dom x -> 0 <= f x /\ Rabs (h x - sqrt (f x)) <= sqrt.rmin b mu0 mu1.
      (unshelve eapply (sqrt.newton (w:=w) _ _ _ _ _ _ _ _ _ _ _)) =>//.
@@ -791,11 +776,9 @@ Canonical Structure MOps0: Ops0 :=
      apply (continuity_pt_comp f). apply Cf, Dx. 
      apply continuity_pt_sqrt. by apply L. 
    - exists p; split =>// x Hx.
-     replace (_-_) with ((h x - eval p x) + -(h x - R_sqrt.sqrt (f x))); last by rewrite /=; ring.
-     apply radd; first by apply Hh'.
      set rmin := sqrt.rmin b mu0 mu1.
      eapply symE with rmin; first last. rel. 
-     rewrite Rabs_Ropp. by apply L.       
+     rewrite Rabs_minus_sym. by apply L.
  Qed.
 
  Lemma rmsqrt d M f: 
@@ -819,8 +802,8 @@ Canonical Structure MOps0: Ops0 :=
    set phi := eval p in Hphi.
    set A := eval (map F2R A') in HA.
    have Hp: scontains (map F2I phi') p by apply list_rel_map; rel. 
-   case magE=>[lambda' lambda clambda Hlambda|]=>//.
-   ecase rmag_mrange=>//; [by apply rmmul; try apply taylor.reval; eassumption|]=>d' d cd Hd.
+   unfold mnorm at 1. case magE=>[lambda' lambda clambda Hlambda|]=>//=.
+   ecase rmnorm=>//=; [by apply rmmul; try apply taylor.reval; eassumption|]=>d' [d [cd Hd]].
    case is_ltE => [Hl1|]=>//.
    case is_leE => [Hdlr|]=>//. constructor.
    have Hnewton : exists f, forall t, dom t ->  eval' F f t = 0 /\ Rabs ( f t - phi t ) <= d / (1 - lambda).
@@ -862,17 +845,17 @@ Canonical Structure MOps0: Ops0 :=
    rewrite /mpolynom_eq.
    set A' := interpolate _ _. set A := mfc _.
    set phi' := polynom_eq_oracle _ _ _ _. set phi := mfc _.
-   set m := mag _. case_eq m=>//c Hc.
+   set m := mnorm _. case_eq m=>//=c Hc.
    case find_radius=>//= r'.
    case is_leE=>//= Hr. 
-   set lambda := mag _. case_eq lambda=>//l Hl.
+   set lambda := mnorm _. case_eq lambda=>//=l Hl.
    case_eq (is_lt l 1)=>//= Hl1.
    set r := F2I r'.
    case_eq (is_le (c+l*r) r)=>//= Hlr.
    constructor. 
    exists phi', A', r'. split. 
    unfold mpolynom_eq_aux.
-   by rewrite -/A -/phi -/m -/lambda Hc Hl Hl1 Hlr.
+   by rewrite -/A -/phi -/m -/lambda Hc Hl /= Hl1 Hlr.
    apply Hr; rel. 
  Qed.
 

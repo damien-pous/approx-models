@@ -38,7 +38,7 @@ Notation "'TRY' x 'CATCH' g" := (trycatch x (fun _ => g)) (at level 200, right a
 
 
 (** lifting predicates to monadic values: errors are left unspecified *)
-Inductive EP {A} (P: A -> Prop): E A -> Prop :=
+Variant EP {A} (P: A -> Prop): E A -> Prop :=
 | ep_ret: forall a, P a -> EP P (ret a)
 | ep_err: forall s, EP P (err s).
 Global Hint Constructors EP: core.
@@ -47,8 +47,10 @@ Arguments ep_err {_ _ _}.
 
 Definition EP' {A B} (P: A -> B -> Prop): E A -> B -> Prop :=
   fun x b => EP (fun a => P a b) x.
+Arguments EP' {_ _} _ _ _ /.
+Global Hint Unfold EP': core.
 
-Inductive ER {A B} (R: A -> B -> Prop): E A -> E B -> Prop :=
+Variant ER {A B} (R: A -> B -> Prop): E A -> E B -> Prop :=
 | er_ret a b: R a b -> ER R (ret a) (ret b)
 | er_err s: ER R (err s) (err s).
 Global Hint Constructors ER: core.
