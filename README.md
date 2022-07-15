@@ -13,7 +13,7 @@ Louis Gaillard (Fourier basis and certificates for functional polynomial equatio
 
 **Requirements**
 
-Coq 8.13 with libraries interval, coquelicot 3.2.0
+Coq >=8.14 with libraries interval, coquelicot, and reduction-effects (temporarily)
 
 **Description**
 
