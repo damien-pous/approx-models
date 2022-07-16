@@ -52,7 +52,7 @@ Module sqrt_cheb.
   Definition valid_aux_s d : E Model :=
     let DF := eval' (taylor.derive F') phi in
     let A := interpolate d (fun x => 1 / eval' DF x) in
-    mpolynom_eq_aux F phi A (fromQ 0.3).
+    mpolynom_eq_aux d F phi A (fromQ 0.3).
   Eval vm_compute in valid_aux_s 40.
   
 End sqrt_cheb.
@@ -105,13 +105,18 @@ Module oval_fourier.
     IN ret (width (rem x)).
 
   (* timings on Damien's machine, plugged *)
-  Time Eval native_compute in oval_valid 20 10. (* 0.006 / .5s *)
-  Time Eval native_compute in oval_valid 25 10. (* 0.002; / .6s*)
+  (* negative degree: do not truncate (and use absolute value for interpolation degree) *)
+  Time Eval native_compute in oval_valid 20 10.    (* missed / .5s *)
+  Time Eval native_compute in oval_valid (-20) 10. (* 0.006  / .5s *)
+  Time Eval native_compute in oval_valid 25 10.    (* missed / .6s*)
+  Time Eval native_compute in oval_valid (-25) 10. (* 0.002  / .6s*)
   
-  Time Eval native_compute in oval_valid 30 10. (* 0.0006 / .9s *)
+  Time Eval native_compute in oval_valid 30 10.    (* missed / .9s *)
+  Time Eval native_compute in oval_valid (-30) 10. (* 0.0006 / .9s *)
   Time Eval native_compute in polynom_eq_oracle 30 10 F' phi0. (* .4s -> .5s for the certification *)
   
-  Time Eval native_compute in oval_valid 50 10. (* 1.4e-5 / 4.3s *)
+  Time Eval native_compute in oval_valid 50 10.    (* 0.002  / 4.2s *)
+  Time Eval native_compute in oval_valid (-50) 10. (* 1.4e-5 / 4.3s *)
   Time Eval native_compute in polynom_eq_oracle 50 10 F' phi0. (* 1s -> 3.3s for the certification *)
 
   (** manual computation *)

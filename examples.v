@@ -108,10 +108,10 @@ Goal 0.405465108108 <= RInt (fun x => 1/(2+x)) 0 1 <= 0.405465108109.
   approx (i_deg 13).
   Restart.
   (** with a static basis (chebyshev on [[-1;1]]), we need to further increase the degree *)
-  approx (chebyshev11, i_deg 23). 
+  approx (chebyshev11, i_deg 24). 
   Restart.
   (** with a larger static basis (chebyshev on [[-1.5;1.5]]), we need to further increase the degree *)
-  approx (static (-1.5) 1.5, i_deg 40). 
+  approx (static (-1.5) 1.5, i_deg 41). 
 Qed.
 
 (** the degree may also by specified locally, using the [at_degree] identity function  *)

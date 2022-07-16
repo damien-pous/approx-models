@@ -174,7 +174,8 @@ Record Rel0 (R S: Ops0) := {
   radd: forall x y, rel x y -> forall x' y', rel x' y' -> rel (x+x') (y+y');
   rsub: forall x y, rel x y -> forall x' y', rel x' y' -> rel (x-x') (y-y');
   rmul: forall x y, rel x y -> forall x' y', rel x' y' -> rel (x*x') (y*y');
-  rmul': forall d x y, rel x y -> forall x' y', rel x' y' -> rel (x*[d]x') (y*[d]y');
+  (* note that we relate truncated multiplication to plain multiplication *)  
+  rmul': forall d x y, rel x y -> forall x' y', rel x' y' -> rel (x*[d]x') (y*y'); 
   rzer: rel 0 0;
   rone: rel 1 1;
   rmulZ: forall z x y, rel x y -> rel (mulZ z x) (mulZ z y);

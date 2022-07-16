@@ -132,7 +132,9 @@ Goal 3.46 <= RInt (fun x => sqrt (2+x)) (-1.999) 1 <= 3.47.
   estimate (RInt (fun x => sqrt (2+x)) (-1.999) 1) (i_deg 53). (* imprecise: [-6; 13] *)
   estimate (RInt (fun x => sqrt (2+x)) (-1.999) 1) (i_deg 100). (* very imprecise: [-2e+17; 2e+17] *)
   (* increasing precision works... *)
-  approx (bigint120, i_deg 68).
+  approx (bigint120, i_deg 100).   (* with truncation *)
+  Restart.
+  approx (bigint120, i_deg (-68)). (* without truncation *)
 Qed.
 
 

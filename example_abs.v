@@ -74,7 +74,7 @@ Goal let eps := 1/10 in
      forall x, 0 <= x <= 1 -> g eps x - x < eps+eps/10.
 Proof.
   intros eps; unfold eps, g.
-  approx.        
+  approx (i_deg 11).
 Qed.
 
 (* since we construct a single Chebyshev model, integration works smoothly, without subdivision *)
@@ -91,8 +91,11 @@ Proof.
   Fail approx.        
   (** degree 15 makes it possible to construct a model, but this model is not precise enough *)
   Fail approx (i_deg 15).
-  (** at degree 32, we get a proof *)
-  approx (i_deg 32). 
+  (** at degree 35, we get a proof *)
+  approx (i_deg 35). 
+  (** or just 32 if we do not truncate *)
+  Restart. intros eps; unfold eps, g.
+  approx (i_deg (-32)). 
 Qed.
 
 Goal let eps := 1/100 in 1/2+eps/100 <= RInt (g eps) 0 1 <= 1/2+eps+eps/10.
