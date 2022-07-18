@@ -215,19 +215,38 @@ Section n.
      else err "mpolynom_eq_aux : missed (d+lambda*r)<=r"
    else err "mpolynom_eq_aux : missed lambda<1".
 
+ (** Newton method for finding a root of a function [f] with derivative [f']
+     [w] is the precision at which to stop
+     last argument ([n]) is the maximal number of iterations *)
+ Definition Newton s w f f' :=
+   fix Newton n x :=
+     match n with
+     | O => err (append "Newton: no root found for " s)
+     | S n => let d := f x / f' x in
+              if Fle (Fabs d) w then ret x
+              else Newton n (x-d)
+     end.
+ 
+ (** special case of a polynomial *)
+ Definition Newton_poly s w p :=
+   let p' := derive p in
+   Newton s w (taylor.eval' p) (taylor.eval' p') 100.
+ 
  (** oracle for solutions of polynomial equations:
      by interpolation, using Newton's method to approximate the solution at the interpolation points
      - [d] is the interpolation degree / number of interpolation points
-     - [n] is the number of Newton iterations for each point
+     - [prec] is the precision for Newton's method, at each point
      - [phi0] is a preliminary candidate
   *)
- Definition polynom_eq_oracle d n (F: list (list FF)) (phi0: list FF): list FF :=
-   let newton n f f' u0 :=
-     Zfold (fun _ u => u - eval' d f u / eval' d f' u) n u0
-   in
+
+ Definition polynom_eq_oracle d w (F: list (list FF)) (phi0: list FF): list FF :=
    let f t :=
-     let P := map (fun f => beval f t) F in
-     newton n P (derive P) (beval phi0 t)
+     let p := map (fun f => beval f t) F in
+     let x0 := beval phi0 t in
+     match Newton_poly "oracle" w p x0 with
+     | ret x => x
+     | err _ => x0
+     end
    in
    interpolate d f.
 
@@ -271,12 +290,15 @@ Section n.
        | _ => eval' d NL Nphi :: lambda (derive NL)
        end) (fun _ => 0) (derive NL)
    in ret (l0 :: taylorise 1 1 l'). 
+
+ Definition polynom_for_lambda := polynom_for_lambda2. (* vs 1 *)
  
- Definition find_radius d w (c: FF) (L: list Tube) (phi: Tube): E FF :=
+ Definition find_radius_alamano d w (c: FF) (L: list Tube) (phi: Tube): E FF :=
    (* l[X] over-approximate ||L(phi+X)|| *)
-   LET l ::= polynom_for_lambda2 d L phi IN
+   LET l ::= polynom_for_lambda d L phi IN
    (* l is a polynomial with positive coefficients; d is positive; thus p is convex *)
    let p := c::(l-[1]) in
+   let _ := print p in
    let p' := derive p in
    (* BELOW: replace with a simpler Newton method ? *)
    (* a value such that 0<=p'(max) *)
@@ -307,16 +329,26 @@ Section n.
    let _ := print (r, taylor.eval' l r) in
    ret r.
 
+ Definition find_radius_newton d w (c: FF) (L: list Tube) (phi: Tube): E FF :=
+   (* l[X] over-approximate ||L(phi+X)|| *)
+   LET l ::= polynom_for_lambda d L phi IN
+   (* l is a polynomial with positive coefficients; d is positive; thus p is convex *)
+   let p := c::(l-[1]) in
+   let _ := print p in
+   LET r ::= Newton_poly "radius" w p 0 IN
+   ret r.
+
+ Definition find_radius := find_radius_newton. (* vs _alamano *)
+ 
  (** putting everything together, we obtain the following function for computing solutions of polynomial functional equations.
      - [d] is the interpolation degree
-     - [n] is the number of Newton iterations to be used at each point
      - [w] is the precision when looking for the radius
      - [phi0] is a temptative solution (from which Newton iterations start with)
      NOTE: here we inline the relevant part of [mpolynom_eq_aux]: this makes it possible to avoid duplicate computations (see correctness proof below)
   *)
- Definition mpolynom_eq d n w (F: list Tube) (phi0: list FF): E Tube :=
+ Definition mpolynom_eq d w (F: list Tube) (phi0: list FF): E Tube :=
    let F' := map mcf F in
-   let phi' := polynom_eq_oracle d n F' phi0 in
+   let phi' := polynom_eq_oracle d w F' phi0 in
    let DF := eval' d (derive F') phi' in
    let A' := interpolate d (fun x => 1 / beval DF x) in
    let A := mfc A' in
@@ -844,9 +876,9 @@ Section n.
  Qed.
 
  (** [mpolynom_eq] essentially is an instance of [mpolynom_eq_aux] *)
- Lemma mpolynom_eq_link d n w F phi0:
+ Lemma mpolynom_eq_link d w F phi0:
    EP (fun M => exists phi A r, ret M = mpolynom_eq_aux d F phi A r /\ 0 <= F2R r)
-      (mpolynom_eq d n w F phi0).
+      (mpolynom_eq d w F phi0).
  Proof.
    rewrite /mpolynom_eq.
    set A' := interpolate _ _. set A := mfc _.
@@ -866,10 +898,10 @@ Section n.
  Qed.
 
  (** whence its correctness *)
- Lemma rmpolynom_eq d n w F' F phi0:
+ Lemma rmpolynom_eq d w F' F phi0:
    list_rel mcontains F' F ->  
    EP (fun M => exists f, mcontains M f /\ forall t, dom t ->  taylor.eval' F f t = 0)
-      (mpolynom_eq d n w F' phi0).
+      (mpolynom_eq d w F' phi0).
  Proof.
    move=> HF. case mpolynom_eq_link=>//M.
    intros (phi&A&r&->&Hr). eapply rmpolynom_eq_aux; eauto. 

@@ -260,7 +260,8 @@ Class NBH := {
   FF: Ops1;
   I2F: II -> FF;
   F2I: FF -> II;
-  Fle: FF -> FF -> bool;  
+  Fle: FF -> FF -> bool;
+  Fabs: FF -> FF;
   width: II -> FF;  (** width of an interval (unspecified, just for inspection) *)
   F2R: FF -> R;   (** needed to guarantee that F2I produces non-empty intervals *)
   F2IE: forall f, contains (F2I f) (F2R f);
