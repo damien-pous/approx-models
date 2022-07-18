@@ -45,7 +45,7 @@ Inductive term {X: sort -> Type}: sort -> Type :=
 | f_cos: term FUN
 | f_sin: term FUN
 | f_cst: term REAL -> term FUN
-| f_trunc: nat -> term FUN -> term FUN         (* the identity, simply truncates the model *)
+| f_trunc: Z -> term FUN -> term FUN         (* the identity, simply truncates the model *)
 (* boolean expressions *)
 | b_le: term REAL -> term REAL -> term BOOL
 | b_ge: term REAL -> term REAL -> term BOOL
@@ -58,7 +58,7 @@ Inductive term {X: sort -> Type}: sort -> Type :=
 | b_mlt: term REAL -> term REAL -> term FUN -> term FUN -> term BOOL
 | b_mne: term REAL -> term REAL -> term FUN -> term FUN -> term BOOL
 (* setting the degree in a subexpression *)
-| t_deg {S}: nat -> term S -> term S
+| t_deg {S}: Z -> term S -> term S
 (* let..in and variable *)
 | t_var: forall {S}, X S -> term S
 | t_let: forall {S T}, term S -> (X S -> term T) -> term T.
@@ -686,7 +686,7 @@ Notation "1" := f_one: fxpr_scope.
 Definition integrate' X: fxpr X -> expr X -> expr X -> expr X := e_integrate.
 Definition eval' X: fxpr X -> expr X -> expr X := e_eval.
 Definition id' {X}: fxpr X := f_id.
-Definition truncate' X: nat -> fxpr X -> fxpr X := f_trunc.
+Definition truncate' X: Z -> fxpr X -> fxpr X := f_trunc.
 Definition fsqrt X: fxpr X -> fxpr X := f_sqrt.
 Definition fcos X: fxpr X := f_cos.
 Definition fsin X: fxpr X := f_sin.

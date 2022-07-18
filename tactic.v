@@ -35,7 +35,7 @@ End s.
 (** in each group, default value comes first *)
 Variant param :=
 (** interpolation degree (default: 10) *)
-| i_deg of nat
+| i_deg of Z
 (** floating point implementation *)
 | primfloat
 | bigint60 | bigint120 | bigint300   
@@ -76,7 +76,7 @@ Goal True.
 *)
 Ltac get_deg x y :=
   lazymatch x with
-  | tt => constr:(10%nat)                 (* default value *)
+  | tt => constr:(10%Z)                 (* default value *)
   | i_deg ?z => constr:(z)              (* a specific parameter was given, use it *)
   | (?p,?q) => get_deg p constr:((q,y)) (* recurse on pairs *)
   | _ => get_deg y tt                   (* jump to the accumulator if [x] is a parameter from another group *)

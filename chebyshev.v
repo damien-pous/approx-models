@@ -450,10 +450,10 @@ End s.
 Section i.
  Import interfaces.
  Context {C: Ops1}.
- Variable d: nat.
+ Variable d: Z.
  Variable f: C -> C.
 
- Let n := Z.of_nat d.
+ Let n := Z.abs d.
  Let dn: Z := 2*n.
  Let sn: Z := n+1.
  Let cn: C := fromZ n.

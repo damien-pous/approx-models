@@ -77,7 +77,7 @@ Section abs.
  Definition cons0 (p: list C) := match p with [] => p | _=>0::p end.
  
  Definition cons00 (p: list C) := match p with [] => p | _=>0::0::p end.
-
+ 
  Fixpoint split_list (n: nat) (p: list C) :=
    match n with
    | 0 => ([],p)
@@ -255,7 +255,7 @@ Class BasisOps_on (C: Type) := {
   bintegrate: list C -> C -> C -> C;
   (* range is an optional operation (implemented locally if absent, e.g., for Taylor models) *)
   brange: option (list C -> C*C); 
-  interpolate: nat -> (C -> C) -> list C;
+  interpolate: Z -> (C -> C) -> list C;
 }.
 
 (** Basis operations immediately give an Ops0 structure on [list C] *)

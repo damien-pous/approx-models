@@ -15,7 +15,7 @@ Section s.
      and the truncation degree for multiplications 
      (in other words, the maximal degree for the considered approximations)
   *)
- Variable N: nat.
+ Variable N: Z.
 
  Let r: II := fromQ r_.
  Let x0: II := fromQ 0.9.

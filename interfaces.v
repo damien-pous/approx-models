@@ -52,7 +52,7 @@ Record Ops0 := {
   add: car -> car -> car;
   sub: car -> car -> car;
   mul: car -> car -> car;
-  mul': nat -> car -> car -> car;    (* (potentially) truncated multiplication *)
+  mul': Z -> car -> car -> car;    (* (potentially) truncated multiplication *)
   zer: car;
   one: car;
   mulZ: Z -> car -> car;
@@ -124,10 +124,10 @@ Canonical Structure f_Ops0 (A: Type) (C: Ops0): Ops0 := {|
 |}.
 
 (** tagged multiplication on reals, to indicate truncated multiplication request *)
-Definition Rmult' (d: nat) := Rmult.
+Definition Rmult' (d: Z) := Rmult.
 (** other tagged identities, to indicate truncations/requested degrees *)
-Definition Rtruncate (d: nat) (x: R) := x.
-Definition at_degree (d: nat) [A] (x: A) := x.
+Definition Rtruncate (d: Z) (x: R) := x.
+Definition at_degree (d: Z) [A] (x: A) := x.
 
 (** ** instances on real numbers *)
 Canonical Structure ROps0 := {|
@@ -324,17 +324,17 @@ Class ModelOps {N: NBH} := {
   (** division and square root: we use an certification a posteriori, the first argument is supposed to be the interpolation degree for the oracles 
       may raise errors, in case the oracles do not provide appropriate approximations
    *)
-  mdiv: nat -> MM -> MM -> E MM;
-  msqrt: nat -> MM -> E MM;
+  mdiv: Z -> MM -> MM -> E MM;
+  msqrt: Z -> MM -> E MM;
   (** [truncate] acts as the identity *)
-  mtruncate: nat -> MM -> MM;
+  mtruncate: Z -> MM -> MM;
   (** [mrange] returns an approximation of the range of the model on the considered domain *)
   mrange: MM -> II;
   (** nullability/positivity test, first argument is supposed to be the interpolation degree for computing the inverse of the model in order get a well-conditionned problem 
       positivity test may raise an error, in case the given model is not declared as continuous
    *)
-  mne0: nat -> MM -> bool;
-  mgt0: nat -> MM -> E bool;
+  mne0: Z -> MM -> bool;
+  mgt0: Z -> MM -> E bool;
 }.
 Coercion MM: ModelOps >-> Ops0.
 

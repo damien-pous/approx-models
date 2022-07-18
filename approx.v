@@ -35,8 +35,10 @@ Section n.
    end.
 
  (** truncation of a model *)
- Definition mtruncate (n: nat) (M: Tube): Tube :=
-   let (p,q) := split_list n (pol M) in 
+ Definition mtruncate (n: Z) (M: Tube): Tube :=
+   if Z.leb n 0 then M else
+     (* TODO: avoid conversion to nat for splitting *)
+   let (p,q) := split_list (Z.to_nat n) (pol M) in 
    {| pol := p; rem := rem M + srange q; cont := cont M |}.
 
  (** model with empty remainder *)
@@ -550,9 +552,10 @@ Section n.
 
  Lemma rmtruncate n: forall F f, mcontains F f -> mcontains (mtruncate n F) f.
  Proof.
-   intros F f [Cf (p&Hp&H)]. unfold mtruncate.
-   generalize (rsplit_list n Hp).
-   generalize (eval_split_list TT n p).  
+   rewrite /mtruncate.
+   case Z.leb=>//F f [Cf [p [Hp H]]].
+   generalize (rsplit_list (Z.to_nat n) Hp).
+   generalize (eval_split_list TT (Z.to_nat n) p).  
    simpl. case split_list=> p1 p2.
    case split_list=> P1 P2. simpl. 
    intros E [R1 R2]. split. exact Cf. 

@@ -12,6 +12,7 @@
 - uncertified but efficient F.cos and F.pi ?
 - continuity (from Coquelicot) vs continuity_pt (from Reals.Ranalysis1)
 - better radius heuristics for solutions of polynomial equations
+- linear List.rev
 
 ## TOTHINK
 
