@@ -123,13 +123,19 @@ Canonical Structure f_Ops0 (A: Type) (C: Ops0): Ops0 := {|
   divZ z := f_unr (divZ z);
 |}.
 
+(** tagged multiplication on reals, to indicate truncated multiplication request *)
+Definition Rmult' (d: nat) := Rmult.
+(** other tagged identities, to indicate truncations/requested degrees *)
+Definition Rtruncate (d: nat) (x: R) := x.
+Definition at_degree (d: nat) [A] (x: A) := x.
+
 (** ** instances on real numbers *)
 Canonical Structure ROps0 := {|
   car := R;
   add := Rplus;
   sub := Rminus;
   mul := Rmult;
-  mul' _ := Rmult;
+  mul' := Rmult';
   zer := R0;
   one := R1;
   mulZ z x := Rmult (IZR z) x;

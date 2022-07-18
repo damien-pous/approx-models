@@ -1,8 +1,7 @@
 (** * Examples on how to use the tactics *)
 
 Require Import Reals Floats.
-Require Import syntax tactic intervals.
-Require taylor chebyshev approx.
+Require Import tactic.
 
 
 (** the tactic [approx] solves conjunctions of inequations (<,<=,<>) 
@@ -114,6 +113,16 @@ Goal 0.405465108108 <= RInt (fun x => 1/(2+x)) 0 1 <= 0.405465108109.
   (** with a larger static basis (chebyshev on [[-1.5;1.5]]), we need to further increase the degree *)
   approx (static (-1.5) 1.5, i_deg 40). 
 Qed.
+
+(** the degree may also by specified locally, using the [at_degree] identity function  *)
+Goal True.
+  estimate (RInt (fun x => 1/(at_degree 25 (sqrt (1+x)))) 0 1).
+  estimate (RInt (fun x => 1/(at_degree 45 (sqrt (1+x)))) 0 1).
+  (** similarly the [Rtruncate] identity function may be use to truncate the models obtained for certain subexpressions *)
+  estimate (RInt (fun x => 1/(Rtruncate 20 (at_degree 45 (sqrt (1+x))*(1+x)))) 0 1).
+  (** truncated multiplications can be specified via [Rmult'] and its infix notation [x *[deg] y] *)
+  estimate (RInt (fun x => 1/(Rtruncate 20 (sqrt (1+x)) *[45] (1+x))) 0 1).
+Abort.
 
 Goal -0.1 <= RInt (fun x => x) (-2) 2 <= 0.1.
 Proof.

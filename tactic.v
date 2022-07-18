@@ -211,6 +211,9 @@ Tactic Notation "estimate" constr(e) constr(params) :=
   idtac i.
 Tactic Notation "estimate" constr(e) := estimate e tt.
 
+(** nice notation for intervals with primitive floating points endpoints *)
+Notation "[[ a ; b ]]" := (Float.Ibnd a%float b%float). 
+
 (* simple tests for the above tactics *)
 (*
 Goal 1.4 <= sqrt 2 <= 1.5.

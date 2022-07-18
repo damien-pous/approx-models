@@ -45,7 +45,7 @@ Inductive term {X: sort -> Type}: sort -> Type :=
 | f_cos: term FUN
 | f_sin: term FUN
 | f_cst: term REAL -> term FUN
-| f_trunc: term FUN -> term FUN         (* the identity, simply truncates the model *)
+| f_trunc: nat -> term FUN -> term FUN         (* the identity, simply truncates the model *)
 (* boolean expressions *)
 | b_le: term REAL -> term REAL -> term BOOL
 | b_ge: term REAL -> term REAL -> term BOOL
@@ -57,6 +57,8 @@ Inductive term {X: sort -> Type}: sort -> Type :=
     (* testing < or <> on a given domain (to be generalised) *)
 | b_mlt: term REAL -> term REAL -> term FUN -> term FUN -> term BOOL
 | b_mne: term REAL -> term REAL -> term FUN -> term FUN -> term BOOL
+(* setting the degree in a subexpression *)
+| t_deg {S}: nat -> term S -> term S
 (* let..in and variable *)
 | t_var: forall {S}, X S -> term S
 | t_let: forall {S T}, term S -> (X S -> term T) -> term T.
@@ -97,7 +99,7 @@ Fixpoint sem S (t: @term rval S): rval S :=
   | f_cos => cos
   | f_sin => sin
   | f_cst e => (fun _ => sem e)
-  | f_trunc f => sem f
+  | f_trunc _ f => sem f
   | b_le e f => sem e <= sem f
   | b_ge e f => sem e >= sem f
   | b_lt e f => sem e < sem f
@@ -106,6 +108,7 @@ Fixpoint sem S (t: @term rval S): rval S :=
   | b_conj b c => sem b /\ sem c
   | b_mlt a b f g => forall x, sem a <= x <= sem b -> sem f x < sem g x
   | b_mne a b f g => forall x, sem a <= x <= sem b -> sem f x <> sem g x
+  | t_deg _ _ x => sem x
   | t_var _ x => x
   | t_let _ _ x k => sem (k (sem x))
   end.
@@ -124,7 +127,7 @@ Arguments f_unr [_ _] _ _ _ /.
 Lemma VAR: R. exact R0. Qed.
 Ltac reduce e :=
   eval cbn beta iota delta
-       [ROps0 ROps1 f_Ops0 car ops0 zer one add sub mul div sqrt cos sin abs pi f_bin f_unr fromZ]
+       [ROps0 ROps1 f_Ops0 car ops0 zer one add sub mul mul' div sqrt cos sin abs pi f_bin f_unr fromZ]
   in e.
 Ltac ereify e :=
   lazymatch e
@@ -139,6 +142,7 @@ Ltac ereify e :=
   | Rtrigo_def.cos ?e => let e:=ereify e in uconstr:(e_cos e)
   | Rtrigo_def.sin ?e => let e:=ereify e in uconstr:(e_sin e)
   | Rabs ?e => let e:=ereify e in uconstr:(e_abs e)
+  | at_degree ?d ?e => let e:=ereify e in uconstr:(t_deg d e)
   | Q2R ?q => uconstr:(e_fromQ q)
   | IZR ?z => uconstr:(e_fromZ z)
   | Rtrigo1.PI => uconstr:(e_pi)
@@ -156,8 +160,11 @@ Ltac ereify e :=
   | Rplus ?e ?f => let e:=freify e in let f:=freify f in uconstr:(f_add e f)
   | Rminus ?e ?f => let e:=freify e in let f:=freify f in uconstr:(f_sub e f)
   | Rmult ?e ?f => let e:=freify e in let f:=freify f in uconstr:(f_mul e f)
+  | Rmult' ?d ?e ?f => let e:=freify e in let f:=freify f in uconstr:(f_trunc d (f_mul e f))
+  | Rtruncate ?d ?e => let e:=freify e in uconstr:(f_trunc d e)
   | Rdiv ?e ?f => let e:=freify e in let f:=freify f in uconstr:(f_div e f)
   | R_sqrt.sqrt ?e => let e:=freify e in uconstr:(f_sqrt e)
+  | at_degree ?d ?e => let e:=freify e in uconstr:(t_deg d e)
   | Rtrigo_def.cos VAR => uconstr:(f_cos)
   | Rtrigo_def.sin VAR => uconstr:(f_sin)
   | VAR => uconstr:(f_id)
@@ -185,6 +192,7 @@ Ltac breify b :=
   | ?e <> ?f => let e:=ereify e in let f:=ereify f in uconstr:(b_ne e f)
   | ?b /\ ?c => let b:=breify b in let c:=breify c in uconstr:(b_conj b c)
   | ?b \/ ?c => let b:=breify b in let c:=breify c in uconstr:(b_disj b c)
+  | at_degree ?d ?e => let e:=breify e in uconstr:(t_deg d e)
   | forall x, ?a <= x <= ?b -> @?f x < @?g x =>
     let a:=ereify a in
     let b:=ereify b in
@@ -215,8 +223,8 @@ Ltac reify_prop e :=
   let e := breify e in
   constr:((fun X => e): Term BOOL).
 
-(* tests for the above reification tatics *)
 (*
+(* tests for the above reification tatics *)
 Goal True.
   let e := reify_real constr:(Rplus R0 R1) in pose e.
   let e := reify_real constr:(42) in pose e.
@@ -228,12 +236,17 @@ Goal True.
   let e := reify_real constr:(RInt (fun z => R0+z) R0 R1) in pose e.
   let e := reify_real constr:(RInt (@sqrt _) R0 R1) in pose e.
   let e := reify_real constr:(RInt (@sqrt _ + @sqrt _) R0 R1) in pose e.
+  let e := reify_real constr:(RInt (@sqrt _ *[4] @sqrt _) R0 R1) in pose e.
+  let e := reify_real constr:(RInt (fun x => sqrt x *[4] sqrt x) R0 R1) in pose e.
+  let e := reify_real constr:(RInt (fun x => sqrt x *[4] (at_degree 5 (sqrt x))) R0 R1) in pose e.
+  let e := reify_real constr:(RInt (fun x => sqrt x *[4] (Rtruncate 5 (sqrt x))) R0 R1) in pose e.
   let e := reify_real constr:(RInt (fun z => R0+z+cos (1/fromZ 2)) R0 R1) in pose e.
   let b := reify_prop constr:(1/2 <= 3 <= 1/2) in pose b. (* DAGGER: double check *)
   let b := reify_prop constr:(4 <= 5 <= 6) in pose b.
   let b := reify_prop constr:(4 < 5 /\ 3 <= RInt id 3.3 4.4 <= 18.9) in pose b.
   let b := reify_prop constr:(4 >= 5) in pose b. 
   let b := reify_prop constr:(forall x, 4 <= x <= 5 -> x*x < sqrt x) in pose b.
+  let b := reify_prop constr:(at_degree 3 (1/2 <= 3) /\ at_degree 4 (0 <= 1/2)) in pose b. (* DAGGER: double check *)
   exact I. 
 Qed.
  *)
@@ -279,7 +292,7 @@ Inductive trel X Y (R: forall S, X S -> Y S -> Prop): forall S, @term X S -> @te
 | rf_cos: trel R f_cos f_cos
 | rf_sin: trel R f_sin f_sin
 | rf_cst: forall x y, trel R x y -> trel R (f_cst x) (f_cst y)
-| rf_trunc: forall x y, trel R x y -> trel R (f_trunc x) (f_trunc y)
+| rf_trunc: forall d x y, trel R x y -> trel R (f_trunc d x) (f_trunc d y)
 | rb_le: forall x y, trel R x y -> forall x' y', trel R x' y' -> trel R (b_le x x') (b_le y y')
 | rb_ge: forall x y, trel R x y -> forall x' y', trel R x' y' -> trel R (b_ge x x') (b_ge y y')
 | rb_lt: forall x y, trel R x y -> forall x' y', trel R x' y' -> trel R (b_lt x x') (b_lt y y')
@@ -290,6 +303,7 @@ Inductive trel X Y (R: forall S, X S -> Y S -> Prop): forall S, @term X S -> @te
           forall f g, trel R f g -> forall h k, trel R h k -> trel R (b_mlt x x' f h) (b_mlt y y' g k)
 | rb_mne: forall x y, trel R x y -> forall x' y', trel R x' y' ->
           forall f g, trel R f g -> forall h k, trel R h k -> trel R (b_mne x x' f h) (b_mne y y' g k)
+| rt_deg: forall d S x y, trel R x y -> trel R (@t_deg _ S d x) (@t_deg _ S d y)
 | rt_var: forall S x y, R S x y -> trel R (t_var x) (t_var y)
 | rt_let: forall S T x y h k, trel R x y -> (forall a b, R S a b -> trel R (h a) (k b)) -> trel R (t_let x h) (@t_let _ _ T y k).
 
@@ -309,9 +323,6 @@ Section s.
 
 Context {N: NBH} (MO: ModelOps) lo hi (M: Model MO lo hi). 
 
-(** interpolation degree for divisions, square roots, and truncations *)
-Variable deg: nat.
-
 
 (** interpretation of expressions using intervals / models / booleans *)
 Definition sval S :=
@@ -320,52 +331,53 @@ Definition sval S :=
   | FUN => E MM
   | BOOL => E bool
   end.
-Fixpoint Sem S (t: @term sval S): sval S :=
+Fixpoint Sem d S (t: @term sval S): sval S :=
   match t in term S return sval S with
-  | e_add e f => e_map2 (@add _) (Sem e) (Sem f)
-  | e_sub e f => e_map2 (@sub _) (Sem e) (Sem f)
-  | e_mul e f => e_map2 (@mul _) (Sem e) (Sem f)
-  | e_div e f => e_map2 (@div _) (Sem e) (Sem f)
-  | e_sqrt e => e_map (@sqrt _) (Sem e)
-  | e_cos e => e_map (@cos _) (Sem e)
-  | e_sin e => e_map (@sin _) (Sem e)
-  | e_abs e => e_map (@abs _) (Sem e)
+  | e_add e f => e_map2 (@add _) (Sem d e) (Sem d f)
+  | e_sub e f => e_map2 (@sub _) (Sem d e) (Sem d f)
+  | e_mul e f => e_map2 (@mul _) (Sem d e) (Sem d f)
+  | e_div e f => e_map2 (@div _) (Sem d e) (Sem d f)
+  | e_sqrt e => e_map (@sqrt _) (Sem d e)
+  | e_cos e => e_map (@cos _) (Sem d e)
+  | e_sin e => e_map (@sin _) (Sem d e)
+  | e_abs e => e_map (@abs _) (Sem d e)
   | e_fromQ q => ret (fromQ q)
   | e_fromZ z => ret (fromZ z)
   | e_pi => ret pi
   | e_zer => ret 0
   | e_one => ret 1
   | e_eval f x => 
-      LET f ::= Sem f IN
-      LET x ::= Sem x IN 
+      LET f ::= Sem d f IN
+      LET x ::= Sem d x IN 
       meval f x
   | e_integrate f a b => 
-      LET f ::= Sem f IN 
-      LET a ::= Sem a IN 
-      LET b ::= Sem b IN 
+      LET f ::= Sem d f IN 
+      LET a ::= Sem d a IN 
+      LET b ::= Sem d b IN 
       mintegrate f (Some a) (Some b)
-  | f_add e f => e_map2 (@add _) (Sem e) (Sem f)
-  | f_sub e f => e_map2 (@sub _) (Sem e) (Sem f)
-  | f_mul e f => e_map2 (@mul _) (Sem e) (Sem f)
-  | f_div e f => LET e ::= Sem e IN LET f ::= Sem f IN mdiv deg e f
-  | f_sqrt e => LET e ::= Sem e IN msqrt deg e
+  | f_add e f => e_map2 (@add _) (Sem d e) (Sem d f)
+  | f_sub e f => e_map2 (@sub _) (Sem d e) (Sem d f)
+  | f_mul e f => e_map2 (@mul _) (Sem d e) (Sem d f)
+  | f_div e f => LET e ::= Sem d e IN LET f ::= Sem d f IN mdiv d e f
+  | f_sqrt e => LET e ::= Sem d e IN msqrt d e
   | f_id => mid
   | f_cos => mcos
   | f_sin => msin
-  | f_cst e => e_map mcst (Sem e)
-  | f_trunc e => e_map (mtruncate deg) (Sem e)
-  | b_le e f => e_map2 is_le (Sem e) (Sem f)
-  | b_ge e f => e_map2 is_ge (Sem e) (Sem f)
-  | b_lt e f => e_map2 is_lt (Sem e) (Sem f)
-  | b_ne e f => e_map2 is_ne (Sem e) (Sem f)
-  | b_disj b c => LET b ::= Sem b IN if b then ret true else Sem c
-  | b_conj b c => LET b ::= Sem b IN if b then Sem c else ret false
+  | f_cst e => e_map mcst (Sem d e)
+  | f_trunc d e => e_map (mtruncate d) (Sem d e)
+  | b_le e f => e_map2 is_le (Sem d e) (Sem d f)
+  | b_ge e f => e_map2 is_ge (Sem d e) (Sem d f)
+  | b_lt e f => e_map2 is_lt (Sem d e) (Sem d f)
+  | b_ne e f => e_map2 is_ne (Sem d e) (Sem d f)
+  | b_disj b c => LET b ::= Sem d b IN if b then ret true else Sem d c
+  | b_conj b c => LET b ::= Sem d b IN if b then Sem d c else ret false
   | b_mlt _ _ _ _
   | b_mne _ _ _ _ => err "comparison of univariate functions not supported in static mode"
+  | t_deg _ d x => Sem d x
   | t_var _ x => x
-  | t_let _ _ x k => Sem (k (Sem x))
+  | t_let _ _ x k => Sem d (k (Sem d x))
   end.
-Definition Sem' S (u: Term S): sval S := Sem (u sval).
+Definition Sem' d S (u: Term S): sval S := Sem d (u sval).
 
 (** correctness of the above semantics
     the key lemma, [correct], is proved by induction on the parametricity relation *)
@@ -375,9 +387,9 @@ Definition cval S: sval S -> rval S -> Prop :=
   | FUN  => EP' mcontains
   | BOOL => EPimpl
   end.
-Lemma correct S (u: term S) (v: term S): trel cval u v -> cval (Sem u) (sem v).
+Lemma correct S (u: term S) (v: term S): trel cval u v -> forall d, cval (Sem d u) (sem v).
 Proof.
-  induction 1; cbn.
+  induction 1; intro deg; cbn in *.
   - eapply ep_map2; eauto. rel. 
   - eapply ep_map2; eauto. rel. 
   - eapply ep_map2; eauto. rel. 
@@ -415,29 +427,30 @@ Proof.
   - eapply ep_map2; eauto. intros ??. case is_geE=>//. auto. 
   - eapply ep_map2; eauto. intros ??. case is_ltE=>//. auto.
   - eapply ep_map2; eauto. intros ??. case is_neE=>//. auto.
-  - eapply ep_bind=>[b|]; eauto. 
-    case b. constructor. left; auto. intros _.
-    case: IHtrel2=>//. constructor. right; auto.
-  - eapply ep_bind=>[b|]; eauto. 
+  - eapply ep_bind=>[b|]; eauto.  2: apply IHtrel1. 
+    case b. constructor. tauto. intros _.
+    case: IHtrel2=>//. constructor. tauto. 
+  - eapply ep_bind=>[b|]; eauto. 2: apply IHtrel1.
     case b. case: IHtrel2=>//. constructor. auto. by constructor.
   - constructor. 
-  - constructor. 
+  - constructor.
+  - by []. 
   - assumption.
   - auto. 
 Qed.
 
 (** correctness on parametric (closed) terms follows *)
-Lemma Correct: forall S (u: Term S), parametric u -> cval (Sem' u) (sem' u).
-Proof. intros S u U. apply correct, U. Qed.
+Lemma Correct: forall d S (u: Term S), parametric u -> cval (Sem' d u) (sem' u).
+Proof. intros d S u U. apply correct, U. Qed.
 
   
 (** small corollary, useful to obtain a tactic in tactic.v *)
-Lemma check (b: Term BOOL):
+Lemma check d (b: Term BOOL):
   parametric b ->
-  (let b := Sem' b in
+  (let b := Sem' d b in
    match b with ret b => is_true b | err s => False end) ->
   sem' b.
-Proof. move: (@Correct BOOL)=>/= C B. by case C. Qed.
+Proof. move: (@Correct d BOOL)=>/= C B. by case C. Qed.
 
 End s.
 Arguments check {_ _ _ _} _ _ _ _.
@@ -453,9 +466,6 @@ Section s.
 
 Context {N: NBH} (MO: II -> II -> ModelOps) (M: forall D: Domain, Model (MO dlo dhi) dlo dhi).
 
-(** interpolation degree for divisions and square roots *)
-Variable deg: nat.
-
 (** interpretation of expressions using intervals / models / booleans *)
 Definition sval S :=
   match S with
@@ -463,67 +473,68 @@ Definition sval S :=
   | FUN => (forall MO: ModelOps, E MM)
   | BOOL => E bool
   end.
-Fixpoint Sem S (t: @term sval S): sval S :=
+Fixpoint Sem d S (t: @term sval S): sval S :=
   match t in term S return sval S with
-  | e_add e f => e_map2 (@add _) (Sem e) (Sem f)
-  | e_sub e f => e_map2 (@sub _) (Sem e) (Sem f)
-  | e_mul e f => e_map2 (@mul _) (Sem e) (Sem f)
-  | e_div e f => e_map2 (@div _) (Sem e) (Sem f)
-  | e_sqrt e => e_map (@sqrt _) (Sem e)
-  | e_cos e => e_map (@cos _) (Sem e)
-  | e_sin e => e_map (@sin _) (Sem e)
-  | e_abs e => e_map (@abs _) (Sem e)
+  | e_add e f => e_map2 (@add _) (Sem d e) (Sem d f)
+  | e_sub e f => e_map2 (@sub _) (Sem d e) (Sem d f)
+  | e_mul e f => e_map2 (@mul _) (Sem d e) (Sem d f)
+  | e_div e f => e_map2 (@div _) (Sem d e) (Sem d f)
+  | e_sqrt e => e_map (@sqrt _) (Sem d e)
+  | e_cos e => e_map (@cos _) (Sem d e)
+  | e_sin e => e_map (@sin _) (Sem d e)
+  | e_abs e => e_map (@abs _) (Sem d e)
   | e_fromQ q => ret (fromQ q)
   | e_fromZ z => ret (fromZ z)
   | e_pi => ret pi
   | e_zer => ret 0
   | e_one => ret 1
   | e_eval f x => err "evaluation not yet supported in dynamic mode"
-      (* LET f ::= Sem f IN *)
-      (* LET x ::= Sem x IN  *)
+      (* LET f ::= Sem d f IN *)
+      (* LET x ::= Sem d x IN  *)
       (* meval f x *)
   | e_integrate f a b => 
-      LET a ::= Sem a IN 
-      LET b ::= Sem b IN 
+      LET a ::= Sem d a IN 
+      LET b ::= Sem d b IN 
       if ~~ is_lt a b then err "dynamic: integral does not yield a valid domain" else
-      LET f ::= Sem f (MO a b) IN 
+      LET f ::= Sem d f (MO a b) IN 
       mintegrate f None None
-  | f_add e f => fun MO => e_map2 (@add _) (Sem e MO) (Sem f MO)
-  | f_sub e f => fun MO => e_map2 (@sub _) (Sem e MO) (Sem f MO)
-  | f_mul e f => fun MO => e_map2 (@mul _) (Sem e MO) (Sem f MO)
-  | f_div e f => fun MO => LET e ::= Sem e MO IN LET f ::= Sem f MO IN mdiv deg e f
-  | f_sqrt e => fun MO => LET e ::= Sem e MO IN msqrt deg e
+  | f_add e f => fun MO => e_map2 (@add _) (Sem d e MO) (Sem d f MO)
+  | f_sub e f => fun MO => e_map2 (@sub _) (Sem d e MO) (Sem d f MO)
+  | f_mul e f => fun MO => e_map2 (@mul _) (Sem d e MO) (Sem d f MO)
+  | f_div e f => fun MO => LET e ::= Sem d e MO IN LET f ::= Sem d f MO IN mdiv d e f
+  | f_sqrt e => fun MO => LET e ::= Sem d e MO IN msqrt d e
   | f_id => fun MO => mid
   | f_cos => fun MO => mcos
   | f_sin => fun MO => msin
-  | f_cst e => fun MO => e_map mcst (Sem e)
-  | f_trunc e => fun MO => e_map (mtruncate deg) (Sem e MO)
-  | b_le e f => e_map2 is_le (Sem e) (Sem f)
-  | b_ge e f => e_map2 is_ge (Sem e) (Sem f)
-  | b_lt e f => e_map2 is_lt (Sem e) (Sem f)
-  | b_ne e f => e_map2 is_ne (Sem e) (Sem f)
-  | b_disj b c => LET b ::= Sem b IN if b then ret true else Sem c
-  | b_conj b c => LET b ::= Sem b IN if b then Sem c else ret false
+  | f_cst e => fun MO => e_map mcst (Sem d e)
+  | f_trunc d e => fun MO => e_map (mtruncate d) (Sem d e MO)
+  | b_le e f => e_map2 is_le (Sem d e) (Sem d f)
+  | b_ge e f => e_map2 is_ge (Sem d e) (Sem d f) 
+ | b_lt e f => e_map2 is_lt (Sem d e) (Sem d f)
+  | b_ne e f => e_map2 is_ne (Sem d e) (Sem d f)
+  | b_disj b c => LET b ::= Sem d b IN if b then ret true else Sem d c
+  | b_conj b c => LET b ::= Sem d b IN if b then Sem d c else ret false
   | b_mlt a b f g =>
-      LET a ::= Sem a IN 
-      LET b ::= Sem b IN
+      LET a ::= Sem d a IN 
+      LET b ::= Sem d b IN
       if ~~ is_lt a b then err "invalid domain" else
       let M := MO a b in
-      LET f ::= Sem f M IN 
-      LET g ::= Sem g M IN
-      mlt deg f g
+      LET f ::= Sem d f M IN 
+      LET g ::= Sem d g M IN
+      mlt d f g
   | b_mne a b f g =>
-      LET a ::= Sem a IN 
-      LET b ::= Sem b IN
+      LET a ::= Sem d a IN 
+      LET b ::= Sem d b IN
       if ~~ is_lt a b then err "invalid domain" else
       let M := MO a b in
-      LET f ::= Sem f M IN 
-      LET g ::= Sem g M IN
-      ret (mne deg f g)
+      LET f ::= Sem d f M IN 
+      LET g ::= Sem d g M IN
+      ret (mne d f g)
+  | t_deg _ d x => Sem d x
   | t_var _ x => x
-  | t_let _ _ x k => Sem (k (Sem x))
+  | t_let _ _ x k => Sem d (k (Sem d x))
   end.
-Definition Sem' S (u: Term S): sval S := Sem (u sval).
+Definition Sem' d S (u: Term S): sval S := Sem d (u sval).
 
 (** correctness of the above semantics
     the key lemma, [correct], is proved by induction on the parametricity relation *)
@@ -533,9 +544,9 @@ Definition cval S: sval S -> rval S -> Prop :=
   | FUN  => fun F f => forall MO a b (M: Model MO a b), EP' M (F MO) f
   | BOOL => EPimpl
   end.
-Lemma correct S (u: term S) (v: term S): trel cval u v -> cval (Sem u) (sem v).
+Lemma correct S (u: term S) (v: term S): trel cval u v -> forall d, cval (Sem d u) (sem v).
 Proof.
-  induction 1; cbn -[RInt];
+  induction 1; intro deg; cbn -[RInt] in *;
     try (intros MO' a b M';
          try specialize (IHtrel  _ _ _ M');
          try (specialize (IHtrel1  _ _ _ M'); specialize (IHtrel2  _ _ _ M'))).
@@ -559,7 +570,7 @@ Proof.
   - eapply ep_bind=>[A Aa|]; eauto.  
     eapply ep_bind=>[B Bb|]; eauto.  
     case_eq (is_lt A B)=>[ab|]. 2: constructor.
-    specialize (IHtrel1 _ _ _ (M (DfromI2 Aa Bb ab))).
+    specialize (IHtrel1 deg _ _ _ (M (DfromI2 Aa Bb ab))).
     eapply ep_bind=>[F Ff|]; eauto.
     eapply rmintegrate; first apply Ff; by constructor. 
   - eapply ep_map2; eauto. intros. by apply (radd (r:=mcontains)).
@@ -579,43 +590,44 @@ Proof.
   - eapply ep_map2; eauto. intros ??. case is_geE=>//. auto. 
   - eapply ep_map2; eauto. intros ??. case is_ltE=>//. auto.
   - eapply ep_map2; eauto. intros ??. case is_neE=>//. auto.
-  - eapply ep_bind=>[b|]; eauto. 
+  - eapply ep_bind=>[b|]; eauto. 2: apply IHtrel1. 
     case b. constructor. left; auto. intros _.
     case: IHtrel2=>//. constructor. right; auto.
-  - eapply ep_bind=>[b|]; eauto. 
+  - eapply ep_bind=>[b|]; eauto. 2: apply IHtrel1. 
     case b. case: IHtrel2=>//. constructor. auto. by constructor.
   - eapply ep_bind=>[A Aa|]; eauto.  
     eapply ep_bind=>[B Bb|]; eauto.  
     case_eq (is_lt A B)=>[ab|]. 2: constructor.
-    specialize (IHtrel3 _ _ _ (M (DfromI2 Aa Bb ab))).
-    specialize (IHtrel4 _ _ _ (M (DfromI2 Aa Bb ab))).
+    specialize (IHtrel3 deg _ _ _ (M (DfromI2 Aa Bb ab))).
+    specialize (IHtrel4 deg _ _ _ (M (DfromI2 Aa Bb ab))).
     eapply ep_bind=>[F Ff|]; eauto.
     eapply ep_bind=>[G Gg|]; eauto.
     eapply rmlt. apply Ff. apply Gg. 
   - eapply ep_bind=>[A Aa|]; eauto.  
     eapply ep_bind=>[B Bb|]; eauto.  
     case_eq (is_lt A B)=>[ab|]. 2: constructor.
-    specialize (IHtrel3 _ _ _ (M (DfromI2 Aa Bb ab))).
-    specialize (IHtrel4 _ _ _ (M (DfromI2 Aa Bb ab))).
+    specialize (IHtrel3 deg _ _ _ (M (DfromI2 Aa Bb ab))).
+    specialize (IHtrel4 deg _ _ _ (M (DfromI2 Aa Bb ab))).
     eapply ep_bind=>[F Ff|]; eauto.
     eapply ep_bind=>[G Gg|]; eauto.
     constructor. eapply rmne. apply Ff. apply Gg. 
+  - by [].
   - assumption.
   - auto. 
 Qed.
 
 (** correctness on parametric (closed) terms follows *)
-Lemma Correct: forall S (u: Term S), parametric u -> cval (Sem' u) (sem' u).
-Proof. intros S u U. apply correct, U. Qed.
+Lemma Correct: forall d S (u: Term S), parametric u -> cval (Sem' d u) (sem' u).
+Proof. intros d S u U. apply correct, U. Qed.
 
   
 (** small corollary, useful to obtain a tactic in tactic.v *)
-Lemma check (b: Term BOOL):
+Lemma check d (b: Term BOOL):
   parametric b ->
-  (let b := Sem' b in
+  (let b := Sem' d b in
    match b with ret b => is_true b | err s => False end) ->
   sem' b.
-Proof. move: (@Correct BOOL)=>/= C B. by case C. Qed.
+Proof. move: (@Correct d BOOL)=>/= C B. by case C. Qed.
 
 End s.
 Arguments check {_ _} _ _ _.
@@ -674,7 +686,7 @@ Notation "1" := f_one: fxpr_scope.
 Definition integrate' X: fxpr X -> expr X -> expr X -> expr X := e_integrate.
 Definition eval' X: fxpr X -> expr X -> expr X := e_eval.
 Definition id' {X}: fxpr X := f_id.
-Definition truncate' X: fxpr X -> fxpr X := f_trunc.
+Definition truncate' X: nat -> fxpr X -> fxpr X := f_trunc.
 Definition fsqrt X: fxpr X -> fxpr X := f_sqrt.
 Definition fcos X: fxpr X := f_cos.
 Definition fsin X: fxpr X := f_sin.
