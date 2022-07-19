@@ -427,7 +427,7 @@ Definition F2I (f: F): I :=
   end.
 Definition F2R (f: F): R := F.toR f.
 
-Definition width (x: I): F :=
+Definition Iwidth (x: I): F :=
   match x with
   | Ibnd a b => b-a
   | _ => F.nan
@@ -466,7 +466,7 @@ Proof.
   - exact Flt.
   - exact F.abs.
   - exact F.max.
-  - exact width.
+  - exact Iwidth.
   - apply Fsingle.
 Defined.
 
