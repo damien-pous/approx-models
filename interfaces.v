@@ -261,6 +261,7 @@ Class NBH := {
   I2F: II -> FF;
   F2I: FF -> II;
   Fle: FF -> FF -> bool;
+  Flt: FF -> FF -> bool;
   Fabs: FF -> FF;
   Fmax: FF -> FF -> FF;
   width: II -> FF;  (** width of an interval (unspecified, just for inspection) *)

@@ -232,34 +232,67 @@ Section n.
      else err "mpolynom_eq_aux : missed (d+lambda*r)<=r"
    else err "mpolynom_eq_aux : missed lambda<1".
 
- (** Newton method for finding a root of a function [f] with derivative [f']
-     [w] is the precision at which to stop
-     last argument ([n]) is the maximal number of iterations *)
- Definition Newton s w f f' :=
-   (fix Newton n x :=
+ (** Newton method for finding a root of a function [f] with derivative [f'] *)
+ Definition Newton_basic s f f' :=
+   let w := fromQ 0.000001 in    (* expected precision *)
+   let k := 10%Z in              (* maximal number of iterations *)
+   (fix iter n x :=
       match n with
-      | O => err (append "Newton: no root found for " s)
-      | S n => let d := f x / f' x in
-              if Fle (Fabs d) w then ret x
-              else Newton n (x-d)
-      end) 100%nat.
+      | O => err (append "Newton: could not find a root" s)
+      | S n =>
+          let d := f x / f' x in
+          if Fle (Fabs d) w then ret x
+          else iter n (x-d)
+      end) 10%nat.
+ 
+ (** improved(?) version:
+     - look for a reasonable candidate with k=10 iterations (|f x| <= 0.001 = w)
+     - then iterate until there was no improvement for m=5 iterations in a row
+     - fail if those iterations seem to diverge (move more than i=10 times away from best solution)
+  *)
+ Definition Newton s f f' :=
+   let k := 10%nat in             (* number of iterations to find a first candidate *)
+   let w := fromQ 0.001 in       (* treshold for absolute value of [f] on first candidate *)
+   let m := 5%nat in              (* maximal number of non-improving iterations *)
+   let i := 10%Z in              (* treshold for detecting instability *)
+   let optimise :=
+     Fix (fun iter n x fx xbest best =>
+            match n with
+            | O => ret xbest
+            | S n =>
+                let d := fx / f' x in
+                let x := x - d in
+                let fx := f x in
+                let afx := Fabs fx in
+                if Flt afx best then iter m x fx x afx (* found a better point *)
+                else if Fle afx (mulZ i best) then iter n x fx xbest best (* not better, but there is hope *)
+                else err (append "Newton: computation seems unstable" s)
+            end) (fun _ _ _ _ _ => err "assert false") m
+   in
+   (fix iter n x :=
+      match n with
+      | O => err (append "Newton: not close to a root after 10 iterations (" s)
+      | S n =>
+          let fx := f x in
+          let d := fx / f' x in
+          if Fle (Fabs d) w then optimise x fx x (Fabs fx)
+          else iter n (x-d)
+      end) k.
  
  (** special case of a polynomial *)
- Definition Newton_poly s w p :=
+ Definition Newton_poly s p :=
    let p' := derive p in
-   Newton s w (taylor.eval' p) (taylor.eval' p').
+   Newton s (taylor.eval' p) (taylor.eval' p').
  
  (** oracle for solutions of polynomial equations:
      by interpolation, using Newton's method to approximate the solution at the interpolation points
      - [d] is the interpolation degree / number of interpolation points
-     - [2d] is used for truncations, if positive
-     - [prec] is the precision for Newton's method, at each point
      - [phi0] is a preliminary candidate *)
- Definition polynom_eq_oracle d w (F: list (list FF)) (phi0: list FF): list FF :=
+ Definition polynom_eq_oracle d (F: list (list FF)) (phi0: list FF): list FF :=
    let f t :=
      let p := map (fun f => beval f t) F in
      let x0 := beval phi0 t in
-     match Newton_poly "oracle" w p x0 with
+     match Newton_poly "(oracle)" p x0 with
      | ret x => x
      | err _ => x0
      end
@@ -307,7 +340,8 @@ Section n.
 
  Definition polynom_for_lambda := polynom_for_lambda2. (* vs 1 *)
  
- Definition find_radius_alamano w (c: FF) (l: list FF): E FF :=
+ Definition find_radius_alamano (c: FF) (l: list FF): E FF :=
+   let w := fromQ 0.0000001 in
    (* l is a polynomial with positive coefficients; d is positive; thus p is convex *)
    let p := c::(l-[1]) in
    let _ := print p in
@@ -341,33 +375,34 @@ Section n.
    let _ := print (r, taylor.eval' l r) in
    ret r.
 
- Definition find_radius_newton w (c: FF) (l: list FF): E FF :=
+ Definition find_radius_newton (c: FF) (l: list FF): E FF :=
    (* l is a polynomial with positive coefficients; d is positive; thus p is convex *)
    let p := c::(l-[1]) in
-   LET r ::= Newton_poly "radius" w p 0 IN
-   ret r.
+   Newton_poly "(radius)" p 0.
 
- Definition find_radius_newton' w (c: FF) (l: list FF): E FF :=
+ Definition find_radius_newton' (c: FF) (l: list FF): E FF :=
    (* l is a polynomial with positive coefficients; d is positive; thus p is convex *)
    let p := c::(l-[1]) in
    let p' := derive p in
    (* mimimal point of p *)
-   LET m ::= Newton_poly "radius (min)" w p' 0 IN
+   LET m ::= Newton_poly "(radius, min)" p' 0 IN
    if Fle 0 (taylor.eval' p m) then err "no root for the radius" else
-   LET r ::= Newton "radius" w (taylor.eval' p) (taylor.eval' p') 0 IN
+   (* first root of p *)
+   LET r ::= Newton "(radius)" (taylor.eval' p) (taylor.eval' p') 0 IN
+   (* move slightly to the right of r to help validation *)
    ret (divZ 100 (mulZ 99 r + m)).
 
  Definition find_radius := find_radius_newton'. (* vs _alamano *)
  
  (** putting everything together, we obtain the following function for computing solutions of polynomial functional equations.
      - [d] is the interpolation degree
-     - [w] is the precision when looking for the radius
+     - [2d] is used for truncations, if positive
      - [phi0] is a temptative solution (from which Newton iterations start with)
      NOTE: here we inline the relevant part of [mpolynom_eq_aux]: this makes it possible to avoid duplicate computations (see correctness proof below)
   *)
- Definition mpolynom_eq d w (F: list Tube) (phi0: list FF): E Tube :=
+ Definition mpolynom_eq d (F: list Tube) (phi0: list FF): E Tube :=
    let F' := map mcf F in
-   let phi' := polynom_eq_oracle d w F' phi0 in
+   let phi' := polynom_eq_oracle d F' phi0 in
    let d2 := (2*d)%Z in
    let DF := eval' d2 (derive F') phi' in
    let A' := interpolate d (fun x => 1 / beval DF x) in
@@ -377,7 +412,7 @@ Section n.
    let L := derive (polynom_eq.opnewton F A) in
    let L' := map (fun M => map I2F (pol M)) L in
    LET l ::= polynom_for_lambda d2 L' phi' IN
-   LET r' ::= find_radius w (I2F c) l IN
+   LET r' ::= find_radius (I2F c) l IN
    let r := F2I r' in
    if negb (is_le 0 r) then err "mpolynom_eq: negative radius" else
    let phir := {| pol := pol phi; rem := sym r; cont := false |} in
@@ -898,13 +933,13 @@ Section n.
  Qed.
 
  (** [mpolynom_eq] essentially is an instance of [mpolynom_eq_aux] *)
- Lemma mpolynom_eq_link d w F phi0:
+ Lemma mpolynom_eq_link d F phi0:
    EP (fun M => exists phi A r, ret M = mpolynom_eq_aux (2*d) F phi A r /\ 0 <= F2R r)
-      (mpolynom_eq d w F phi0).
+      (mpolynom_eq d F phi0).
  Proof.
    rewrite /mpolynom_eq.
    set A' := interpolate _ _. set A := mfc _.
-   set phi' := polynom_eq_oracle _ _ _ _. set phi := mfc _.
+   set phi' := polynom_eq_oracle _ _ _. set phi := mfc _.
    set m := mnorm _. case_eq m=>//= c Hc.
    case polynom_for_lambda=>//= l'.
    case find_radius=>//= r'.
@@ -921,10 +956,10 @@ Section n.
  Qed.
 
  (** whence its correctness *)
- Lemma rmpolynom_eq d w F' F phi0:
+ Lemma rmpolynom_eq d F' F phi0:
    list_rel mcontains F' F ->  
    EP (fun M => exists f, mcontains M f /\ forall t, dom t ->  taylor.eval' F f t = 0)
-      (mpolynom_eq d w F' phi0).
+      (mpolynom_eq d F' phi0).
  Proof.
    move=> HF. case mpolynom_eq_link=>//M.
    intros (phi&A&r&->&Hr). eapply rmpolynom_eq_aux; eauto. 

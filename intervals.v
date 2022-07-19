@@ -463,6 +463,7 @@ Proof.
   - apply IleE.
   - exact I.midpoint.
   - exact Fle.
+  - exact Flt.
   - exact F.abs.
   - exact F.max.
   - exact width.
