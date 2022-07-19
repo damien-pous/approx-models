@@ -343,11 +343,20 @@ Section n.
  Definition find_radius_newton w (c: FF) (l: list FF): E FF :=
    (* l is a polynomial with positive coefficients; d is positive; thus p is convex *)
    let p := c::(l-[1]) in
-   let _ := print p in
    LET r ::= Newton_poly "radius" w p 0 IN
    ret r.
 
- Definition find_radius := find_radius_newton. (* vs _alamano *)
+ Definition find_radius_newton' w (c: FF) (l: list FF): E FF :=
+   (* l is a polynomial with positive coefficients; d is positive; thus p is convex *)
+   let p := c::(l-[1]) in
+   let p' := derive p in
+   (* mimimal point of p *)
+   LET m ::= Newton_poly "radius (min)" w p' 0 IN
+   if Fle 0 (taylor.eval' p m) then err "no root for the radius" else
+   LET r ::= Newton "radius" w (taylor.eval' p) (taylor.eval' p') 0 IN
+   ret (divZ 100 (mulZ 99 r + m)).
+
+ Definition find_radius := find_radius_newton'. (* vs _alamano *)
  
  (** putting everything together, we obtain the following function for computing solutions of polynomial functional equations.
      - [d] is the interpolation degree

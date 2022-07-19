@@ -39,7 +39,7 @@ Module sqrt_cheb.
   Definition valid_s : E float :=
     LET M ::= mpolynom_eq 60 (fromQ 0.000000000000001) F phi0 
     IN ret (width (rem M)).
-  Eval vm_compute in valid_s.   (* missed *)
+  Eval vm_compute in valid_s.   (* 3e-14 *)
 
 
   (** ** manual computation *)
@@ -104,8 +104,8 @@ Module oval_fourier.
 
   (* timings on Damien's machine, plugged *)
   (* negative degree: do not truncate (and use absolute value for interpolation degree) *)
-  Time Eval native_compute in oval_valid 20.    (* missed / .5s *)
-  Time Eval native_compute in oval_valid (-20). (* 0.006  / .5s *)
+  Time Eval native_compute in oval_valid 20.    (* missed / .3s *)
+  Time Eval native_compute in oval_valid (-20). (* 0.006  / .4s *)
   Time Eval native_compute in oval_valid 25.    (* missed / .6s*)
   Time Eval native_compute in oval_valid (-25). (* 0.002  / .6s*)
   
