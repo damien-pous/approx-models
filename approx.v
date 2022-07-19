@@ -215,7 +215,7 @@ Section n.
              (interpolate d (fun x => 1 / (mulZ 2 (beval h x)))).
 
  (** solution of polynomial equation : F is a polynom with model coefficients
-     - d is the degree (for truncations)
+     - d is the truncation degree (if positive)
      - phi, A are given by an oracle, such that F(phi) ~ 0 and A ~ 1 / DF(phi)
      - r is a radius also given by an oracle, such that the Newton operator is stable and lambda contracting on B(phi,r) *) 
  Definition mpolynom_eq_aux d (F: list Tube) (phi A: list FF) (r: FF): E Tube :=
@@ -252,6 +252,7 @@ Section n.
  (** oracle for solutions of polynomial equations:
      by interpolation, using Newton's method to approximate the solution at the interpolation points
      - [d] is the interpolation degree / number of interpolation points
+     - [2d] is used for truncations, if positive
      - [prec] is the precision for Newton's method, at each point
      - [phi0] is a preliminary candidate *)
  Definition polynom_eq_oracle d w (F: list (list FF)) (phi0: list FF): list FF :=
@@ -367,18 +368,20 @@ Section n.
  Definition mpolynom_eq d w (F: list Tube) (phi0: list FF): E Tube :=
    let F' := map mcf F in
    let phi' := polynom_eq_oracle d w F' phi0 in
-   let DF := eval' d (derive F') phi' in
+   let d2 := (2*d)%Z in
+   let DF := eval' d2 (derive F') phi' in
    let A' := interpolate d (fun x => 1 / beval DF x) in
    let A := mfc A' in
    let phi := mfc phi' in
-   LET c ::= mnorm (A * eval' d F phi) IN
+   LET c ::= mnorm (A * eval' d2 F phi) IN
    let L := derive (polynom_eq.opnewton F A) in
-   LET l ::= polynom_for_lambda d (map (fun M => map I2F (pol M)) L) phi' IN
+   let L' := map (fun M => map I2F (pol M)) L in
+   LET l ::= polynom_for_lambda d2 L' phi' IN
    LET r' ::= find_radius w (I2F c) l IN
    let r := F2I r' in
    if negb (is_le 0 r) then err "mpolynom_eq: negative radius" else
    let phir := {| pol := pol phi; rem := sym r; cont := false |} in
-   LET lambda ::= mnorm (eval' d L phir) IN
+   LET lambda ::= mnorm (eval' d2 L phir) IN
    let _ := print "validated lambda"%string in
    let _ := print lambda in
    if is_lt lambda 1 then
@@ -896,7 +899,7 @@ Section n.
 
  (** [mpolynom_eq] essentially is an instance of [mpolynom_eq_aux] *)
  Lemma mpolynom_eq_link d w F phi0:
-   EP (fun M => exists phi A r, ret M = mpolynom_eq_aux d F phi A r /\ 0 <= F2R r)
+   EP (fun M => exists phi A r, ret M = mpolynom_eq_aux (2*d) F phi A r /\ 0 <= F2R r)
       (mpolynom_eq d w F phi0).
  Proof.
    rewrite /mpolynom_eq.
