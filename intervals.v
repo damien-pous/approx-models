@@ -464,6 +464,7 @@ Proof.
   - exact I.midpoint.
   - exact Fle.
   - exact F.abs.
+  - exact F.max.
   - exact width.
   - apply Fsingle.
 Defined.

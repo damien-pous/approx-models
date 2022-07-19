@@ -33,7 +33,19 @@ Section n.
    | None => beval p (bnd lo hi)
    | Some range => let (m,M):=range p in bnd m M
    end.
+ (** corresponding function in (unspecified) flating points *)
+ Definition frange p: E (FF*FF) :=
+   match brange with
+   | None =>
+       let r := beval (map F2I p) (bnd lo hi) in
+       match min r,max r with
+       | Some m, Some M => ret (I2F m, I2F M)
+       | _,_ => err "could not estimate the range"
+       end
+   | Some range => ret (range p)
+   end.
 
+ 
  (** truncation of a model
      (noop if given a negative degree [n]) *)
  Definition mtruncate (n: Z) (M: Tube): Tube :=
@@ -135,6 +147,11 @@ Section n.
  Definition mnorm (M: Tube): E II :=
    match mag (mrange M) with Some m => ret m | None => err "not bounded" end.
 
+ (** same function on floating points (unspecified)  *)
+ (* Definition fnorm M := e_map I2F (mnorm (mcf M)). *)
+ Definition fnorm (P: list FF): E FF :=
+   LET '(m,M) ::= frange P IN ret (Fmax (Fabs m) (Fabs M)).
+
  (** asserting continuity 'by hand' (see specification [rmcontinuous] below)*)
  Definition mcontinuous (M: Tube): Tube :=
    {| pol := pol M; rem := rem M; cont := true |}.
@@ -219,26 +236,24 @@ Section n.
      [w] is the precision at which to stop
      last argument ([n]) is the maximal number of iterations *)
  Definition Newton s w f f' :=
-   fix Newton n x :=
-     match n with
-     | O => err (append "Newton: no root found for " s)
-     | S n => let d := f x / f' x in
+   (fix Newton n x :=
+      match n with
+      | O => err (append "Newton: no root found for " s)
+      | S n => let d := f x / f' x in
               if Fle (Fabs d) w then ret x
               else Newton n (x-d)
-     end.
+      end) 100%nat.
  
  (** special case of a polynomial *)
  Definition Newton_poly s w p :=
    let p' := derive p in
-   Newton s w (taylor.eval' p) (taylor.eval' p') 100.
+   Newton s w (taylor.eval' p) (taylor.eval' p').
  
  (** oracle for solutions of polynomial equations:
      by interpolation, using Newton's method to approximate the solution at the interpolation points
      - [d] is the interpolation degree / number of interpolation points
      - [prec] is the precision for Newton's method, at each point
-     - [phi0] is a preliminary candidate
-  *)
-
+     - [phi0] is a preliminary candidate *)
  Definition polynom_eq_oracle d w (F: list (list FF)) (phi0: list FF): list FF :=
    let f t :=
      let p := map (fun f => beval f t) F in
@@ -250,7 +265,7 @@ Section n.
    in
    interpolate d f.
 
- Fixpoint taylorise {C: Ops0} n fn l: list C :=
+ Fixpoint taylorise n fn l: list FF :=
    match l with
    | [] => []
    | x::q =>
@@ -258,14 +273,12 @@ Section n.
        divZ fn x :: taylorise n (Z.mul n fn) q
    end.
  (* Eval simpl in fun a b c d => xtaylorise 0 1 [a;b;c;d]. *)
-
- Definition fnorm M := e_map I2F (mnorm M).
  
  (** || L(phi+r) || = || \sum_i L^(i)(phi)/!i r^i || <= \sum_i ||L^(i)(phi)/!i|| r^i 
      rather fine, but O(d^2) model multiplications,
      and possibly too fine (finer than what is used in validation, cf. oval example at degree 20)
   *)
- Definition polynom_for_lambda1 (d: Z) (L: list Tube) (phi: Tube): E (list FF) :=
+ Definition polynom_for_lambda1 (d: Z) (L: list (list FF)) (phi: list FF): E (list FF) :=
    LET l ::=
      Fix (fun lambda L => 
        match L with
@@ -279,7 +292,7 @@ Section n.
  (** ... <= ||L(phi)|| + \sum_i>0 ||L||^(i)(||phi||)/!i r^i 
      only O(d) model multiplications, and probably closer to the estimation used during validation
   *)
- Definition polynom_for_lambda2 (d: Z) (L: list Tube) (phi: Tube): E (list FF) :=
+ Definition polynom_for_lambda2 (d: Z) (L: list (list FF)) (phi: list FF): E (list FF) :=
    LET l0 ::= fnorm (eval' d L phi) IN
    LET Nphi ::= fnorm phi IN
    LET NL ::= emap fnorm L IN
@@ -293,9 +306,7 @@ Section n.
 
  Definition polynom_for_lambda := polynom_for_lambda2. (* vs 1 *)
  
- Definition find_radius_alamano d w (c: FF) (L: list Tube) (phi: Tube): E FF :=
-   (* l[X] over-approximate ||L(phi+X)|| *)
-   LET l ::= polynom_for_lambda d L phi IN
+ Definition find_radius_alamano w (c: FF) (l: list FF): E FF :=
    (* l is a polynomial with positive coefficients; d is positive; thus p is convex *)
    let p := c::(l-[1]) in
    let _ := print p in
@@ -329,9 +340,7 @@ Section n.
    let _ := print (r, taylor.eval' l r) in
    ret r.
 
- Definition find_radius_newton d w (c: FF) (L: list Tube) (phi: Tube): E FF :=
-   (* l[X] over-approximate ||L(phi+X)|| *)
-   LET l ::= polynom_for_lambda d L phi IN
+ Definition find_radius_newton w (c: FF) (l: list FF): E FF :=
    (* l is a polynomial with positive coefficients; d is positive; thus p is convex *)
    let p := c::(l-[1]) in
    let _ := print p in
@@ -355,7 +364,8 @@ Section n.
    let phi := mfc phi' in
    LET c ::= mnorm (A * eval' d F phi) IN
    let L := derive (polynom_eq.opnewton F A) in
-   LET r' ::= find_radius d w (I2F c) L phi IN
+   LET l ::= polynom_for_lambda d (map (fun M => map I2F (pol M)) L) phi' IN
+   LET r' ::= find_radius w (I2F c) l IN
    let r := F2I r' in
    if negb (is_le 0 r) then err "mpolynom_eq: negative radius" else
    let phir := {| pol := pol phi; rem := sym r; cont := false |} in
@@ -883,7 +893,8 @@ Section n.
    rewrite /mpolynom_eq.
    set A' := interpolate _ _. set A := mfc _.
    set phi' := polynom_eq_oracle _ _ _ _. set phi := mfc _.
-   set m := mnorm _. case_eq m=>//=c Hc.
+   set m := mnorm _. case_eq m=>//= c Hc.
+   case polynom_for_lambda=>//= l'.
    case find_radius=>//= r'.
    case is_leE=>//= Hr. 
    set lambda := mnorm _. case_eq lambda=>//=l Hl.
