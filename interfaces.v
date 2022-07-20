@@ -228,6 +228,7 @@ Variant wreflect (P : Prop): bool -> Prop :=
  | wReflectT: P -> wreflect P true | wReflectF: wreflect P false.
 Lemma wreflectE {P b}: wreflect P b -> b -> P.
 Proof. by case. Qed.
+#[export] Hint Constructors wreflect: core.
 
 (** neighborhoods: an abstract interface for computing with floating points and intervals 
     convention: 
@@ -248,6 +249,7 @@ Class NBH := {
   bot: II;                   (** [[-oo;+oo]] *)
   is_lt: II -> II -> bool; 
   is_le: II -> II -> bool;
+  split: II -> II*II;         (** only used for bisection *)
   (** specification of the above operations; 
       together with convexity, [maxE] and [minE] entail that the elements of II always represent closed intervals *)
   bndE: forall X x, contains X x -> forall Y y, contains Y y -> forall z, x<=z<=y -> contains (bnd X Y) z;
@@ -256,6 +258,7 @@ Class NBH := {
   botE: forall x, contains bot x;
   is_ltE: forall X Y, wreflect (forall x y, contains X x -> contains Y y -> x<y) (is_lt X Y);
   is_leE: forall X Y, wreflect (forall x y, contains X x -> contains Y y -> x<=y) (is_le X Y);
+  splitE: forall X, (fun '(Y,Z) => forall x, contains X x -> contains Y x \/ contains Z x) (split X);  
   (** (almost unspecified) floating point operations *)
   FF: Ops1;
   I2F: II -> FF;
@@ -300,7 +303,24 @@ Definition is_ge {N: NBH} X Y := is_le Y X.
 Lemma is_geE {N: NBH} X Y: wreflect (forall x y, contains X x -> contains Y y -> x>=y) (is_ge X Y).
 Proof. rewrite /is_ge. case is_leE=>[H|]; constructor; auto using Rle_ge. Qed.
 
-
+Fixpoint bisect {N: NBH} (P: II -> bool) n (X: II) :=
+  match n with
+  | 0 => false
+  | S n =>
+      if P X then true else
+        let (Y,Z) := split X in
+        if bisect P n Y then bisect P n Z else false
+  end.
+Lemma bisectE {N: NBH} P (p: R -> Prop):
+  (forall X, wreflect (forall x, contains X x -> p x) (P X)) ->
+  forall n X, wreflect (forall x, contains X x -> p x) (bisect P n X).
+Proof.
+  intro Pp. induction n=>X//=.
+  case Pp. by constructor.
+  move: (splitE X). case split=>Y Z H. case IHn=>//HY. case IHn=>//HZ.
+  constructor=> x Hx. case (H x Hx); eauto.
+Qed.
+  
 (** predicate for specifying bounds of integrals (see [rmintegrate] below) *)
 Variant ocontains{N: NBH} x: option II -> R -> Prop :=
 | ocontains_some: forall A a, contains A a -> ocontains x (Some A) a

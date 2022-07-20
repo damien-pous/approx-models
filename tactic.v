@@ -285,4 +285,12 @@ Proof.
 
   estimate (RInt id 0 1) (term (EXPR (integrate' id' 0 1))).
 Abort.
- *)
+*)
+
+(* solving quantified formulas by subdivision (here up to depth 3) *)
+(*
+Goal forall c, 0<=c<=1 -> RInt (fun x => x+c/2) 0 1 <= 1+c.
+  approx (term (BXPR (b_bounded_forall 3
+            (fun c => integrate' (id'+cst' (t_var c / fromZ' 2)) 0 1 <= 1 + t_var c) 0%expr 1%expr))).
+Qed.
+*)

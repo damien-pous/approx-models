@@ -451,8 +451,11 @@ Proof.
   by case F.classify.
 Qed.
 
+Lemma IbisectE X: (fun '(Y,Z) => forall x, Icontains X x -> Icontains Y x \/ Icontains Z x) (I.bisect X).
+Proof. move: (I.bisect_correct X). case I.bisect=>Y Z H x. apply H. Qed.
+  
 #[global] Instance nbh: NBH.
-exists IOps1 IRel1 Ibnd' Imax Imin Inan Ilt Ile FOps1 F2I F2R.
+exists IOps1 IRel1 Ibnd' Imax Imin Inan Ilt Ile I.bisect FOps1 F2I F2R.
 Proof.
   - apply Iconvex.
   - abstract (by intros; eapply IbndE; eauto).
@@ -461,6 +464,7 @@ Proof.
   - apply IbotE.
   - apply IltE.
   - apply IleE.
+  - apply IbisectE.
   - exact I.midpoint.
   - exact Fle.
   - exact Flt.

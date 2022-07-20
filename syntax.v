@@ -59,6 +59,7 @@ Inductive term {X: sort -> Type}: sort -> Type :=
 | b_mne: term REAL -> term REAL -> term FUN -> term FUN -> term BOOL
 | b_impl: term BOOL -> term BOOL -> term BOOL
 | b_forall: (X REAL -> term BOOL) -> term BOOL
+| b_bounded_forall: nat -> (X REAL -> term BOOL) -> term REAL -> term REAL -> term BOOL
 (* setting the degree in a subexpression *)
 | t_deg {S}: Z -> term S -> term S
 (* let..in and variable *)
@@ -112,6 +113,7 @@ Fixpoint sem S (t: @term rval S): rval S :=
   | b_mne a b f g => forall x, sem a <= x <= sem b -> sem f x <> sem g x
   | b_impl b c => sem b -> sem c
   | b_forall k => forall x: R, sem (k x)
+  | b_bounded_forall n k a b => forall x: R, sem a <= x <= sem b -> sem (k x)
   | t_deg _ _ x => sem x
   | t_var _ x => x
   | t_let _ _ x k => sem (k (sem x))
@@ -313,6 +315,9 @@ Inductive trel X Y (R: forall S, X S -> Y S -> Prop): forall S, @term X S -> @te
           forall f g, trel R f g -> forall h k, trel R h k -> trel R (b_mne x x' f h) (b_mne y y' g k)
 | rb_impl: forall x y, trel R x y -> forall x' y', trel R x' y' -> trel R (b_impl x x') (b_impl y y')
 | rb_forall: forall h k, (forall a b, R REAL a b -> trel R (h a) (k b)) -> trel R (b_forall h) (b_forall k)
+| rb_bounded_forall: forall n h k, (forall a b, R REAL a b -> trel R (h a) (k b)) -> 
+                            forall x y, trel R x y -> forall x' y', trel R x' y' -> 
+                            trel R (b_bounded_forall n h x x') (b_bounded_forall n k y y')
 | rt_deg: forall d S x y, trel R x y -> trel R (@t_deg _ S d x) (@t_deg _ S d y)
 | rt_var: forall S x y, R S x y -> trel R (t_var x) (t_var y)
 | rt_let: forall S T x y h k, trel R x y -> (forall a b, R S a b -> trel R (h a) (k b)) -> trel R (t_let x h) (@t_let _ _ T y k).
@@ -385,6 +390,11 @@ Fixpoint Sem d S (t: @term sval S): sval S :=
   | b_mne _ _ _ _ => err "comparison of univariate functions not supported in static mode"
   | b_impl _ _ => err "cannot handle arbitrary implications"
   | b_forall _ => err "cannot handle arbitrary universal quantifications"
+  | b_bounded_forall n p a b => 
+      LET a ::= Sem d a IN
+      LET b ::= Sem d b IN
+      let ab := bnd a b in
+      ret (bisect (fun x => match Sem d (p (ret x)) with ret true => true | _ => false end) n ab)
   | t_deg _ d x => Sem d x
   | t_var _ x => x
   | t_let _ _ x k => Sem d (k (Sem d x))
@@ -447,7 +457,15 @@ Proof.
   - constructor. 
   - constructor.
   - by []. 
-  - constructor. 
+  - constructor.
+  - eapply ep_bind=>[A HA|]; eauto.
+    eapply ep_bind=>[B HB|]; eauto.
+    (* TODO: improve this ugly proof *)
+    constructor. case (bisectE (p:=fun x => sem (k x)))=>//.
+    -- move=>X. case_eq (Sem deg (h (ret X)))=>//[[|]]//K.
+       constructor=>z Xz. lapply (H0 (ret X) z). 2: by constructor.
+       move=>K'. move: (K' deg). rewrite K. inversion 1. by apply H4.
+    -- move=>K _ z Hz. apply K. by eapply bndE; eauto.
   - by []. 
   - assumption.
   - auto. 
@@ -546,6 +564,11 @@ Fixpoint Sem d S (t: @term sval S): sval S :=
       ret (mne d f g)
   | b_impl _ _ => err "cannot handle arbitrary implications"
   | b_forall _ => err "cannot handle arbitrary universal quantifications"
+  | b_bounded_forall n p a b => 
+      LET a ::= Sem d a IN
+      LET b ::= Sem d b IN
+      let ab := bnd a b in
+      ret (bisect (fun x => match Sem d (p (ret x)) with ret true => true | _ => false end) n ab)
   | t_deg _ d x => Sem d x
   | t_var _ x => x
   | t_let _ _ x k => Sem d (k (Sem d x))
@@ -629,6 +652,14 @@ Proof.
     constructor. eapply rmne. apply Ff. apply Gg. 
   - by [].
   - constructor. 
+  - eapply ep_bind=>[A HA|]; eauto.
+    eapply ep_bind=>[B HB|]; eauto.
+    (* TODO: improve this ugly proof *)
+    constructor. case (bisectE (p:=fun x => sem (k x)))=>//.
+    -- move=>X. case_eq (Sem deg (h (ret X)))=>//[[|]]//K.
+       constructor=>z Xz. lapply (H0 (ret X) z). 2: by constructor.
+       move=>K'. move: (K' deg). rewrite K. inversion 1. by apply H4.
+    -- move=>K _ z Hz. apply K. by eapply bndE; eauto.
   - by []. 
   - assumption.
   - auto. 
@@ -735,7 +766,7 @@ Notation EXPR t := ((fun X => (t%expr: expr X)): Term REAL).
 Notation FXPR t := ((fun X => (t%fxpr: fxpr X)): Term FUN).
 Notation BXPR t := ((fun X => (t%bxpr: bxpr X)): Term BOOL).
 
-(**
+(*
 Check EXPR (1+e_pi).
 Check EXPR (1+integrate' id' 0 1).
 Check FXPR (id'/id').
@@ -746,5 +777,5 @@ Check EXPR (let_ee x := 1+e_pi in x + let_ee y := x*x in sqrt' (y+y)).
 Check FXPR (let_ef x := 1+e_pi in id' + x).
 Check FXPR (let_ff f := 1-id' in id' * id').
 Check BXPR (1 <= 0 \/ cos' pi' < 1 /\ cos' 0 >= 1).
-Check BXPR (b_bounded_forall (fun c => integrate' (id'+cst' (t_var c)) 0 1 <= t_var c+1/fromZ' 2) 0%expr 1%expr).
+Check BXPR (b_bounded_forall 10 (fun c => integrate' (id'+cst' (t_var c)) 0 1 <= t_var c+1/fromZ' 2) 0%expr 1%expr).
 *) 
