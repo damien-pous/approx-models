@@ -220,7 +220,7 @@ Ltac reify_real e :=
   let e := ereify e in
   constr:((fun X => e): Term REAL).
 Ltac reify_fun e :=
-  let e := reduce e in
+  let e := reduce (e VAR) in
   let e := freify e in
   constr:((fun X => e): Term FUN).
 Ltac reify_prop e :=
@@ -246,6 +246,7 @@ Goal True.
   let e := reify_real constr:(RInt (fun x => sqrt x *[4] (at_degree 5 (sqrt x))) R0 R1) in pose e.
   let e := reify_real constr:(RInt (fun x => sqrt x *[4] (Rtruncate 5 (sqrt x))) R0 R1) in pose e.
   let e := reify_real constr:(RInt (fun z => R0+z+cos (1/fromZ 2)) R0 R1) in pose e.
+  let f := reify_fun  constr:(fun x: R => x * sqrt x) in pose f.
   let b := reify_prop constr:(1/2 <= 3 <= 1/2) in pose b. (* DAGGER: double check *)
   let b := reify_prop constr:(4 <= 5 <= 6) in pose b.
   let b := reify_prop constr:(4 < 5 /\ 3 <= RInt id 3.3 4.4 <= 18.9) in pose b.
@@ -745,4 +746,5 @@ Check EXPR (let_ee x := 1+e_pi in x + let_ee y := x*x in sqrt' (y+y)).
 Check FXPR (let_ef x := 1+e_pi in id' + x).
 Check FXPR (let_ff f := 1-id' in id' * id').
 Check BXPR (1 <= 0 \/ cos' pi' < 1 /\ cos' 0 >= 1).
+Check BXPR (b_bounded_forall (fun c => integrate' (id'+cst' (t_var c)) 0 1 <= t_var c+1/fromZ' 2) 0%expr 1%expr).
 *) 

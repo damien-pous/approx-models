@@ -47,7 +47,9 @@ Variant param :=
 (** dynamic/static semantics (and Chebyshev of [[-1;1]] as a special case of static semantics) *)
 | dynamic | static(a b: Q) | chebyshev11
 (** basis (be careful, chebyshev11 above takes precedence even when placed after [taylor] or [fourier] )*)
-| chebyshev | taylor | fourier.             
+| chebyshev | taylor | fourier
+(** reified expression (default: inferred from the goal) *)
+| term [S] (t: Term S).             
 
 (** lists of parameters are presented as tuples of tuples of tuples ... of elements in [param] 
     (e.g., [(bigZ60,((i_deg 5,vm), primfloat))])
@@ -144,6 +146,7 @@ Ltac get_model_ops basis :=
     | taylor => uconstr:(taylor_model_ops)
     | fourier => uconstr:(fourier_model_ops)
   end.
+
 Ltac get_Sem nbh model_ops x y :=
   lazymatch x with
   | tt => constr:(Dynamic.Sem' (N:=nbh) model_ops)
@@ -152,6 +155,18 @@ Ltac get_Sem nbh model_ops x y :=
   | chebyshev11 => constr:(Static.Sem' (N:=nbh) chebyshev11_model_ops)
   | (?p,?q) => get_Sem nbh model_ops p constr:((q,y))
   | _ => get_Sem nbh model_ops y tt
+  end.
+
+Ltac get_term reify e x y := 
+  lazymatch x with
+  | tt => reify e
+  | term ?t =>
+      let _ := match goal with
+                | _ => unify e (sem' t)
+                | _ => fail "given term does not match the expression" end
+      in t
+  | (?p,?q) => get_term reify e p constr:((q,y))
+  | _ => get_term reify e y tt
   end.
 
 (*
@@ -178,10 +193,10 @@ Tactic Notation "approx" constr(params) :=
   let basis := get_basis params tt in
   let model := get_model basis in
   let check := get_check nbh model params tt in
-  lazymatch goal with |- ?p =>
-  let p := reify_prop p in
+  lazymatch goal with |- ?p => 
+  let p := get_term reify_prop p params tt in
   let t := constr:(check deg p) in
-  (apply t || fail 100 "bug in reification? (please report)");
+  (apply t || fail 100 "inappropriate term (bug in reification, please report)");
   [ repeat (constructor; auto) |
   let X := fresh "X" in
   intro X; comp native X;
@@ -194,7 +209,7 @@ Tactic Notation "approx" constr(params) :=
 Tactic Notation "approx" := approx tt.
 
 
-(** ** tactic to estimate certain real valued expressions *)
+(** ** tactic to estimate real/functional/propositional expressions *)
 (** see type [param] above for tactic parameters *)
 (* TOTHINK: do not change the goal -> turn these into commands? *)
 Tactic Notation "estimate" constr(e) constr(params) :=
@@ -205,10 +220,24 @@ Tactic Notation "estimate" constr(e) constr(params) :=
   let basis := get_basis params tt in
   let model_ops := get_model_ops basis in
   let Sem := get_Sem nbh model_ops params tt in
-  let e := reify_real e in
-  let t := constr:(Sem deg REAL e) in
-  let i := ecomp native t in
-  idtac i.
+  let k := type of e in
+  lazymatch eval cbn in k with
+  | R => 
+      let e := get_term reify_real e params tt in
+      let t := constr:(Sem deg REAL e) in
+      let i := ecomp native t in
+      idtac i
+  | Prop => 
+      let e := get_term reify_prop e params tt in
+      let t := constr:(Sem deg BOOL e) in
+      let i := ecomp native t in
+      idtac i
+  | R->R => 
+      let e := get_term reify_fun e params tt in
+      let t := constr:(Sem deg FUN e) in
+      let i := ecomp native t in
+      idtac i
+  end.
 Tactic Notation "estimate" constr(e) := estimate e tt.
 
 (** nice notation for intervals with primitive floating points endpoints *)
@@ -231,9 +260,12 @@ Proof.
   approx (static 0.5 2, stdz60).
   Restart.
   approx (static 0.5 2, nbh IStdZ60.nbh).
-  (* static (DF2 0.5%float 2%float) (i_deg 15). *)
 
   Restart.
+  estimate (1 < 2).
+  estimate (1 < 2) (term (BXPR (1 < fromZ' 2))).
+  Fail estimate (1 < 2) (term (BXPR (1 < fromZ' 3))).
+  
   estimate (sqrt 2).
   estimate (sqrt (-2)).
   estimate (RInt (@sqrt _) 1 2) (bigint60).
@@ -244,5 +276,13 @@ Proof.
   estimate (RInt id 0 1) (chebyshev11).
   estimate (RInt id 0 2) (static (-1) 3, taylor).
   estimate (RInt (@sqrt _) (-1) 1) (native).
+
+  (* need to provide a domain for functional expressions  *)
+  estimate (fun x: R => x).
+  (* can be done with static bases *)
+  estimate (fun x: R => x) (chebyshev11). 
+  estimate (fun x: R => x) (static 0 1).
+
+  estimate (RInt id 0 1) (term (EXPR (integrate' id' 0 1))).
 Abort.
-*)
+ *)
