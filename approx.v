@@ -451,7 +451,7 @@ Section n.
    exists p, scontains (pol M) p /\ forall x, dom x -> contains (rem M) (f x - eval p x).
 
  Lemma mcont M f: cont M -> mcontains M f -> forall x, dom x -> continuity_pt f x.
- Proof. move=>? [C _]. by apply (wreflectE C). Qed. 
+ Proof. move=>? [C _]. rewrite implE in C. auto. Qed. 
 
  (** extensionality of [mcontains] *)
  (* TOTHINK: is there a way to assume only pointwise equality on the domain in this lemma? *)
@@ -966,13 +966,13 @@ Section n.
  Qed.
  
  (** *** non-nullability test *)
- Lemma rmne0 n M f: mcontains M f -> mne0 n M -> forall x, dom x -> f x <> 0.
+ Lemma rmne0 n M f: mcontains M f -> impl (mne0 n M) (forall x, dom x -> f x <> 0).
  Proof.
-   rewrite /mne0=>Mf H x Hx E. 
+   rewrite /mne0=>Mf.
+   case is_neE=>//=H. constructor=>x Hx E. 
    set M' := interpolate _ _ in H. 
    set f' := eval (map F2R M').
    have E': (f x * f' x = 0) by rewrite E/=; ring. revert E'.
-   move: H. case is_neE=>// H _.
    apply nesym. apply H. rel. 
    apply (eval_mrange (f:=fun x => f x * f' x))=>//. apply rmmul=>//.
    apply rmfc.
@@ -1000,15 +1000,15 @@ Section n.
    move=> z [Dz Hz]. apply H in Hz; lra. 
  Qed.
  
- Lemma rmgt0 n M f: mcontains M f -> EPimpl (mgt0 n M) (forall x, dom x -> 0 < f x).
+ Lemma rmgt0 n M f: mcontains M f -> Eimpl (mgt0 n M) (forall x, dom x -> 0 < f x).
  Proof.
-   rewrite /mgt0. case_eq (cont M)=>Cf Mf. 2: constructor.
-   case is_ltE; constructor=>// H'. apply continuous_gt0 with lo.
+   rewrite /mgt0. case_eq (cont M)=>//=Cf Mf. 
+   case is_ltE=>//=H'. constructor.
+   ecase rmne0=>//=. eassumption. constructor. 
+   apply continuous_gt0 with lo=>//.
    - by eapply mcont; eauto.
-   - eapply rmne0; eassumption.
    - exact domlo.
-   - apply H. rel. apply rmeval_unsafe=>//. rel.
-     exact domlo.
+   - apply H'. rel. apply rmeval_unsafe=>//. rel. exact domlo.
  Qed.
 
  (** packing all operations together *)

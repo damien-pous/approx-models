@@ -1,5 +1,6 @@
 (** * Monad for raising runtime errors *)
 
+Require Import utils.
 Require Import String.
 Set Implicit Arguments.
 
@@ -45,10 +46,16 @@ Global Hint Constructors EP: core.
 Arguments ep_ret {_ _ _}.
 Arguments ep_err {_ _ _}.
 
+Lemma EPret {A} (P: A -> Prop) a: EP P (ret a) <-> P a.
+Proof. split. now inversion 1. now constructor. Qed.
+
 Definition EP' {A B} (P: A -> B -> Prop): E A -> B -> Prop :=
   fun x b => EP (fun a => P a b) x.
 Arguments EP' {_ _} _ _ _ /.
 Global Hint Unfold EP': core.
+
+Lemma EP'ret {A B} (P: A -> B -> Prop) a b: EP' P (ret a) b <-> P a b.
+Proof. apply (@EPret _ (fun a => P a b)). Qed.
 
 Variant ER {A B} (R: A -> B -> Prop): E A -> E B -> Prop :=
 | er_ret a b: R a b -> ER R (ret a) (ret b)
@@ -56,9 +63,6 @@ Variant ER {A B} (R: A -> B -> Prop): E A -> E B -> Prop :=
 Global Hint Constructors ER: core.
 Arguments er_ret {_ _ _ _ _}.
 Arguments er_err {_ _ _ _}.
-
-(** special case for Boolean monadic values, to be read as implication *)
-Definition EPimpl (b: E bool) (P: Prop) := EP (fun b => is_true b -> P) b.
 
 (** helpers for proving lifted predicates *)
 Lemma ep_bind {A B} (f: A -> E B) (P: A -> Prop) (Q: B -> Prop)
@@ -80,3 +84,71 @@ Proof. destruct 1. now apply F. constructor. Qed.
 Lemma er_map {A B C D} (f: A -> B) (g: C -> D) (R: A -> C -> Prop) (S: B -> D -> Prop)
       (F: forall a c, R a c -> S (f a) (g c)): forall a c, ER R a c -> ER S (e_map f a) (e_map g c).
 Proof. apply er_bind; auto. Qed.
+
+(** special case for Boolean monadic values, to be read as implication *)
+Definition Eimpl: E bool -> Prop -> Prop := EP' (fun P b => wreflect b P).
+Arguments Eimpl !_ _.
+Global Hint Unfold Eimpl: core.
+
+Lemma EimplE s P: Eimpl (err s) P.
+Proof. auto. Qed.
+Lemma EimplF P: Eimpl (ret false) P.
+Proof. auto. Qed.
+Global Hint Resolve EimplE EimplF: core.
+
+Lemma EimplR b P: Eimpl (ret b) P <-> impl b P.
+Proof. split. now inversion 1. now constructor. Qed.
+Lemma EimplT P: Eimpl (ret true) P <-> P.
+Proof. rewrite EimplR. apply implT. Qed.
+
+Lemma Eimpl_forall {A} b P: (forall a: A, Eimpl b (P a)) <-> Eimpl b (forall a, P a).
+Proof.
+  destruct b as [b|].
+  setoid_rewrite EimplR; setoid_rewrite implE. firstorder.
+  split; auto. 
+Qed.
+
+Lemma Eimpl_impl b (P Q: Prop): (P -> Q) -> Eimpl b P -> Eimpl b Q.
+Proof. intros PQ [a H|]; auto; constructor. case H; auto. Qed.
+
+(** (lazy) logical or/and, considering errors as false, and returning the first error if any *)
+Definition Eor (a: E bool) (b: unit -> E bool): E bool :=
+  match a with
+  | ret false => b tt
+  | err s => match b tt with
+            | ret true => ret true
+            | _ => err s
+            end
+  | rt => rt
+  end.
+
+Definition Eand (a: E bool) (b: unit -> E bool): E bool :=
+  match a with
+  | ret true => b tt
+  | o => o
+  end.
+
+Lemma Eimpl_or' a b P: Eimpl a P -> Eimpl (b tt) P -> Eimpl (Eor a b) P.
+Proof.
+  destruct a as [[|]|]; cbn; auto.
+  inversion 2 as [[|] H' E|]; auto.
+Qed.
+
+Lemma Eimpl_or a b P Q: Eimpl a P -> Eimpl (b tt) Q -> Eimpl (Eor a b) (P\/Q).
+Proof.
+  intros. apply Eimpl_or'; eapply Eimpl_impl; try eassumption; tauto. 
+Qed.
+
+Lemma Eimpl_and a b P Q: Eimpl a P -> Eimpl (b tt) Q -> Eimpl (Eand a b) (P/\Q).
+Proof.
+  destruct a as [[|]|]; cbn; auto.
+  intro H. rewrite EimplT in H.
+  apply Eimpl_impl. now split. 
+Qed.
+
+Lemma Eimpl_and' a b (P Q R: Prop): Eimpl a P -> Eimpl (b tt) Q -> (P -> Q -> R) -> Eimpl (Eand a b) R.
+Proof.
+  intros. eapply Eimpl_impl.
+  2: apply Eimpl_and; eassumption.
+  cbv; tauto. 
+Qed.

@@ -37,6 +37,8 @@ End s.
 Variant param :=
 (** interpolation degree (default: 10) *)
 | i_deg of Z
+(** bisection depth (default: 5) *)
+| depth of nat
 (** floating point implementation *)
 | primfloat
 | bigint60 | bigint120 | bigint300   
@@ -84,6 +86,19 @@ Ltac get_deg x y :=
   | (?p,?q) => get_deg p constr:((q,y)) (* recurse on pairs *)
   | _ => get_deg y tt                   (* jump to the accumulator if [x] is a parameter from another group *)
   end.
+
+Ltac get_depth x y :=
+  lazymatch x with
+  | tt => constr:(5%nat)
+  | depth ?z => constr:(z)
+  | (?p,?q) => get_depth p constr:((q,y))
+  | _ => get_depth y tt
+  end.
+
+Ltac get_prms x :=
+  let deg := get_deg x tt in
+  let depth := get_depth x tt in
+  constr:(Prms deg depth).                     
 
 Ltac get_native x y :=
   lazymatch x with
@@ -188,7 +203,7 @@ Ltac cast native b :=
 (** see type [param] above for tactic parameters *)
 Tactic Notation "approx" constr(params) :=
   all_params params;
-  let deg := get_deg params tt in
+  let prms := get_prms params in
   let native := get_native params tt in
   let nbh := get_nbh params tt in
   let basis := get_basis params tt in
@@ -196,7 +211,7 @@ Tactic Notation "approx" constr(params) :=
   let check := get_check nbh model params tt in
   lazymatch goal with |- ?p => 
   let p := get_term reify_prop p params tt in
-  let t := constr:(check deg p) in
+  let t := constr:(check prms p) in
   (apply t || fail 100 "inappropriate term (bug in reification, please report)");
   [ repeat (constructor; auto) |
   let X := fresh "X" in
@@ -218,13 +233,13 @@ Tactic Notation "approx" := approx tt.
 (* TODO: variant that produces a pair with the estimation and the correctness proof *)
 Tactic Notation "estimate_term" constr(t) constr(params) :=
   all_params params;
-  let deg := get_deg params tt in
+  let prms := get_prms params in
   let native := get_native params tt in
   let nbh := get_nbh params tt in
   let basis := get_basis params tt in
   let model_ops := get_model_ops basis in
   let Sem := get_Sem nbh model_ops params tt in
-  let r := constr:(Sem deg _ t) in
+  let r := constr:(Sem prms _ t) in
   let i := ecomp native r in
   idtac i.
 Tactic Notation "estimate_term" constr(t) := estimate_term t tt.

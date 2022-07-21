@@ -57,7 +57,7 @@ Inductive term {X: sort -> Type}: sort -> Type :=
 | b_disj: term BOOL -> term BOOL -> term BOOL
 | b_conj: term BOOL -> term BOOL -> term BOOL
 | b_forall_models: term REAL -> term REAL -> term PRED -> term BOOL
-| b_forall_bisect: nat -> term REAL -> term REAL -> (X REAL -> term BOOL) -> term BOOL
+| b_forall_bisect: term REAL -> term REAL -> (X REAL -> term BOOL) -> term BOOL
 (* univariate predicates *)
 (* TODO: c_le, c_ge *)
 (* TODO: true, false *)
@@ -66,9 +66,10 @@ Inductive term {X: sort -> Type}: sort -> Type :=
 | c_disj: term PRED -> term PRED -> term PRED
 | c_conj: term PRED -> term PRED -> term PRED
 | c_cst: term BOOL -> term PRED
-| c_forall_bisect: nat -> term REAL -> term REAL -> (X REAL -> term PRED) -> term PRED
-(* setting the degree in a subexpression *)
+| c_forall_bisect: term REAL -> term REAL -> (X REAL -> term PRED) -> term PRED
+(* setting the degree/bisection depth in a subexpression *)
 | t_deg {S}: Z -> term S -> term S
+| t_depth {S}: nat -> term S -> term S
 (* let..in and variable *)
 | t_var: forall {S}, X S -> term S
 | t_let: forall {S T}, term S -> (X S -> term T) -> term T.
@@ -117,14 +118,15 @@ Fixpoint sem S (t: @term rval S): rval S :=
   | b_disj b c => sem b \/ sem c
   | b_conj b c => sem b /\ sem c
   | b_forall_models a b k => forall x: R, sem a <= x <= sem b -> sem k x
-  | b_forall_bisect _ a b k => forall x: R, sem a <= x <= sem b -> sem (k x)
+  | b_forall_bisect a b k => forall x: R, sem a <= x <= sem b -> sem (k x)
   | c_lt f g => fun x => sem f x < sem g x
   | c_ne f g => fun x => sem f x <> sem g x
   | c_disj b c => fun x => sem b x \/ sem c x
   | c_conj b c => fun x => sem b x /\ sem c x
   | c_cst b => fun x => sem b
-  | c_forall_bisect _ a b k => fun x => forall y: R, sem a <= y <= sem b -> sem (k y) x
-  | t_deg _ _ x => sem x
+  | c_forall_bisect a b k => fun x => forall y: R, sem a <= y <= sem b -> sem (k y) x
+  | t_deg _ _ x 
+  | t_depth _ _ x => sem x
   | t_var _ x => x
   | t_let _ _ x k => sem (k (sem x))
   end.
@@ -329,19 +331,20 @@ Inductive trel X Y (R: forall S, X S -> Y S -> Prop): forall S, @term X S -> @te
 | rb_disj: forall x y, trel R x y -> forall x' y', trel R x' y' -> trel R (b_disj x x') (b_disj y y')
 | rb_conj: forall x y, trel R x y -> forall x' y', trel R x' y' -> trel R (b_conj x x') (b_conj y y')
 | rb_forall_models: forall x y, trel R x y -> forall x' y', trel R x' y' -> forall h k, trel R h k -> 
-                             trel R (b_forall_models x x' h) (b_forall_models y y' k)
-| rb_forall_bisect: forall n x y, trel R x y -> forall x' y', trel R x' y' -> 
-                      forall h k, (forall a b, R REAL a b -> trel R (h a) (k b)) -> 
-                             trel R (b_forall_bisect n x x' h) (b_forall_bisect n y y' k)
+                           trel R (b_forall_models x x' h) (b_forall_models y y' k)
+| rb_forall_bisect: forall x y, trel R x y -> forall x' y', trel R x' y' -> 
+                    forall h k, (forall a b, R REAL a b -> trel R (h a) (k b)) -> 
+                           trel R (b_forall_bisect x x' h) (b_forall_bisect y y' k)
 | rc_lt: forall f g, trel R f g -> forall h k, trel R h k -> trel R (c_lt f h) (c_lt g k)
 | rc_ne: forall f g, trel R f g -> forall h k, trel R h k -> trel R (c_ne f h) (c_ne g k)
 | rc_disj: forall x y, trel R x y -> forall x' y', trel R x' y' -> trel R (c_disj x x') (c_disj y y')
 | rc_conj: forall x y, trel R x y -> forall x' y', trel R x' y' -> trel R (c_conj x x') (c_conj y y')
 | rc_cst: forall x y, trel R x y -> trel R (c_cst x) (c_cst y)
-| rc_forall_bisect: forall n x y, trel R x y -> forall x' y', trel R x' y' -> 
-                      forall h k, (forall a b, R REAL a b -> trel R (h a) (k b)) -> 
-                             trel R (c_forall_bisect n x x' h) (c_forall_bisect n y y' k)
+| rc_forall_bisect: forall x y, trel R x y -> forall x' y', trel R x' y' -> 
+                    forall h k, (forall a b, R REAL a b -> trel R (h a) (k b)) -> 
+                           trel R (c_forall_bisect x x' h) (c_forall_bisect y y' k)
 | rt_deg: forall d S x y, trel R x y -> trel R (@t_deg _ S d x) (@t_deg _ S d y)
+| rt_depth: forall d S x y, trel R x y -> trel R (@t_depth _ S d x) (@t_depth _ S d y)
 | rt_var: forall S x y, R S x y -> trel R (t_var x) (t_var y)
 | rt_let: forall S T x y h k, trel R x y -> (forall a b, R S a b -> trel R (h a) (k b)) -> trel R (t_let x h) (@t_let _ _ T y k).
 
@@ -352,6 +355,7 @@ Inductive trel X Y (R: forall S, X S -> Y S -> Prop): forall S, @term X S -> @te
 Definition parametric S (u: Term S) :=
   forall X Y (R: forall S, X S -> Y S -> Prop), trel R (u X) (u Y).
 
+Record prms := Prms { p_deg: Z; p_depth: nat }. 
 
 
 (** ** static evaluation function *)
@@ -370,68 +374,66 @@ Definition sval S :=
   | BOOL => E bool
   | PRED => E bool
   end.
-Fixpoint Sem d S (t: @term sval S): sval S :=
+Fixpoint Sem (p: prms) S (t: @term sval S): sval S :=
   match t in term S return sval S with
-  | e_add e f => e_map2 (@add _) (Sem d e) (Sem d f)
-  | e_sub e f => e_map2 (@sub _) (Sem d e) (Sem d f)
-  | e_mul e f => e_map2 (@mul _) (Sem d e) (Sem d f)
-  | e_div e f => e_map2 (@div _) (Sem d e) (Sem d f)
-  | e_sqrt e => e_map (@sqrt _) (Sem d e)
-  | e_cos e => e_map (@cos _) (Sem d e)
-  | e_sin e => e_map (@sin _) (Sem d e)
-  | e_abs e => e_map (@abs _) (Sem d e)
+  | e_add e f => e_map2 (@add _) (Sem p e) (Sem p f)
+  | e_sub e f => e_map2 (@sub _) (Sem p e) (Sem p f)
+  | e_mul e f => e_map2 (@mul _) (Sem p e) (Sem p f)
+  | e_div e f => e_map2 (@div _) (Sem p e) (Sem p f)
+  | e_sqrt e => e_map (@sqrt _) (Sem p e)
+  | e_cos e => e_map (@cos _) (Sem p e)
+  | e_sin e => e_map (@sin _) (Sem p e)
+  | e_abs e => e_map (@abs _) (Sem p e)
   | e_fromQ q => ret (fromQ q)
   | e_fromZ z => ret (fromZ z)
   | e_pi => ret pi
   | e_zer => ret 0
   | e_one => ret 1
   | e_eval f x => 
-      LET f ::= Sem d f IN
-      LET x ::= Sem d x IN 
+      LET f ::= Sem p f IN
+      LET x ::= Sem p x IN 
       meval f x
   | e_integrate f a b => 
-      LET f ::= Sem d f IN 
-      LET a ::= Sem d a IN 
-      LET b ::= Sem d b IN 
+      LET f ::= Sem p f IN 
+      LET a ::= Sem p a IN 
+      LET b ::= Sem p b IN 
       mintegrate f (Some a) (Some b)
-  | f_add e f => e_map2 (@add _) (Sem d e) (Sem d f)
-  | f_sub e f => e_map2 (@sub _) (Sem d e) (Sem d f)
-  | f_mul e f => e_map2 (@mul _) (Sem d e) (Sem d f)
-  | f_div e f => LET e ::= Sem d e IN LET f ::= Sem d f IN mdiv d e f
-  | f_sqrt e => LET e ::= Sem d e IN msqrt d e
+  | f_add e f => e_map2 (@add _) (Sem p e) (Sem p f)
+  | f_sub e f => e_map2 (@sub _) (Sem p e) (Sem p f)
+  | f_mul e f => e_map2 (@mul _) (Sem p e) (Sem p f)
+  | f_div e f => LET e ::= Sem p e IN LET f ::= Sem p f IN mdiv (p_deg p) e f
+  | f_sqrt e => LET e ::= Sem p e IN msqrt (p_deg p) e
   | f_id => mid
   | f_cos => mcos
   | f_sin => msin
-  | f_cst e => e_map mcst (Sem d e)
-  | f_trunc d e => e_map (mtruncate d) (Sem d e)
-  | b_le e f => e_map2 is_le (Sem d e) (Sem d f)
-  | b_ge e f => e_map2 is_ge (Sem d e) (Sem d f)
-  | b_lt e f => e_map2 is_lt (Sem d e) (Sem d f)
-  | b_ne e f => e_map2 is_ne (Sem d e) (Sem d f)
-  | b_disj b c => LET b ::= Sem d b IN if b then ret true else Sem d c
-  | b_conj b c => LET b ::= Sem d b IN if b then Sem d c else ret false
-  | c_lt f g => LET f ::= Sem d f IN LET g ::= Sem d g IN mlt d f g
-  | c_ne f g => e_map2 (mne d) (Sem d f) (Sem d g)
-  | c_disj b c => LET b ::= Sem d b IN if b then ret true else Sem d c
-  | c_conj b c => LET b ::= Sem d b IN if b then Sem d c else ret false
-  | c_cst b => Sem d b
-  | c_forall_bisect n a b p 
-  | b_forall_bisect n a b p => 
-      LET a ::= Sem d a IN
-      LET b ::= Sem d b IN
-      let ab := bnd a b in
-      ret (bisect (fun x => match Sem d (p (ret x)) with ret true => true | _ => false end) n ab)
-  | b_forall_models a b p => 
-      LET a ::= Sem d a IN
-      LET b ::= Sem d b IN
+  | f_cst e => e_map mcst (Sem p e)
+  | f_trunc d e => e_map (mtruncate d) (Sem p e)
+  | b_le e f => e_map2 is_le (Sem p e) (Sem p f)
+  | b_ge e f => e_map2 is_ge (Sem p e) (Sem p f)
+  | b_lt e f => e_map2 is_lt (Sem p e) (Sem p f)
+  | b_ne e f => e_map2 is_ne (Sem p e) (Sem p f)
+  | b_disj b c | c_disj b c => Eor (Sem p b) (fun _ => Sem p c)
+  | b_conj b c | c_conj b c => Eand (Sem p b) (fun _ => Sem p c)
+  | c_lt f g => LET f ::= Sem p f IN LET g ::= Sem p g IN mlt (p_deg p) f g
+  | c_ne f g => e_map2 (mne (p_deg p)) (Sem p f) (Sem p g)
+  | c_cst b => Sem p b
+  | c_forall_bisect a b k 
+  | b_forall_bisect a b k => 
+      LET a ::= Sem p a IN
+      LET b ::= Sem p b IN
+      bisect (p_depth p) (fun x => Sem p (k (ret x))) (bnd a b)
+  | b_forall_models a b k => 
+      LET a ::= Sem p a IN
+      LET b ::= Sem p b IN
       if ~~is_le dlo a then err "model comparison: lower bound beyond domain" else
       if ~~is_le b dhi then err "model comparison: upper bound beyond domain" else
-      Sem d p
-  | t_deg _ d x => Sem d x
+      Sem p k
+  | t_deg _ d x => Sem (Prms d (p_depth p)) x
+  | t_depth _ d x => Sem (Prms (p_deg p) d) x
   | t_var _ x => x
-  | t_let _ _ x k => Sem d (k (Sem d x))
+  | t_let _ _ x k => Sem p (k (Sem p x))
   end.
-Definition Sem' d S (u: Term S): sval S := Sem d (u sval).
+Definition Sem' p S (u: Term S): sval S := Sem p (u sval).
 
 (** correctness of the above semantics
     the key lemma, [correct], is proved by induction on the parametricity relation *)
@@ -439,12 +441,12 @@ Definition cval S: sval S -> rval S -> Prop :=
   match S with
   | REAL => EP' contains
   | FUN  => EP' mcontains
-  | BOOL => EPimpl
-  | PRED => fun b p => EPimpl b (forall x, dlo <= x <= dhi -> p x)
+  | BOOL => Eimpl
+  | PRED => fun b p => Eimpl b (forall x, dlo <= x <= dhi -> p x)
   end.
 Lemma correct S (u: term S) (v: term S): trel cval u v -> forall d, cval (Sem d u) (sem v).
 Proof.
-  induction 1; intro deg; cbn in *.
+  induction 1; intro deg; cbn in *=>//.
   - eapply ep_map2; eauto. rel. 
   - eapply ep_map2; eauto. rel. 
   - eapply ep_map2; eauto. rel. 
@@ -482,65 +484,53 @@ Proof.
   - eapply ep_map2; eauto. intros ??. case is_geE=>//. auto. 
   - eapply ep_map2; eauto. intros ??. case is_ltE=>//. auto.
   - eapply ep_map2; eauto. intros ??. case is_neE=>//. auto.
-  - eapply ep_bind=>[b|]; eauto.  2: apply IHtrel1. 
-    case b. constructor. tauto. intros _.
-    case: IHtrel2=>//. constructor. tauto. 
-  - eapply ep_bind=>[b|]; eauto. 2: apply IHtrel1.
-    case b. case: IHtrel2=>//. constructor. auto. by constructor.
+  - by apply Eimpl_or.
+  - by apply Eimpl_and.
   - eapply ep_bind=>[A HA|]; eauto.
     eapply ep_bind=>[B HB|]; eauto.
     case is_leE=>//=Ha. 
     case is_leE=>//=Hb.
-    move: (IHtrel3 deg).
-    case (Sem deg h)=>//=r. inversion 1. constructor.
-    intros. apply H3=>//.
+    move: (IHtrel3 deg). apply Eimpl_impl=>E r ?. apply E. 
     specialize (Ha _ _ rdlo HA).
     specialize (Hb _ _ HB rdhi).
     cbn in *. lra. 
   - eapply ep_bind=>[A HA|]; eauto.
     eapply ep_bind=>[B HB|]; eauto.
-    (* TODO: improve this ugly proof *)
-    constructor. case (bisectE (p:=fun x => sem (k x)))=>//.
-    -- move=>X. case_eq (Sem deg (h (ret X)))=>//[[|]]//K.
-       constructor=>z Xz. lapply (H2 (ret X) z). 2: by constructor.
-       move=>K'. move: (K' deg). rewrite K. inversion 1. by apply H4.
-    -- move=>K _ z Hz. apply K. by eapply bndE; eauto.
+    eapply Eimpl_impl. 2: apply bisectE.
+    move=>K z Hz. apply (K z). by eapply bndE; eauto.
+    move=>X. apply Eimpl_forall=>z. apply Eimpl_forall=>Hz. by auto.
   - eapply ep_bind=>[F Ff|]; eauto. 
     eapply ep_bind=>[G Gg|]; eauto.
     by apply rmlt. 
-  - eapply ep_map2; eauto=>?????. by eapply rmne; eauto. 
-  - eapply ep_bind=>[b|]; eauto.  2: apply IHtrel1. 
-    case b. constructor; eauto. intros _.
-    case: IHtrel2=>//. constructor; eauto. 
-  - eapply ep_bind=>[b|]; eauto. 2: apply IHtrel1.
-    case b. case: IHtrel2=>//. constructor. auto. by constructor.
-  - move: (IHtrel deg). case (Sem deg x). 2: constructor.
-    intro. inversion 1. constructor. auto. 
+  - eapply ep_map2; eauto=>????. by apply rmne. 
+  - apply Eimpl_or'.
+    eapply Eimpl_impl. 2: apply IHtrel1. clear; auto. 
+    eapply Eimpl_impl. 2: apply IHtrel2. clear; auto. 
+  - eauto using Eimpl_and'.
+  - eauto using Eimpl_impl. 
   - eapply ep_bind=>[A HA|]; eauto.
     eapply ep_bind=>[B HB|]; eauto.
-    (* TODO: improve this ugly proof *)
-    constructor. case (bisectE (p:=fun x => forall y, dlo<=y<=dhi -> sem (k x) y))=>//.
-    -- move=>X. case_eq (Sem deg (h (ret X)))=>//[[|]]//K.
-       constructor=>z Xz. lapply (H2 (ret X) z). 2: by constructor.
-       move=>K'. move: (K' deg). rewrite K. inversion 1. by apply H4.
-    -- move=>K _ z Hz t Ht. apply K=>//. by eapply bndE; eauto. 
-  - by []. 
-  - by [].
+    eapply Eimpl_impl. 2: apply bisectE.
+    2: { move=>X. apply Eimpl_forall=>z. apply Eimpl_forall=>Hz. apply H2; eauto. } 
+    move=>K z Hz t Ht. apply K=>//. by eapply bndE; eauto.
   - auto. 
 Qed.
 
 (** correctness on parametric (closed) terms follows *)
-Lemma Correct: forall d S (u: Term S), parametric u -> cval (Sem' d u) (sem' u).
-Proof. intros d S u U. apply correct, U. Qed.
+Lemma Correct: forall p S (u: Term S), parametric u -> cval (Sem' p u) (sem' u).
+Proof. intros p S u U. apply correct, U. Qed.
 
   
 (** small corollary, useful to obtain a tactic in tactic.v *)
-Lemma check d (b: Term BOOL):
+Lemma check p (b: Term BOOL):
   parametric b ->
-  (let b := Sem' d b in
+  (let b := Sem' p b in
    match b with ret b => is_true b | err s => False end) ->
   sem' b.
-Proof. move: (@Correct d BOOL)=>/= C B. by case C. Qed.
+Proof.
+  move: (@Correct p BOOL)=>/= C B.
+  case C=>//a. apply implE. 
+Qed.
 
 End s.
 Arguments check {_ _ _ _} _ _ _ _.
@@ -564,83 +554,81 @@ Definition sval S :=
   | BOOL => E bool
   | PRED => (forall MO: ModelOps, E bool)
   end.
-Fixpoint Sem d S (t: @term sval S): sval S :=
+Fixpoint Sem (p: prms) S (t: @term sval S): sval S :=
   match t in term S return sval S with
-  | e_add e f => e_map2 (@add _) (Sem d e) (Sem d f)
-  | e_sub e f => e_map2 (@sub _) (Sem d e) (Sem d f)
-  | e_mul e f => e_map2 (@mul _) (Sem d e) (Sem d f)
-  | e_div e f => e_map2 (@div _) (Sem d e) (Sem d f)
-  | e_sqrt e => e_map (@sqrt _) (Sem d e)
-  | e_cos e => e_map (@cos _) (Sem d e)
-  | e_sin e => e_map (@sin _) (Sem d e)
-  | e_abs e => e_map (@abs _) (Sem d e)
+  | e_add e f => e_map2 (@add _) (Sem p e) (Sem p f)
+  | e_sub e f => e_map2 (@sub _) (Sem p e) (Sem p f)
+  | e_mul e f => e_map2 (@mul _) (Sem p e) (Sem p f)
+  | e_div e f => e_map2 (@div _) (Sem p e) (Sem p f)
+  | e_sqrt e => e_map (@sqrt _) (Sem p e)
+  | e_cos e => e_map (@cos _) (Sem p e)
+  | e_sin e => e_map (@sin _) (Sem p e)
+  | e_abs e => e_map (@abs _) (Sem p e)
   | e_fromQ q => ret (fromQ q)
   | e_fromZ z => ret (fromZ z)
   | e_pi => ret pi
   | e_zer => ret 0
   | e_one => ret 1
   | e_eval f x => err "evaluation not yet supported in dynamic mode"
-      (* LET f ::= Sem d f IN *)
-      (* LET x ::= Sem d x IN  *)
+      (* LET f ::= Sem p f IN *)
+      (* LET x ::= Sem p x IN  *)
       (* meval f x *)
   | e_integrate f a b => 
-      LET a ::= Sem d a IN 
-      LET b ::= Sem d b IN 
+      LET a ::= Sem p a IN 
+      LET b ::= Sem p b IN 
       if ~~ is_lt a b then err "dynamic: integral does not yield a valid domain" else
-      LET f ::= Sem d f (MO a b) IN 
+      LET f ::= Sem p f (MO a b) IN 
       mintegrate f None None
-  | f_add e f => fun MO => e_map2 (@add _) (Sem d e MO) (Sem d f MO)
-  | f_sub e f => fun MO => e_map2 (@sub _) (Sem d e MO) (Sem d f MO)
-  | f_mul e f => fun MO => e_map2 (@mul _) (Sem d e MO) (Sem d f MO)
-  | f_div e f => fun MO => LET e ::= Sem d e MO IN LET f ::= Sem d f MO IN mdiv d e f
-  | f_sqrt e => fun MO => LET e ::= Sem d e MO IN msqrt d e
+  | f_add e f => fun MO => e_map2 (@add _) (Sem p e MO) (Sem p f MO)
+  | f_sub e f => fun MO => e_map2 (@sub _) (Sem p e MO) (Sem p f MO)
+  | f_mul e f => fun MO => e_map2 (@mul _) (Sem p e MO) (Sem p f MO)
+  | f_div e f => fun MO => LET e ::= Sem p e MO IN LET f ::= Sem p f MO IN mdiv (p_deg p) e f
+  | f_sqrt e => fun MO => LET e ::= Sem p e MO IN msqrt (p_deg p) e
   | f_id => fun MO => mid
   | f_cos => fun MO => mcos
   | f_sin => fun MO => msin
-  | f_cst e => fun MO => e_map mcst (Sem d e)
-  | f_trunc d e => fun MO => e_map (mtruncate d) (Sem d e MO)
-  | b_le e f => e_map2 is_le (Sem d e) (Sem d f)
-  | b_ge e f => e_map2 is_ge (Sem d e) (Sem d f) 
-  | b_lt e f => e_map2 is_lt (Sem d e) (Sem d f)
-  | b_ne e f => e_map2 is_ne (Sem d e) (Sem d f)
-  | b_disj b c => LET b ::= Sem d b IN if b then ret true else Sem d c
-  | b_conj b c => LET b ::= Sem d b IN if b then Sem d c else ret false
-  | b_forall_models a b p => 
-      LET a ::= Sem d a IN
-      LET b ::= Sem d b IN
-      if ~~ is_lt a b then err "invalid domain" else
-      (* TODO: bisection *)
-      let M := MO a b in
-      Sem d p M
-  | b_forall_bisect n a b p =>
-      LET a ::= Sem d a IN
-      LET b ::= Sem d b IN
-      let ab := bnd a b in
-      ret (bisect (fun x => match Sem d (p (ret x)) with ret true => true | _ => false end) n ab)
+  | f_cst e => fun MO => e_map mcst (Sem p e)
+  | f_trunc d e => fun MO => e_map (mtruncate d) (Sem p e MO)
+  | b_le e f => e_map2 is_le (Sem p e) (Sem p f)
+  | b_ge e f => e_map2 is_ge (Sem p e) (Sem p f) 
+  | b_lt e f => e_map2 is_lt (Sem p e) (Sem p f)
+  | b_ne e f => e_map2 is_ne (Sem p e) (Sem p f)
+  | b_disj b c => Eor (Sem p b) (fun _ => Sem p c)
+  | b_conj b c => Eand (Sem p b) (fun _ => Sem p c)
+  | b_forall_models a b k => 
+      LET a ::= Sem p a IN
+      LET b ::= Sem p b IN
+      bisect2 (p_depth p) (fun a b =>
+                             if ~~ is_lt a b then err "invalid domain" else
+                               Sem p k (MO a b)) a b
+  | b_forall_bisect a b k =>
+      LET a ::= Sem p a IN
+      LET b ::= Sem p b IN
+      bisect (p_depth p) (fun ab => Sem p (k (ret ab))) (bnd a b)
   | c_lt f g =>
       fun M => 
-      LET f ::= Sem d f M IN 
-      LET g ::= Sem d g M IN
-      mlt d f g
+      LET f ::= Sem p f M IN 
+      LET g ::= Sem p g M IN
+      mlt (p_deg p) f g
   | c_ne f g =>
       fun M => 
-      LET f ::= Sem d f M IN 
-      LET g ::= Sem d g M IN
-      ret (mne d f g)
-  | c_disj b c => fun M => LET b ::= Sem d b M IN if b then ret true else Sem d c M
-  | c_conj b c => fun M => LET b ::= Sem d b M IN if b then Sem d c M else ret false
-  | c_cst b => fun _ => Sem d b
-  | c_forall_bisect n a b p =>
+      LET f ::= Sem p f M IN 
+      LET g ::= Sem p g M IN
+      ret (mne (p_deg p) f g)
+  | c_disj b c => fun M => Eor (Sem p b M) (fun _ => Sem p c M)
+  | c_conj b c => fun M => Eand (Sem p b M) (fun _ => Sem p c M)
+  | c_cst b => fun _ => Sem p b
+  | c_forall_bisect a b k =>
       fun M =>
-      LET a ::= Sem d a IN
-      LET b ::= Sem d b IN
-      let ab := bnd a b in
-      ret (bisect (fun x => match Sem d (p (ret x)) M with ret true => true | _ => false end) n ab)
-  | t_deg _ d x => Sem d x
+      LET a ::= Sem p a IN
+      LET b ::= Sem p b IN
+      bisect (p_depth p) (fun ab => Sem p (k (ret ab)) M) (bnd a b)
+  | t_deg _ d x => Sem (Prms d (p_depth p)) x
+  | t_depth _ d x => Sem (Prms (p_deg p) d) x
   | t_var _ x => x
-  | t_let _ _ x k => Sem d (k (Sem d x))
+  | t_let _ _ x k => Sem p (k (Sem p x))
   end.
-Definition Sem' d S (u: Term S): sval S := Sem d (u sval).
+Definition Sem' p S (u: Term S): sval S := Sem p (u sval).
 
 (** correctness of the above semantics
     the key lemma, [correct], is proved by induction on the parametricity relation *)
@@ -648,15 +636,15 @@ Definition cval S: sval S -> rval S -> Prop :=
   match S with
   | REAL => EP' contains
   | FUN  => fun F f => forall MO a b (M: Model MO a b), EP' M (F MO) f
-  | BOOL => EPimpl
-  | PRED => fun P p => forall MO a b (M: Model MO a b), EPimpl (P MO) (forall x, a <= x <= b -> p x)
+  | BOOL => Eimpl
+  | PRED => fun P p => forall MO a b (M: Model MO a b), Eimpl (P MO) (forall x, a <= x <= b -> p x)
   end.
-Lemma correct S (u: term S) (v: term S): trel cval u v -> forall d, cval (Sem d u) (sem v).
+Lemma correct S (u: term S) (v: term S): trel cval u v -> forall p, cval (Sem p u) (sem v).
 Proof.
-  induction 1; intro deg; cbn -[RInt] in *;
+  induction 1; intro p; cbn -[RInt] in *;
     try (intros MO' a b M';
          try specialize (IHtrel  _ _ _ M');
-         try (specialize (IHtrel1  _ _ _ M'); specialize (IHtrel2  _ _ _ M'))).
+         try (specialize (IHtrel1  _ _ _ M'); specialize (IHtrel2  _ _ _ M'))); trivial.
   - eapply ep_map2; eauto. rel. 
   - eapply ep_map2; eauto. rel. 
   - eapply ep_map2; eauto. rel. 
@@ -670,14 +658,10 @@ Proof.
   - eapply ep_map; eauto. rel. 
   - eapply ep_map; eauto. rel. 
   - eapply ep_map; eauto. rel. 
-  - constructor. 
-    (* eapply ep_bind=>[F Ff|]; eauto.  *)
-    (* eapply ep_bind=>[X Xx|]; eauto. *)
-    (* by apply rmeval. *)
   - eapply ep_bind=>[A Aa|]; eauto.  
     eapply ep_bind=>[B Bb|]; eauto.  
-    case_eq (is_lt A B)=>[ab|]. 2: constructor.
-    specialize (IHtrel1 deg _ _ _ (M (DfromI2 Aa Bb ab))).
+    case_eq (is_lt A B)=>//=ab. 
+    specialize (IHtrel1 p _ _ _ (M (DfromI2 Aa Bb ab))).
     eapply ep_bind=>[F Ff|]; eauto.
     eapply rmintegrate; first apply Ff; by constructor. 
   - eapply ep_map2; eauto. intros. by apply (radd (r:=mcontains)).
@@ -697,61 +681,63 @@ Proof.
   - eapply ep_map2; eauto. intros ??. case is_geE=>//. auto. 
   - eapply ep_map2; eauto. intros ??. case is_ltE=>//. auto.
   - eapply ep_map2; eauto. intros ??. case is_neE=>//. auto.
-  - eapply ep_bind=>[b|]; eauto. 2: apply IHtrel1. 
-    case b. constructor. left; auto. intros _.
-    case: IHtrel2=>//. constructor. right; auto.
-  - eapply ep_bind=>[b|]; eauto. 2: apply IHtrel1. 
-    case b. case: IHtrel2=>//. constructor. auto. by constructor.
-  - eapply ep_bind=>[A Aa|]; eauto.  
-    eapply ep_bind=>[B Bb|]; eauto.  
-    case_eq (is_lt A B)=>[ab|]. 2: constructor.
-    exact (IHtrel3 deg _ _ _ (M (DfromI2 Aa Bb ab))).
+  - by apply Eimpl_or.
+  - by apply Eimpl_and.
+  - eapply ep_bind=>[A Aa|]; eauto.
+    eapply ep_bind=>[B Bb|]; eauto.
+    eapply Eimpl_impl. 2: apply bisect2E.
+    move=>K z Hz. cbn in *. eapply (K z); eauto.
+    clear A Aa B Bb. 
+    move=>A B. case_eq (is_lt A B)=>//=ab.
+    apply Eimpl_forall=>z. 
+    apply Eimpl_forall=>a. 
+    apply Eimpl_forall=>b. 
+    apply Eimpl_forall=>Aa. 
+    apply Eimpl_forall=>Bb.
+    move: z. apply <-(Eimpl_forall (A:=R)).
+    apply IHtrel3. apply (M (DfromI2 Aa Bb ab)). 
   - eapply ep_bind=>[A HA|]; eauto.
     eapply ep_bind=>[B HB|]; eauto.
-    (* TODO: improve this ugly proof *)
-    constructor. case (bisectE (p:=fun x => sem (k x)))=>//.
-    -- move=>X. case_eq (Sem deg (h (ret X)))=>//[[|]]//K.
-       constructor=>z Xz. lapply (H2 (ret X) z). 2: by constructor.
-       move=>K'. move: (K' deg). rewrite K. inversion 1. by apply H4.
-    -- move=>K _ z Hz. apply K. by eapply bndE; eauto.
+    eapply Eimpl_impl. 2: apply bisectE.
+    move=>K z Hz. apply (K z). by eapply bndE; eauto.
+    move=>X. apply Eimpl_forall=>z. apply Eimpl_forall=>Hz. by auto.
   - eapply ep_bind=>[A Aa|]; eauto.  
     eapply ep_bind=>[B Bb|]; eauto.
     by apply rmlt. 
   - eapply ep_bind=>[A Aa|]; eauto.  
     eapply ep_bind=>[B Bb|]; eauto.
     constructor. by apply rmne. 
-  - eapply ep_bind=>[c|]; eauto. 2: apply IHtrel1; eauto. 
-    case c. constructor. left; eauto. intros _.
-    case: IHtrel2=>//. constructor. right; eauto.
-  - eapply ep_bind=>[c|]; eauto. 2: apply IHtrel1; eauto. 
-    case c. case: IHtrel2=>//. constructor. auto. by constructor.
-  - move: (IHtrel deg). case (Sem deg x). 2: constructor.
-    intro. inversion 1. constructor. auto.
+  - apply Eimpl_or'.
+    eapply Eimpl_impl. 2: apply IHtrel1; eassumption. clear; auto. 
+    eapply Eimpl_impl. 2: apply IHtrel2; eassumption. clear; auto. 
+  - eapply Eimpl_and'.
+    apply IHtrel1; eassumption.
+    apply IHtrel2; eassumption.
+    auto. 
+  - eauto using Eimpl_impl. 
   - eapply ep_bind=>[A HA|]; eauto.
     eapply ep_bind=>[B HB|]; eauto.
-    (* TODO: improve this ugly proof *)
-    constructor. case (bisectE (p:=fun x => forall y, a<=y<=b -> sem (k x) y))=>//.
-    -- move=>X. case_eq (Sem deg (h (ret X)) MO')=>//[[|]]//K.
-       constructor=>z Xz t Ht. lapply (fun H => H2 (ret X) z H deg MO' _ _ M'). 2: by constructor.
-       rewrite K. inversion 1. by apply H5.
-    -- move=>K _ z Hz t Ht. apply K=>//. by eapply bndE; eauto.
-  - by[]. 
-  - by[].
-  - auto. 
+    eapply Eimpl_impl. 2: apply bisectE.
+    2: { move=>X. apply Eimpl_forall=>z. apply Eimpl_forall=>Hz. apply H2; eauto. } 
+    move=>K z Hz t Ht. apply K=>//. by eapply bndE; eauto.
+  - auto.
 Qed.
 
 (** correctness on parametric (closed) terms follows *)
-Lemma Correct: forall d S (u: Term S), parametric u -> cval (Sem' d u) (sem' u).
-Proof. intros d S u U. apply correct, U. Qed.
+Lemma Correct: forall p S (u: Term S), parametric u -> cval (Sem' p u) (sem' u).
+Proof. intros p S u U. apply correct, U. Qed.
 
   
 (** small corollary, useful to obtain a tactic in tactic.v *)
-Lemma check d (b: Term BOOL):
+Lemma check p (b: Term BOOL):
   parametric b ->
-  (let b := Sem' d b in
+  (let b := Sem' p b in
    match b with ret b => is_true b | err s => False end) ->
   sem' b.
-Proof. move: (@Correct d BOOL)=>/= C B. by case C. Qed.
+Proof.
+  move: (@Correct p BOOL)=>/= C B.
+  case C=>//. apply implE.
+Qed.
 
 End s.
 Arguments check {_ _} _ _ _.
@@ -844,13 +830,14 @@ Infix "<>" := c_ne': cxpr_scope.
 Infix "/\" := c_conj': cxpr_scope. 
 Infix "\/" := c_disj': cxpr_scope.
 
-Definition b_forall_models' X: expr X -> expr X -> cxpr X -> bxpr X := b_forall_models.
-Definition b_forall_bisect' {X} n (a b: expr X) (f: expr X -> bxpr X): bxpr X :=
-  b_forall_bisect n a b (fun x => f (t_var x)).
-Definition c_forall_bisect' {X} n (a b: expr X) (f: expr X -> cxpr X): cxpr X :=
-  c_forall_bisect n a b (fun x => f (t_var x)).
-Arguments b_forall_bisect' {_} _%nat_scope (_ _)%expr _%bxpr.
-Arguments c_forall_bisect' {_} _%nat_scope (_ _)%expr _%cxpr.
+Definition b_forall_models' {X}: expr X -> expr X -> cxpr X -> bxpr X :=
+  b_forall_models.
+Definition b_forall_bisect' {X} (a b: expr X) (f: expr X -> bxpr X): bxpr X :=
+  b_forall_bisect a b (fun x => f (t_var x)).
+Definition c_forall_bisect' {X} (a b: expr X) (f: expr X -> cxpr X): cxpr X :=
+  c_forall_bisect a b (fun x => f (t_var x)).
+Arguments b_forall_bisect' {_} (_ _)%expr _%bxpr.
+Arguments c_forall_bisect' {_} (_ _)%expr _%cxpr.
 
 Notation "'let_e' x := e 'in' g" := (let' (e%expr: expr _) (fun (x: expr _) => (g%expr: expr _))) (at level 200, x binder, right associativity): expr_scope.
 Notation "'let_e' x := e 'in' g" := (let' (e%expr: expr _) (fun (x: expr _) => (g%fxpr: fxpr _))) (at level 200, x binder, right associativity): fxpr_scope.
@@ -877,6 +864,6 @@ Check EXPR (let_e x := 1+e_pi in x + let_e y := x*x in sqrt' (y+y)).
 Check FXPR (let_e x := 1+e_pi in id' + x).
 Check FXPR (let_f f := 1-id' in id' * id').
 Check BXPR (1 <= 0 \/ cos' pi' < 1 /\ cos' 0 >= 1).
-Check BXPR (b_forall_bisect' 10 0 1 (fun c => integrate' (id'+c) 0 1 <= c+1/fromZ' 2) ).
+Check BXPR (b_forall_bisect' 0 1 (fun c => integrate' (id'+c) 0 1 <= c+1/fromZ' 2) ).
 Check BXPR (b_forall_models' 0 1 (id' < 0 /\ 1 <> fsqrt id')).
 *) 

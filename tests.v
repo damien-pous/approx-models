@@ -157,25 +157,25 @@ Abort.
  *)
 Goal forall c, 0<=c<=1 -> RInt (fun x => x+c/2) 0 1 <= 1+c.
   (* we can provide the reified term explicitly to the tactic *)
-  approx (term (BXPR (b_forall_bisect' 3 0 1
+  approx (term (BXPR (b_forall_bisect' 0 1
             (fun c => integrate' (id'+c/fromZ' 2) 0 1 <= 1 + c)))).
   Restart.
   (* or change the goal to let it appear before calling the tactic *)
-  change (sem' (BXPR (b_forall_bisect' 3 0 1
+  change (sem' (BXPR (b_forall_bisect' 0 1
             (fun c => integrate' (id'+c/fromZ' 2) 0 1 <= 1 + c)))).
   approx. 
 Qed.
 
 Goal forall c, 0<=c<=1 -> c <= 2/3 \/ 1/3 <= c.
-  approx (term (BXPR (b_forall_bisect' 2 0 1
+  approx (term (BXPR (b_forall_bisect' 0 1
             (fun c => c <= fromZ' 2 / fromZ' 3 \/ 1 / fromZ' 3 <= c)))).
 Qed.
 
 (** quantifiers may appear in subformulas with this method *)
 Goal forall c, 0<=c<=1 -> c <= 2/3 \/ forall d, 0<=d<=1 -> 1/3 <= d \/ d <= c.
-  approx (term (BXPR (b_forall_bisect' 2 0 1
+  approx (term (BXPR (b_forall_bisect' 0 1
                        (fun c => c <= fromZ' 2 / fromZ' 3 \/ 
-                      b_forall_bisect' 2 0 1
+                      b_forall_bisect' 0 1
                        (fun d => 1 / fromZ' 3 <= d \/ d <= c))))).
 Qed.
 
@@ -208,7 +208,7 @@ Qed.
 (** with this method, quantifiers appearing in subformulas must be dealt with by bisection *)
 Goal forall c, 0.1<=c<=0.4 -> forall d, 0<=d<=0.5 -> c+d < sqrt (c+d).
   change (sem' (BXPR (b_forall_models' (fromQ' 0.1) (fromQ' 0.4)
-                     (c_forall_bisect' 4 0 (fromQ' 0.5) 
+                     (c_forall_bisect' 0 (fromQ' 0.5) 
                      (fun d => c_lt' (id'+d) (fsqrt (id'+d)))
          )))).
   approx.

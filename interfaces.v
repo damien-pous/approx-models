@@ -5,7 +5,7 @@ Require Export Coquelicot.Coquelicot.
 Require Export Setoid Morphisms.
 Require Export List. Export ListNotations.
 Require Export ssreflect ssrbool ssrfun.
-Require Export errors.
+Require Export utils errors.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -224,12 +224,6 @@ Variant minmax_spec A le (contains: A -> R -> Prop) (a: A): option A -> Prop :=
 | minmax_spec_some: forall m b, contains m b -> contains a b -> (forall x, contains a x -> le x b) -> minmax_spec le contains a (Some m)
 | minmax_spec_none: (forall x y, contains a x -> le x y -> contains a y)-> minmax_spec le contains a None.
 
-Variant wreflect (P : Prop): bool -> Prop :=
- | wReflectT: P -> wreflect P true | wReflectF: wreflect P false.
-Lemma wreflectE {P b}: wreflect P b -> b -> P.
-Proof. by case. Qed.
-#[export] Hint Constructors wreflect: core.
-
 (** neighborhoods: an abstract interface for computing with floating points and intervals 
     convention: 
     - uppercase letters for intervals, lowercase letters for real numbers
@@ -256,8 +250,8 @@ Class NBH := {
   maxE: forall X, minmax_spec Rle contains X (max X);
   minE: forall X, minmax_spec Rge contains X (min X);
   botE: forall x, contains bot x;
-  is_ltE: forall X Y, wreflect (forall x y, contains X x -> contains Y y -> x<y) (is_lt X Y);
-  is_leE: forall X Y, wreflect (forall x y, contains X x -> contains Y y -> x<=y) (is_le X Y);
+  is_ltE: forall X Y, impl (is_lt X Y) (forall x y, contains X x -> contains Y y -> x<y);
+  is_leE: forall X Y, impl (is_le X Y) (forall x y, contains X x -> contains Y y -> x<=y);
   splitE: forall X, (fun '(Y,Z) => forall x, contains X x -> contains Y x \/ contains Z x) (split X);  
   (** (almost unspecified) floating point operations *)
   FF: Ops1;
@@ -292,7 +286,7 @@ Proof.
 Qed.
 
 Definition is_ne {N: NBH} X Y := if is_lt X Y then true else is_lt Y X.
-Lemma is_neE {N: NBH} X Y: wreflect (forall x y, contains X x -> contains Y y -> x<>y) (is_ne X Y).
+Lemma is_neE {N: NBH} X Y: impl (is_ne X Y) (forall x y, contains X x -> contains Y y -> x<>y).
 Proof.
   rewrite /is_ne. case is_ltE=>[H|].
   constructor=>x y Xx Yy. specialize (H _ _ Xx Yy). lra.
@@ -300,25 +294,51 @@ Proof.
 Qed.
 
 Definition is_ge {N: NBH} X Y := is_le Y X.
-Lemma is_geE {N: NBH} X Y: wreflect (forall x y, contains X x -> contains Y y -> x>=y) (is_ge X Y).
+Lemma is_geE {N: NBH} X Y: impl (is_ge X Y) (forall x y, contains X x -> contains Y y -> x>=y).
 Proof. rewrite /is_ge. case is_leE=>[H|]; constructor; auto using Rle_ge. Qed.
 
-Fixpoint bisect {N: NBH} (P: II -> bool) n (X: II) :=
+(** bisection methods 
+    - [bisect] operates on a single interval: the one to be bisected
+    - [bisect2] operates on two intervals: the bounds of the one to be bisected *)
+Fixpoint bisect {N: NBH} n (P: II -> E bool) (X: II): E bool :=
   match n with
-  | 0 => false
-  | S n =>
-      if P X then true else
-        let (Y,Z) := split X in
-        if bisect P n Y then bisect P n Z else false
+  | 0 => ret false
+  | S n => Eor (P X) (fun _ =>
+                       let (Y,Z) := split X in
+                       Eand (bisect n P Y) (fun _ => bisect n P Z))
   end.
+
+Fixpoint bisect2 {N: NBH} n (P: II -> II -> E bool) (A B: II): E bool :=
+  match n with
+  | 0 => ret false
+  | S n => Eor (P A B) (fun _ => 
+                         let X := F2I (divZ 2 (I2F A + I2F B)) in
+                         Eand (bisect2 n P A X) (fun _ => bisect2 n P X B))
+  end.
+
 Lemma bisectE {N: NBH} P (p: R -> Prop):
-  (forall X, wreflect (forall x, contains X x -> p x) (P X)) ->
-  forall n X, wreflect (forall x, contains X x -> p x) (bisect P n X).
+  (forall X, Eimpl (P X) (forall x, contains X x -> p x)) ->
+  forall n X, Eimpl (bisect n P X) (forall x, contains X x -> p x).
 Proof.
   intro Pp. induction n=>X//=.
-  case Pp. by constructor.
-  move: (splitE X). case split=>Y Z H. case IHn=>//HY. case IHn=>//HZ.
-  constructor=> x Hx. case (H x Hx); eauto.
+  apply Eimpl_or'=>//.
+  move: (splitE X). case split=>Y Z H.
+  eapply Eimpl_and'=>//HY HZ x Hx.
+  case (H x Hx); eauto.
+Qed.
+
+Lemma bisect2E {N: NBH} P (p: R -> Prop):
+  (forall A B, Eimpl (P A B) (forall x a b, contains A a -> contains B b -> a<=x<=b -> p x)) ->
+  forall n A B, Eimpl (bisect2 n P A B) (forall x a b, contains A a -> contains B b -> a<=x<=b -> p x).
+Proof.
+  intro Pp. induction n=>A B//=.
+  set x' := divZ _ _. move: (F2IE x').
+  set X := F2I _. set x := F2R _. move=>Xx.
+  apply Eimpl_or'=>//.
+  eapply Eimpl_and'=>//AX XB y a b Aa Bb Hy.
+  specialize (AX y _ _ Aa Xx). 
+  specialize (XB y _ _ Xx Bb).
+  have: y<=x \/ x<=y by lra. tauto. 
 Qed.
   
 (** predicate for specifying bounds of integrals (see [rmintegrate] below) *)
@@ -388,24 +408,25 @@ Class Model {N: NBH} (MO: ModelOps) (lo hi: R) := {
                             mcontains (mtruncate n F) f;
   rmrange: forall F f, mcontains F f ->
            forall x, lo<=x<=hi -> contains (mrange F) (f x);
-  rmne0: forall n F f, mcontains F f -> mne0 n F -> forall x, lo<=x<=hi -> f x <> 0;
-  rmgt0: forall n F f, mcontains F f -> EPimpl (mgt0 n F) (forall x, lo<=x<=hi -> 0 < f x);
+  rmne0: forall n F f, mcontains F f -> impl (mne0 n F) (forall x, lo<=x<=hi -> f x <> 0);
+  rmgt0: forall n F f, mcontains F f -> Eimpl (mgt0 n F) (forall x, lo<=x<=hi -> 0 < f x);
 }.
 Coercion mcontains: Model >-> Rel0.
 Global Hint Resolve rmcst (* rmeval rmintegrate rmdiv rmsqrt *): rel.
 
-Lemma rmne `{Model} n F f G g: mcontains F f -> mcontains G g -> mne n F G ->
-                               forall x, lo<=x<=hi -> f x <> g x.
+Lemma rmne `{Model} n F f G g: mcontains F f -> mcontains G g ->
+                               impl (mne n F G) (forall x, lo<=x<=hi -> f x <> g x).
 Proof.
-  intros Ff Gg C x Dx. apply Rminus_not_eq.
-  eapply (rmne0 (F:=F - G) (f:=f-g)). rel. apply C. assumption. 
+  rewrite /mne=>Ff Gg. ecase rmne0=>//. rel.
+  intro C. constructor=>??. by apply Rminus_not_eq, C.
 Qed.
 
 Lemma rmlt `{Model} n F f G g: mcontains F f -> mcontains G g ->
-                               EPimpl (mlt n F G) (forall x, lo<=x<=hi -> f x < g x).
+                               Eimpl (mlt n F G) (forall x, lo<=x<=hi -> f x < g x).
 Proof.
-  intros Ff Gg. unfold mlt. ecase rmgt0. rel. 2: constructor.
-  intros b B. constructor. intros. now apply Rminus_gt_0_lt, B.
+  rewrite /mlt=>Ff Gg. ecase rmgt0=>//. rel.
+  intros a E. rewrite EimplR. case E=>//C. constructor=>x Hx.
+  by apply Rminus_gt_0_lt, C.
 Qed.
 
 (** two instances of [rmulZ] and [rdivZ] that need to be explicited for the [rel] tactic to work well *)
@@ -466,7 +487,7 @@ Qed.
 Notation DF2 a b := (@DfromF2 _ a b eq_refl).
 
 (** from pointed intervals *)
-Definition DfromI2 {N: NBH}(A B: II)(a b: R)
+Program Definition DfromI2 {N: NBH}(A B: II)(a b: R)
         (Aa: contains A a)
         (Bb: contains B b)
         (ab: is_lt A B): Domain := {|
@@ -474,7 +495,10 @@ Definition DfromI2 {N: NBH}(A B: II)(a b: R)
   DI := make_domain_on A B;
   rdlo := Aa;
   rdhi := Bb;
-  dlohi := wreflectE (is_ltE _ _) ab _ _ Aa Bb;
 |}.
+Next Obligation.
+  revert ab. case is_ltE=>//; auto.
+Qed.
+
 Notation DI2 Aa Bb := (DfromI2 Aa Bb eq_refl).
 

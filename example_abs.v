@@ -88,14 +88,18 @@ Goal let eps := 1/100 in
 Proof.
   intros eps; unfold eps, g.
   (** default degree (10) does not make it possible to construct a model for the square root  *)
-  Fail approx.        
+  Fail approx (depth 1).
   (** degree 15 makes it possible to construct a model, but this model is not precise enough *)
-  Fail approx (i_deg 15).
+  Fail approx (i_deg 15, depth 1).
   (** at degree 35, we get a proof *)
-  approx (i_deg 35). 
+  approx (i_deg 35, depth 1). 
   (** or just 32 if we do not truncate *)
   Restart. intros eps; unfold eps, g.
-  approx (i_deg (-32)). 
+  approx (i_deg (-32), depth 1).
+  (** alternatively, we get a proof at degree 10 if we do not forbid bisection (by not specifying [depth 1]) *)
+  Restart.
+  intros eps; unfold eps, g.
+  approx. 
 Qed.
 
 Goal let eps := 1/100 in 1/2+eps/100 <= RInt (g eps) 0 1 <= 1/2+eps+eps/10.
@@ -109,22 +113,25 @@ Goal let eps := 1/1000 in
 Proof.
   intros eps; unfold eps, g.
   (** model constructed at degree 81, but not precise enough *)
-  Fail approx (i_deg 81).            
+  Fail approx (i_deg 81, depth 1).
   (** and not precise enough, even with pretty big degrees (e.g., 500) *)
   (* Fail approx (i_deg 300).            *)
   (* Fail approx (i_deg 400).            *)
   (* Fail approx (i_deg 500).            *)
-Abort.
+  (** at degree 81 the model is constructed but not precise enough *)
+  Fail approx (i_deg 81, depth 1, bigint120, native).
+  (** at degree 102 we used to get a proof (commented out: takes long) *)
+  (* approx (i_deg 102, depth 1, bigint120, native). *)
+  
+  (** subdivision works nicely... *)
+  approx (depth 8). 
+Qed.
 
 (** thus we select a different implementation of floating points, with bigger precision *)
 Goal let eps := 1/1000 in
      forall x, 0 <= x <= 1 -> g eps x - x < eps+eps/10.
 Proof.
   intros eps; unfold eps, g.
-  (** at degree 81 the model is constructed but not precise enough *)
-  (* Fail approx (i_deg 81, i_bigint128).  *)
-  (** at degree 102 we get a proof (commented out: takes long) *)
-  (* approx (i_deg 102, i_bigint128). *)
 Abort.
 
 

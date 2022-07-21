@@ -2,10 +2,21 @@
 (** the functions below are left unspecified, they are only used to implement oracles *)
 
 Require Import FSets.FMapPositive ZArith.
+Require Import ssreflect ssrbool.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
 Unset Printing Implicit Defensive.
+
+(** * weak reflection: implication from boolean values *)
+Variant wreflect (P : Prop): bool -> Prop :=
+  | wReflectT: P -> wreflect P true | wReflectF: wreflect P false.
+Notation impl b P := (wreflect P b). 
+#[export] Hint Constructors wreflect: core.
+Lemma implE P b: impl b P <-> (b -> P).
+Proof. split. by case. case b; constructor; auto. Qed.
+Lemma implT P: impl true P <-> P.
+Proof. split. by inversion 1. by constructor. Qed.
 
 (** * efficient pseudo-fixpoint operator *)
 Section powerfix.
