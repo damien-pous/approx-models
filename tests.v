@@ -171,6 +171,7 @@ Goal forall c, 0<=c<=1 -> c <= 2/3 \/ 1/3 <= c.
             (fun c => c <= fromZ' 2 / fromZ' 3 \/ 1 / fromZ' 3 <= c)))).
 Qed.
 
+(** quantifiers may appear in subformulas with this method *)
 Goal forall c, 0<=c<=1 -> c <= 2/3 \/ forall d, 0<=d<=1 -> 1/3 <= d \/ d <= c.
   approx (term (BXPR (b_forall_bisect' 2 0 1
                        (fun c => c <= fromZ' 2 / fromZ' 3 \/ 
@@ -178,7 +179,7 @@ Goal forall c, 0<=c<=1 -> c <= 2/3 \/ forall d, 0<=d<=1 -> 1/3 <= d \/ d <= c.
                        (fun d => 1 / fromZ' 3 <= d \/ d <= c))))).
 Qed.
 
-(* solving (restricted) quantified formulas by model comparisons *)
+(** solving (restricted) quantified formulas by model comparisons *)
 Goal forall c, 0.1<=c<=0.9 -> c < sqrt c.
   approx. 
 Qed.
@@ -204,6 +205,14 @@ Goal forall c, 0.1<=c<=0.9 -> c < sqrt c < sqrt (sqrt c).
   (* Show Proof. *)
 Qed.
 
+(** with this method, quantifiers appearing in subformulas must be dealt with by bisection *)
+Goal forall c, 0.1<=c<=0.4 -> forall d, 0<=d<=0.5 -> c+d < sqrt (c+d).
+  change (sem' (BXPR (b_forall_models' (fromQ' 0.1) (fromQ' 0.4)
+                     (c_forall_bisect' 4 0 (fromQ' 0.5) 
+                     (fun d => c_lt' (id'+d) (fsqrt (id'+d)))
+         )))).
+  approx.
+Qed.
 
 
 (** ** testing direct computations  *)
