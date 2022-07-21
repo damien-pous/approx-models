@@ -74,10 +74,8 @@ Goal 0.09 <= RInt (fun x => sin x / (2+cos x)) 0 pi <= 1.1.
 Qed.  
 
 
-(** [approx] also makes it possible to compare univariate functions on a given interval
-    (the goal show be presented in a rather strict way for now, essentially as in the two examples below; this should be improved in the following release)
- *)
-Goal forall x, 0.1<=x<=0.9 -> x < sqrt x.
+(** [approx] also makes it possible to compare univariate functions on a given interval *)
+Goal forall x, 0.1<=x<=0.9 -> x < sqrt x < sqrt (sqrt x).
   approx.
 Qed.
 

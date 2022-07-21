@@ -9,9 +9,10 @@ Require fourier taylor chebyshev approx.
 Section s.
  Context {N: NBH}.
 
+ Local Instance D11: Domain := DZ2 (-1) 1.
  Definition chebyshev11_model_ops: ModelOps := approx.model_ops chebyshev.basis11_ops.
  Definition chebyshev11_model
-   : Model chebyshev11_model_ops (-1) 1
+   : Model chebyshev11_model_ops dlo dhi
    := approx.model chebyshev.basis11.
 
  Definition fourier_model_ops A B: ModelOps := approx.model_ops (fourier.basis_ops A B).
@@ -128,13 +129,13 @@ Ltac get_check nbh model x y :=
   lazymatch x with
   | tt => constr:(Dynamic.check (N:=nbh) model)
   | dynamic => constr:(Dynamic.check (N:=nbh) model)
-  | static ?a ?b => constr:(Static.check (N:=nbh) (model (DQ2 a b)))
+  | static ?a ?b => constr:(Static.check (N:=nbh) (M:=model (DQ2 a b)))
   | chebyshev11 =>
     (* match basis with *)
     (*   | taylor => idtac "warning, chebyshev11 takes precedence over taylor" *)
     (*   | fourier => idtac "warning, chebyshev11 takes precedence over fourier" *)
     (* end; *)
-    constr:(Static.check (N:=nbh) chebyshev11_model)
+    constr:(Static.check (N:=nbh) (M:=chebyshev11_model))
   | (?p,?q) => get_check nbh model p constr:((q,y))
   | _ => get_check nbh model y tt
   end.
@@ -151,8 +152,8 @@ Ltac get_Sem nbh model_ops x y :=
   lazymatch x with
   | tt => constr:(Dynamic.Sem' (N:=nbh) model_ops)
   | dynamic => constr:(Dynamic.Sem' (N:=nbh) model_ops)
-  | static ?a ?b => constr:(Static.Sem' (N:=nbh) (model_ops (fromQ a) (fromQ b)))
-  | chebyshev11 => constr:(Static.Sem' (N:=nbh) chebyshev11_model_ops)
+  | static ?a ?b => constr:(Static.Sem' (N:=nbh) (model_ops (fromQ a) (fromQ b)) (DQ2 a b))
+  | chebyshev11 => constr:(Static.Sem' (N:=nbh) chebyshev11_model_ops D11)
   | (?p,?q) => get_Sem nbh model_ops p constr:((q,y))
   | _ => get_Sem nbh model_ops y tt
   end.
@@ -209,10 +210,13 @@ Tactic Notation "approx" constr(params) :=
 Tactic Notation "approx" := approx tt.
 
 
-(** ** tactic to estimate real/functional/propositional expressions *)
-(** see type [param] above for tactic parameters *)
+(** ** tactics to estimate real/functional/propositional expressions *)
+(** [estimate_term] requires a reified (and possibly optimized) term *)
+(** [estimate] requires a reifies the given expression and calls [estimate_term] *)
+(** see type [param] above for the parameters *)
 (* TOTHINK: do not change the goal -> turn these into commands? *)
-Tactic Notation "estimate" constr(e) constr(params) :=
+(* TODO: variant that produces a pair with the estimation and the correctness proof *)
+Tactic Notation "estimate_term" constr(t) constr(params) :=
   all_params params;
   let deg := get_deg params tt in
   let native := get_native params tt in
@@ -220,31 +224,32 @@ Tactic Notation "estimate" constr(e) constr(params) :=
   let basis := get_basis params tt in
   let model_ops := get_model_ops basis in
   let Sem := get_Sem nbh model_ops params tt in
+  let r := constr:(Sem deg _ t) in
+  let i := ecomp native r in
+  idtac i.
+Tactic Notation "estimate_term" constr(t) := estimate_term t tt.
+
+Tactic Notation "estimate" constr(e) constr(params) :=
+  all_params params;
   let k := type of e in
   lazymatch eval cbn in k with
   | R => 
       let e := get_term reify_real e params tt in
-      let t := constr:(Sem deg REAL e) in
-      let i := ecomp native t in
-      idtac i
+      estimate_term e params
   | Prop => 
       let e := get_term reify_prop e params tt in
-      let t := constr:(Sem deg BOOL e) in
-      let i := ecomp native t in
-      idtac i
+      estimate_term e params
   | R->R => 
       let e := get_term reify_fun e params tt in
-      let t := constr:(Sem deg FUN e) in
-      let i := ecomp native t in
-      idtac i
+      estimate_term e params
   end.
 Tactic Notation "estimate" constr(e) := estimate e tt.
 
 (** nice notation for intervals with primitive floating points endpoints *)
 Notation "[[ a ; b ]]" := (Float.Ibnd a%float b%float). 
 
-(* simple tests for the above tactics *)
 (*
+(* simple tests for the above tactics *)
 Goal 1.4 <= sqrt 2 <= 1.5.
 Proof.
   approx.
@@ -284,13 +289,6 @@ Proof.
   estimate (fun x: R => x) (static 0 1).
 
   estimate (RInt id 0 1) (term (EXPR (integrate' id' 0 1))).
+  estimate_term (EXPR (integrate' id' 0 1)).
 Abort.
-*)
-
-(* solving quantified formulas by subdivision (here up to depth 3) *)
-(*
-Goal forall c, 0<=c<=1 -> RInt (fun x => x+c/2) 0 1 <= 1+c.
-  approx (term (BXPR (b_bounded_forall 3
-            (fun c => integrate' (id'+cst' (t_var c / fromZ' 2)) 0 1 <= 1 + t_var c) 0%expr 1%expr))).
-Qed.
 *)

@@ -1,6 +1,6 @@
 (** * Tests for the library *)
 
-Require Import intervals rescale tactic syntax.
+Require Import intervals rescale syntax tactic.
 Require taylor chebyshev approx.
 
 (** ** testing the tactics  *)
@@ -152,50 +152,78 @@ Goal True.
 Abort.
 
 
+(** solving quantified formulas by subdivision (here up to depth 3) 
+    (no reification provided for this so far: we would probably need an Ocaml plugin)
+ *)
+Goal forall c, 0<=c<=1 -> RInt (fun x => x+c/2) 0 1 <= 1+c.
+  (* we can provide the reified term explicitly to the tactic *)
+  approx (term (BXPR (b_forall_bisect' 3 0 1
+            (fun c => integrate' (id'+c/fromZ' 2) 0 1 <= 1 + c)))).
+  Restart.
+  (* or change the goal to let it appear before calling the tactic *)
+  change (sem' (BXPR (b_forall_bisect' 3 0 1
+            (fun c => integrate' (id'+c/fromZ' 2) 0 1 <= 1 + c)))).
+  approx. 
+Qed.
+
+Goal forall c, 0<=c<=1 -> c <= 2/3 \/ 1/3 <= c.
+  approx (term (BXPR (b_forall_bisect' 2 0 1
+            (fun c => c <= fromZ' 2 / fromZ' 3 \/ 1 / fromZ' 3 <= c)))).
+Qed.
+
+Goal forall c, 0<=c<=1 -> c <= 2/3 \/ forall d, 0<=d<=1 -> 1/3 <= d \/ d <= c.
+  approx (term (BXPR (b_forall_bisect' 2 0 1
+                       (fun c => c <= fromZ' 2 / fromZ' 3 \/ 
+                      b_forall_bisect' 2 0 1
+                       (fun d => 1 / fromZ' 3 <= d \/ d <= c))))).
+Qed.
+
+(* solving (restricted) quantified formulas by model comparisons *)
+Goal forall c, 0.1<=c<=0.9 -> c < sqrt c.
+  approx. 
+Qed.
+Goal forall c, 0.1<=c<=0.9 -> c < sqrt c < sqrt (sqrt c).
+  approx.
+  (* there are two comparisons, but the model for the inner term (sqrt c)
+     is computed only once, thanks to a let..in :
+     the reified term is 
+     [BXPR (b_forall_models' (fromQ' 0.1) (fromQ' 0.9)
+              (let_f s := fsqrt id' in id' < s /\ s < fsqrt (fsqrt id'))))]
+   *)   
+  (* Show Proof. *)
+  Restart.
+  (* to further share the occurence of [sqrt c] in the rhs, we can provide an explicit term *)
+  approx (term (BXPR (b_forall_models' (fromQ' 0.1) (fromQ' 0.9)
+                                       (let_f s := fsqrt id' in id' < s /\ s < fsqrt s)))).
+  (* Show Proof. *)
+  Restart.
+  (* alternatively: *)
+  change (sem' (BXPR (b_forall_models' (fromQ' 0.1) (fromQ' 0.9)
+                                       (let_f s := fsqrt id' in id' < s /\ s < fsqrt s)))).
+  approx. 
+  (* Show Proof. *)
+Qed.
+
+
+
 (** ** testing direct computations  *)
-Eval vm_compute in
-    let e := EXPR ((integrate' (1 / (1 + id'))) 0 (pi'/fromZ' 4)) in 
-    LET E ::= Dynamic.Sem' chebyshev_model_ops 20 e IN ret (width E).
+Goal True.
+  estimate_term (EXPR ((integrate' (1 / (1 + id'))) 0 (pi'/fromZ' 4)))
+                (i_deg 20). 
 
-(** increase 20 to get more digits *)
-Eval vm_compute in
-    let e := EXPR (integrate' ((1+id') / ((1-id')*(1-id')+1/fromZ' 4)) 0 (pi'/fromZ' 4)) in
-    LET E ::= Static.Sem' chebyshev11_model_ops 20 e IN ret (width E).
+  estimate_term (EXPR (integrate' ((1+id') / ((1-id')*(1-id')+1/fromZ' 4)) 0 (pi'/fromZ' 4)))
+                (chebyshev11, i_deg 20).
+  
+  estimate_term (FXPR (id' / fsqrt ((1+id') / (fromZ' 3+id'))))
+                (static 18 200).
 
-(** testing interpolation on rescaled bases *)
-Eval vm_compute in
-    let f := FXPR (id' / fsqrt ((1+id') / (fromZ' 3+id'))) in
-    Static.Sem' (chebyshev_model_ops (fromZ 18) (fromZ 200)) 10 f.
-
-
-(** Note that the neighborhood is set by default to [IPrimFloat.nbh], i.e., intervals with primitive floating point endpoints 
-   other candidates include:
-   - [IBigInt60/120/300.nbh]: intervals with floating points endpoints, floating points being represented via primitive 63bit integers (less axioms, a bit less efficient)
-   - [IStdZ60/120.nbh]: intervals with floating points endpoints, floating points being represented via Coq integers (Z) (no axioms, not so efficient)
-  *)
-
-Time Eval vm_compute in
-    let e := EXPR (integrate' ((1+id') / ((1-id')*(1-id')+1/fromZ' 4)) 0 (pi'/fromZ' 4)) in
-    e_map width (Static.Sem' (N:=IStdZ60.nbh) chebyshev11_model_ops 10 e).
-(** above: need 1sec *)
-(** below: also need 1sec thanks to sharing *)
-Time Eval vm_compute in
-    let e := EXPR (let_ee x := integrate' ((1+id') / ((1-id')*(1-id')+1/fromZ' 4)) 0 (pi'/fromZ' 4)
-                       in x + x)
-    in
-    e_map width (Static.Sem' (N:=IStdZ60.nbh) chebyshev11_model_ops 10 e).
-
-Time Eval vm_compute in
-    let e := FXPR ((1+id') / ((1-id')*(1-id')+1/fromZ' 4)) in
-    Static.Sem' (N:=IStdZ60.nbh) chebyshev11_model_ops 12 e.
-(** above: need 1sec *)
-(** below: also need 1sec thanks to sharing *)
-Time Eval vm_compute in
-    let e := FXPR (let_ff x := (1+id') / ((1-id')*(1-id')+1/fromZ' 4)
-                       in x + x)
-    in
-    Static.Sem' (N:=IStdZ60.nbh) chebyshev11_model_ops 12 e.
-
+  estimate_term (EXPR (integrate' ((1+id') / ((1-id')*(1-id')+1/fromZ' 4)) 0 (pi'/fromZ' 4)))
+                (chebyshev11).
+  (** above: need 1sec; below: also need 1sec thanks to sharing *)
+  estimate_term (EXPR (let_e x := integrate' ((1+id') / ((1-id')*(1-id')+1/fromZ' 4)) 0 (pi'/fromZ' 4)
+                         in x + x))
+                (chebyshev11).
+Abort.
 
 (** About the axioms we use: *)
 (**

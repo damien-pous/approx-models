@@ -10,9 +10,10 @@ Unset Printing Implicit Defensive.
 (** sorts of expressions we know how to approximate 
     - real numbers
     - functions on closed real intervals
-    - (conjunctions/disjunctions of combinations of) comparison of reals
+    - (conjunctions/disjunctions) comparison of reals
+    - (conjunctions/disjunctions) comparison of models
  *)
-Variant sort := REAL | FUN | BOOL.
+Variant sort := REAL | FUN | BOOL | PRED.
 
 (** syntax for the expressions we know how to approximate 
     we use parameterised higher order abstract syntax (PHOAS) in order to have a let..in construct and be able to share subexpressions
@@ -47,6 +48,7 @@ Inductive term {X: sort -> Type}: sort -> Type :=
 | f_cst: term REAL -> term FUN
 | f_trunc: Z -> term FUN -> term FUN         (* the identity, simply truncates the model *)
 (* boolean expressions *)
+(* TODO: true, false *)
 | b_le: term REAL -> term REAL -> term BOOL
 | b_ge: term REAL -> term REAL -> term BOOL
 | b_lt: term REAL -> term REAL -> term BOOL
@@ -54,12 +56,19 @@ Inductive term {X: sort -> Type}: sort -> Type :=
     (* need b_ge and not b_gt because Rgt unfolds to Rlt while Rge does not unfold to Rle *)
 | b_disj: term BOOL -> term BOOL -> term BOOL
 | b_conj: term BOOL -> term BOOL -> term BOOL
-    (* testing < or <> on a given domain (to be generalised) *)
-| b_mlt: term REAL -> term REAL -> term FUN -> term FUN -> term BOOL
-| b_mne: term REAL -> term REAL -> term FUN -> term FUN -> term BOOL
+(* univariate predicates *)
+(* TODO: c_le, c_ge *)
+(* TODO: true, false *)
+| c_lt: term FUN -> term FUN -> term PRED
+| c_ne: term FUN -> term FUN -> term PRED
+| c_disj: term PRED -> term PRED -> term PRED
+| c_conj: term PRED -> term PRED -> term PRED
+| c_cst: term BOOL -> term PRED
+(* TOTHINK: c_forall_bisect? *)
 | b_impl: term BOOL -> term BOOL -> term BOOL
 | b_forall: (X REAL -> term BOOL) -> term BOOL
-| b_bounded_forall: nat -> (X REAL -> term BOOL) -> term REAL -> term REAL -> term BOOL
+| b_forall_models: term REAL -> term REAL -> term PRED -> term BOOL
+| b_forall_bisect: nat -> term REAL -> term REAL -> (X REAL -> term BOOL) -> term BOOL
 (* setting the degree in a subexpression *)
 | t_deg {S}: Z -> term S -> term S
 (* let..in and variable *)
@@ -67,6 +76,10 @@ Inductive term {X: sort -> Type}: sort -> Type :=
 | t_let: forall {S T}, term S -> (X S -> term T) -> term T.
 Definition let' {X S T}: @term X S -> (term S -> term T) -> term T :=
   fun a k => t_let a (fun x => k (t_var x)). 
+Definition forall_bisect' {X} n (a b: term REAL) (f: term REAL -> term BOOL): @term X BOOL :=
+  b_forall_bisect n a b (fun x => f (t_var x)).
+Definition forall' {X} (f: term REAL -> term BOOL): @term X BOOL :=
+  b_forall (fun x => f (t_var x)).
 
 (** closed terms: they act polymorphically in X *)
 Definition Term S := forall X, @term X S.
@@ -75,7 +88,7 @@ Definition Term S := forall X, @term X S.
 
 
 (** ** real number semantics of expressions  *)
-Definition rval S: Type := match S with REAL => R | FUN => (R -> R) | BOOL => Prop end.
+Definition rval S: Type := match S with REAL => R | FUN => (R -> R) | BOOL => Prop | PRED => R -> Prop end.
 Fixpoint sem S (t: @term rval S): rval S :=
   match t in term S return rval S with
   | e_add e f => sem e + sem f
@@ -109,11 +122,15 @@ Fixpoint sem S (t: @term rval S): rval S :=
   | b_ne e f => sem e <> sem f
   | b_disj b c => sem b \/ sem c
   | b_conj b c => sem b /\ sem c
-  | b_mlt a b f g => forall x, sem a <= x <= sem b -> sem f x < sem g x
-  | b_mne a b f g => forall x, sem a <= x <= sem b -> sem f x <> sem g x
+  | c_lt f g => fun x => sem f x < sem g x
+  | c_ne f g => fun x => sem f x <> sem g x
+  | c_disj b c => fun x => sem b x \/ sem c x
+  | c_conj b c => fun x => sem b x /\ sem c x
+  | c_cst b => fun x => sem b
   | b_impl b c => sem b -> sem c
   | b_forall k => forall x: R, sem (k x)
-  | b_bounded_forall n k a b => forall x: R, sem a <= x <= sem b -> sem (k x)
+  | b_forall_models a b k => forall x: R, sem a <= x <= sem b -> sem k x
+  | b_forall_bisect n a b k => forall x: R, sem a <= x <= sem b -> sem (k x)
   | t_deg _ _ x => sem x
   | t_var _ x => x
   | t_let _ _ x k => sem (k (sem x))
@@ -138,6 +155,7 @@ Ltac reduce e :=
 Ltac ereify e :=
   lazymatch e
   with
+  | sem' (fun X => ?e) => e
   | R0 => uconstr:(e_zer)
   | R1 => uconstr:(e_one)
   | Rplus ?e ?f => let e:=ereify e in let f:=ereify f in uconstr:(e_add e f)
@@ -163,6 +181,7 @@ Ltac ereify e :=
   end
  with freify f :=
     lazymatch f with
+  | sem' (fun X => ?e) VAR => e
   | Rplus ?e ?f => let e:=freify e in let f:=freify f in uconstr:(f_add e f)
   | Rminus ?e ?f => let e:=freify e in let f:=freify f in uconstr:(f_sub e f)
   | Rmult ?e ?f => let e:=freify e in let f:=freify f in uconstr:(f_mul e f)
@@ -178,6 +197,7 @@ Ltac ereify e :=
     end.
 Ltac breify b :=
   lazymatch b with
+  | sem' (fun X => ?e) => e
   | ?e <= ?f <= ?g =>
     let e:=ereify e in let f:=ereify f in let g:=ereify g in
     uconstr:(let' f (fun x => b_conj (b_le e x) (b_le x g)))
@@ -199,23 +219,25 @@ Ltac breify b :=
   | ?b /\ ?c => let b:=breify b in let c:=breify c in uconstr:(b_conj b c)
   | ?b \/ ?c => let b:=breify b in let c:=breify c in uconstr:(b_disj b c)
   | at_degree ?d ?e => let e:=breify e in uconstr:(t_deg d e)
-  | forall x, ?a <= x <= ?b -> @?f x < @?g x =>
+  | forall x, ?a <= x <= ?b -> @?p x =>
     let a:=ereify a in
     let b:=ereify b in
-    let fVAR:=reduce (f VAR) in
-    let f:=freify fVAR in
-    let gVAR:=reduce (g VAR) in
-    let g:=freify gVAR in
-    uconstr:(b_mlt a b f g)
-  | forall x, ?a <= x <= ?b -> @?f x <> @?g x =>
-    let a:=ereify a in
-    let b:=ereify b in
-    let fVAR:=reduce (f VAR) in
-    let f:=freify fVAR in
-    let gVAR:=reduce (g VAR) in
-    let g:=freify gVAR in
-    uconstr:(b_mne a b f g)
-  | ?b -> ?c => let b:=breify b in let c:=breify c in uconstr:(b_impl b c)
+    let pVAR:=reduce (p VAR) in
+    let p:=creify pVAR in
+    uconstr:(b_forall_models a b p)
+  end
+    with creify b :=
+  lazymatch b with
+  | sem' (fun X => ?e) VAR => e
+  | ?e < ?f < ?g =>
+    let e:=freify e in let f:=freify f in let g:=freify g in
+    uconstr:(let' f (fun x => c_conj (c_lt e x) (c_lt x g)))
+  | Rlt ?e ?f => let e:=freify e in let f:=freify f in uconstr:(c_lt e f)
+  | ?e <> ?f => let e:=freify e in let f:=freify f in uconstr:(c_ne e f)
+  | ?b /\ ?c => let b:=creify b in let c:=creify c in uconstr:(c_conj b c)
+  | ?b \/ ?c => let b:=creify b in let c:=creify c in uconstr:(c_disj b c)
+  | at_degree ?d ?e => let e:=creify e in uconstr:(t_deg d e)
+  | ?e => let e:=breify e in uconstr:(c_cst e)
   end.
 Ltac reify_real e :=
   let e := reduce e in
@@ -229,9 +251,13 @@ Ltac reify_prop e :=
   let e := reduce e in
   let e := breify e in
   constr:((fun X => e): Term BOOL).
+Ltac reify_pred e :=
+  let e := reduce e in
+  let e := creify e in
+  constr:((fun X => e): Term PRED).
 
-(*
 (* tests for the above reification tatics *)
+(*
 Goal True.
   let e := reify_real constr:(Rplus R0 R1) in pose e.
   let e := reify_real constr:(42) in pose e.
@@ -309,15 +335,18 @@ Inductive trel X Y (R: forall S, X S -> Y S -> Prop): forall S, @term X S -> @te
 | rb_ne: forall x y, trel R x y -> forall x' y', trel R x' y' -> trel R (b_ne x x') (b_ne y y')
 | rb_disj: forall x y, trel R x y -> forall x' y', trel R x' y' -> trel R (b_disj x x') (b_disj y y')
 | rb_conj: forall x y, trel R x y -> forall x' y', trel R x' y' -> trel R (b_conj x x') (b_conj y y')
-| rb_mlt: forall x y, trel R x y -> forall x' y', trel R x' y' ->
-          forall f g, trel R f g -> forall h k, trel R h k -> trel R (b_mlt x x' f h) (b_mlt y y' g k)
-| rb_mne: forall x y, trel R x y -> forall x' y', trel R x' y' ->
-          forall f g, trel R f g -> forall h k, trel R h k -> trel R (b_mne x x' f h) (b_mne y y' g k)
+| rc_lt: forall f g, trel R f g -> forall h k, trel R h k -> trel R (c_lt f h) (c_lt g k)
+| rc_ne: forall f g, trel R f g -> forall h k, trel R h k -> trel R (c_ne f h) (c_ne g k)
+| rc_disj: forall x y, trel R x y -> forall x' y', trel R x' y' -> trel R (c_disj x x') (c_disj y y')
+| rc_conj: forall x y, trel R x y -> forall x' y', trel R x' y' -> trel R (c_conj x x') (c_conj y y')
+| rc_cst: forall x y, trel R x y -> trel R (c_cst x) (c_cst y)
 | rb_impl: forall x y, trel R x y -> forall x' y', trel R x' y' -> trel R (b_impl x x') (b_impl y y')
 | rb_forall: forall h k, (forall a b, R REAL a b -> trel R (h a) (k b)) -> trel R (b_forall h) (b_forall k)
-| rb_bounded_forall: forall n h k, (forall a b, R REAL a b -> trel R (h a) (k b)) -> 
-                            forall x y, trel R x y -> forall x' y', trel R x' y' -> 
-                            trel R (b_bounded_forall n h x x') (b_bounded_forall n k y y')
+| rb_forall_models: forall x y, trel R x y -> forall x' y', trel R x' y' -> forall h k, trel R h k -> 
+                             trel R (b_forall_models x x' h) (b_forall_models y y' k)
+| rb_forall_bisect: forall n x y, trel R x y -> forall x' y', trel R x' y' -> 
+                      forall h k, (forall a b, R REAL a b -> trel R (h a) (k b)) -> 
+                             trel R (b_forall_bisect n x x' h) (b_forall_bisect n y y' k)
 | rt_deg: forall d S x y, trel R x y -> trel R (@t_deg _ S d x) (@t_deg _ S d y)
 | rt_var: forall S x y, R S x y -> trel R (t_var x) (t_var y)
 | rt_let: forall S T x y h k, trel R x y -> (forall a b, R S a b -> trel R (h a) (k b)) -> trel R (t_let x h) (@t_let _ _ T y k).
@@ -336,7 +365,7 @@ Definition parametric S (u: Term S) :=
 Module Static.
 Section s.
 
-Context {N: NBH} (MO: ModelOps) lo hi (M: Model MO lo hi). 
+Context {N: NBH} (MO: ModelOps) (D: Domain) (M: Model MO dlo dhi). 
 
 
 (** interpretation of expressions using intervals / models / booleans *)
@@ -345,6 +374,7 @@ Definition sval S :=
   | REAL => E II
   | FUN => E MM
   | BOOL => E bool
+  | PRED => E bool
   end.
 Fixpoint Sem d S (t: @term sval S): sval S :=
   match t in term S return sval S with
@@ -386,11 +416,20 @@ Fixpoint Sem d S (t: @term sval S): sval S :=
   | b_ne e f => e_map2 is_ne (Sem d e) (Sem d f)
   | b_disj b c => LET b ::= Sem d b IN if b then ret true else Sem d c
   | b_conj b c => LET b ::= Sem d b IN if b then Sem d c else ret false
-  | b_mlt _ _ _ _
-  | b_mne _ _ _ _ => err "comparison of univariate functions not supported in static mode"
+  | c_lt f g => LET f ::= Sem d f IN LET g ::= Sem d g IN mlt d f g
+  | c_ne f g => LET f ::= Sem d f IN LET g ::= Sem d g IN ret (mne d f g)
+  | c_disj b c => LET b ::= Sem d b IN if b then ret true else Sem d c
+  | c_conj b c => LET b ::= Sem d b IN if b then Sem d c else ret false
+  | c_cst b => Sem d b
   | b_impl _ _ => err "cannot handle arbitrary implications"
   | b_forall _ => err "cannot handle arbitrary universal quantifications"
-  | b_bounded_forall n p a b => 
+  | b_forall_models a b p => 
+      LET a ::= Sem d a IN
+      LET b ::= Sem d b IN
+      if ~~is_le dlo a then err "model comparison: lower bound beyond domain" else
+      if ~~is_le b dhi then err "model comparison: upper bound beyond domain" else
+      Sem d p
+  | b_forall_bisect n a b p => 
       LET a ::= Sem d a IN
       LET b ::= Sem d b IN
       let ab := bnd a b in
@@ -408,6 +447,7 @@ Definition cval S: sval S -> rval S -> Prop :=
   | REAL => EP' contains
   | FUN  => EP' mcontains
   | BOOL => EPimpl
+  | PRED => fun b p => EPimpl b (forall x, dlo <= x <= dhi -> p x)
   end.
 Lemma correct S (u: term S) (v: term S): trel cval u v -> forall d, cval (Sem d u) (sem v).
 Proof.
@@ -454,16 +494,37 @@ Proof.
     case: IHtrel2=>//. constructor. tauto. 
   - eapply ep_bind=>[b|]; eauto. 2: apply IHtrel1.
     case b. case: IHtrel2=>//. constructor. auto. by constructor.
-  - constructor. 
-  - constructor.
+  - eapply ep_bind=>[F Ff|]; eauto. 
+    eapply ep_bind=>[G Gg|]; eauto.
+    by apply rmlt. 
+  - eapply ep_bind=>[F Ff|]; eauto. 
+    eapply ep_bind=>[G Gg|]; eauto.
+    constructor. by apply rmne. 
+  - eapply ep_bind=>[b|]; eauto.  2: apply IHtrel1. 
+    case b. constructor; eauto. intros _.
+    case: IHtrel2=>//. constructor; eauto. 
+  - eapply ep_bind=>[b|]; eauto. 2: apply IHtrel1.
+    case b. case: IHtrel2=>//. constructor. auto. by constructor.
+  - move: (IHtrel deg). case (Sem deg x). 2: constructor.
+    intro. inversion 1. constructor. auto. 
+  - by [].
   - by []. 
-  - constructor.
+  - eapply ep_bind=>[A HA|]; eauto.
+    eapply ep_bind=>[B HB|]; eauto.
+    case is_leE=>//=Ha. 
+    case is_leE=>//=Hb.
+    move: (IHtrel3 deg).
+    case (Sem deg h)=>//=r. inversion 1. constructor.
+    intros. apply H3=>//.
+    specialize (Ha _ _ rdlo HA).
+    specialize (Hb _ _ HB rdhi).
+    cbn in *. lra. 
   - eapply ep_bind=>[A HA|]; eauto.
     eapply ep_bind=>[B HB|]; eauto.
     (* TODO: improve this ugly proof *)
     constructor. case (bisectE (p:=fun x => sem (k x)))=>//.
     -- move=>X. case_eq (Sem deg (h (ret X)))=>//[[|]]//K.
-       constructor=>z Xz. lapply (H0 (ret X) z). 2: by constructor.
+       constructor=>z Xz. lapply (H2 (ret X) z). 2: by constructor.
        move=>K'. move: (K' deg). rewrite K. inversion 1. by apply H4.
     -- move=>K _ z Hz. apply K. by eapply bndE; eauto.
   - by []. 
@@ -492,7 +553,7 @@ End Static.
 
 
 (** ** dynamic evaluation function *)
-(** where we choose the basis according to integral bounds *)
+(** where we choose the basis according to integral bounds or quantifiers *)
 Module Dynamic.
 Section s.
 
@@ -504,6 +565,7 @@ Definition sval S :=
   | REAL => E II
   | FUN => (forall MO: ModelOps, E MM)
   | BOOL => E bool
+  | PRED => (forall MO: ModelOps, E bool)
   end.
 Fixpoint Sem d S (t: @term sval S): sval S :=
   match t in term S return sval S with
@@ -546,25 +608,29 @@ Fixpoint Sem d S (t: @term sval S): sval S :=
   | b_ne e f => e_map2 is_ne (Sem d e) (Sem d f)
   | b_disj b c => LET b ::= Sem d b IN if b then ret true else Sem d c
   | b_conj b c => LET b ::= Sem d b IN if b then Sem d c else ret false
-  | b_mlt a b f g =>
-      LET a ::= Sem d a IN 
-      LET b ::= Sem d b IN
-      if ~~ is_lt a b then err "invalid domain" else
-      let M := MO a b in
+  | c_lt f g =>
+      fun M => 
       LET f ::= Sem d f M IN 
       LET g ::= Sem d g M IN
       mlt d f g
-  | b_mne a b f g =>
-      LET a ::= Sem d a IN 
-      LET b ::= Sem d b IN
-      if ~~ is_lt a b then err "invalid domain" else
-      let M := MO a b in
+  | c_ne f g =>
+      fun M => 
       LET f ::= Sem d f M IN 
       LET g ::= Sem d g M IN
       ret (mne d f g)
+  | c_disj b c => fun M => LET b ::= Sem d b M IN if b then ret true else Sem d c M
+  | c_conj b c => fun M => LET b ::= Sem d b M IN if b then Sem d c M else ret false
+  | c_cst b => fun _ => Sem d b
   | b_impl _ _ => err "cannot handle arbitrary implications"
   | b_forall _ => err "cannot handle arbitrary universal quantifications"
-  | b_bounded_forall n p a b => 
+  | b_forall_models a b p => 
+      LET a ::= Sem d a IN
+      LET b ::= Sem d b IN
+      if ~~ is_lt a b then err "invalid domain" else
+      (* TODO: bisection *)
+      let M := MO a b in
+      Sem d p M
+  | b_forall_bisect n a b p => 
       LET a ::= Sem d a IN
       LET b ::= Sem d b IN
       let ab := bnd a b in
@@ -582,6 +648,7 @@ Definition cval S: sval S -> rval S -> Prop :=
   | REAL => EP' contains
   | FUN  => fun F f => forall MO a b (M: Model MO a b), EP' M (F MO) f
   | BOOL => EPimpl
+  | PRED => fun P p => forall MO a b (M: Model MO a b), EPimpl (P MO) (forall x, a <= x <= b -> p x)
   end.
 Lemma correct S (u: term S) (v: term S): trel cval u v -> forall d, cval (Sem d u) (sem v).
 Proof.
@@ -635,33 +702,34 @@ Proof.
   - eapply ep_bind=>[b|]; eauto. 2: apply IHtrel1. 
     case b. case: IHtrel2=>//. constructor. auto. by constructor.
   - eapply ep_bind=>[A Aa|]; eauto.  
-    eapply ep_bind=>[B Bb|]; eauto.  
-    case_eq (is_lt A B)=>[ab|]. 2: constructor.
-    specialize (IHtrel3 deg _ _ _ (M (DfromI2 Aa Bb ab))).
-    specialize (IHtrel4 deg _ _ _ (M (DfromI2 Aa Bb ab))).
-    eapply ep_bind=>[F Ff|]; eauto.
-    eapply ep_bind=>[G Gg|]; eauto.
-    eapply rmlt. apply Ff. apply Gg. 
+    eapply ep_bind=>[B Bb|]; eauto.
+    by apply rmlt. 
+  - eapply ep_bind=>[A Aa|]; eauto.  
+    eapply ep_bind=>[B Bb|]; eauto.
+    constructor. by apply rmne. 
+  - eapply ep_bind=>[c|]; eauto. 2: apply IHtrel1; eauto. 
+    case c. constructor. left; eauto. intros _.
+    case: IHtrel2=>//. constructor. right; eauto.
+  - eapply ep_bind=>[c|]; eauto. 2: apply IHtrel1; eauto. 
+    case c. case: IHtrel2=>//. constructor. auto. by constructor.
+  - move: (IHtrel deg). case (Sem deg x). 2: constructor.
+    intro. inversion 1. constructor. auto.
+  - by [].
+  - by [].
   - eapply ep_bind=>[A Aa|]; eauto.  
     eapply ep_bind=>[B Bb|]; eauto.  
     case_eq (is_lt A B)=>[ab|]. 2: constructor.
-    specialize (IHtrel3 deg _ _ _ (M (DfromI2 Aa Bb ab))).
-    specialize (IHtrel4 deg _ _ _ (M (DfromI2 Aa Bb ab))).
-    eapply ep_bind=>[F Ff|]; eauto.
-    eapply ep_bind=>[G Gg|]; eauto.
-    constructor. eapply rmne. apply Ff. apply Gg. 
-  - by [].
-  - constructor. 
+    exact (IHtrel3 deg _ _ _ (M (DfromI2 Aa Bb ab))).
   - eapply ep_bind=>[A HA|]; eauto.
     eapply ep_bind=>[B HB|]; eauto.
     (* TODO: improve this ugly proof *)
     constructor. case (bisectE (p:=fun x => sem (k x)))=>//.
     -- move=>X. case_eq (Sem deg (h (ret X)))=>//[[|]]//K.
-       constructor=>z Xz. lapply (H0 (ret X) z). 2: by constructor.
+       constructor=>z Xz. lapply (H2 (ret X) z). 2: by constructor.
        move=>K'. move: (K' deg). rewrite K. inversion 1. by apply H4.
     -- move=>K _ z Hz. apply K. by eapply bndE; eauto.
-  - by []. 
-  - assumption.
+  - by[]. 
+  - by[].
   - auto. 
 Qed.
 
@@ -692,6 +760,7 @@ End Dynamic.
 Definition expr X := @term X REAL.
 Definition fxpr X := @term X FUN.
 Definition bxpr X := @term X BOOL.
+Definition cxpr X := @term X PRED.
 
 Declare Scope expr_scope.
 Bind Scope expr_scope with expr.
@@ -714,8 +783,7 @@ Definition sin' {X}: expr X -> expr X := e_sin.
 Definition abs' {X}: expr X -> expr X:= e_abs.
 Definition pi' {X}: expr X := e_pi.
 
-Definition cst' X: expr X -> fxpr X := f_cst.
-Coercion cst': expr >-> fxpr.
+Coercion cst' X: expr X -> fxpr X := f_cst.
 Declare Scope fxpr_scope.
 Bind Scope fxpr_scope with fxpr.
 Delimit Scope fxpr_scope with fxpr.
@@ -756,26 +824,47 @@ Infix ">" := b_gt': bxpr_scope.
 Infix "/\" := b_conj': bxpr_scope. 
 Infix "\/" := b_disj': bxpr_scope.
 
-Notation "'let_ee' x := e 'in' g" := (let' (e%expr: expr _) (fun (x: expr _) => (g%expr: expr _))) (at level 200, x binder, right associativity): expr_scope.
-Notation "'let_ef' x := e 'in' g" := (let' (e%expr: expr _) (fun (x: expr _) => (g%fxpr: fxpr _))) (at level 200, x binder, right associativity): fxpr_scope.
-Notation "'let_eb' x := e 'in' g" := (let' (e%expr: expr _) (fun (x: expr _) => (g%bxpr: bxpr _))) (at level 200, x binder, right associativity): bxpr_scope.
-Notation "'let_fe' x := e 'in' g" := (let' (e%fxpr: fxpr _) (fun (x: fxpr _) => (g%expr: expr _))) (at level 200, x binder, right associativity): expr_scope.
-Notation "'let_ff' x := e 'in' g" := (let' (e%fxpr: fxpr _) (fun (x: fxpr _) => (g%bxpr: fxpr _))) (at level 200, x binder, right associativity): fxpr_scope.
-Notation "'let_fb' x := e 'in' g" := (let' (e%fxpr: fxpr _) (fun (x: fxpr _) => (g%bxpr: bxpr _))) (at level 200, x binder, right associativity): bxpr_scope.
+Declare Scope cxpr_scope.
+Bind Scope cxpr_scope with cxpr.
+Delimit Scope cxpr_scope with cxpr.
+Definition c_lt' X: fxpr X -> fxpr X -> cxpr X := c_lt.
+Definition c_ne' X: fxpr X -> fxpr X -> cxpr X := c_ne.
+Definition c_conj' X: cxpr X -> cxpr X -> cxpr X := c_conj.
+Definition c_disj' X: cxpr X -> cxpr X -> cxpr X := c_disj.
+Coercion c_cst' X: bxpr X -> cxpr X := c_cst.
+Infix "<" := c_lt': cxpr_scope. 
+Infix "<>" := c_ne': cxpr_scope. 
+Infix "/\" := c_conj': cxpr_scope. 
+Infix "\/" := c_disj': cxpr_scope.
+
+Definition b_forall_models' X: expr X -> expr X -> cxpr X -> bxpr X := b_forall_models.
+Definition b_forall_bisect' X: nat -> expr X -> expr X -> (expr X -> bxpr X) -> bxpr X := forall_bisect'.
+
+(* TODO: rework/simplify (type-directed) *)
+Notation "'let_e' x := e 'in' g" := (let' (e%expr: expr _) (fun (x: expr _) => (g%expr: expr _))) (at level 200, x binder, right associativity): expr_scope.
+Notation "'let_e' x := e 'in' g" := (let' (e%expr: expr _) (fun (x: expr _) => (g%fxpr: fxpr _))) (at level 200, x binder, right associativity): fxpr_scope.
+Notation "'let_e' x := e 'in' g" := (let' (e%expr: expr _) (fun (x: expr _) => (g%bxpr: bxpr _))) (at level 200, x binder, right associativity): bxpr_scope.
+Notation "'let_e' x := e 'in' g" := (let' (e%expr: expr _) (fun (x: expr _) => (g%cxpr: cxpr _))) (at level 200, x binder, right associativity): cxpr_scope.
+Notation "'let_f' x := e 'in' g" := (let' (e%fxpr: fxpr _) (fun (x: fxpr _) => (g%expr: expr _))) (at level 200, x binder, right associativity): expr_scope.
+Notation "'let_f' x := e 'in' g" := (let' (e%fxpr: fxpr _) (fun (x: fxpr _) => (g%fxpr: fxpr _))) (at level 200, x binder, right associativity): fxpr_scope.
+Notation "'let_f' x := e 'in' g" := (let' (e%fxpr: fxpr _) (fun (x: fxpr _) => (g%bxpr: bxpr _))) (at level 200, x binder, right associativity): bxpr_scope.
+Notation "'let_f' x := e 'in' g" := (let' (e%fxpr: fxpr _) (fun (x: fxpr _) => (g%cxpr: cxpr _))) (at level 200, x binder, right associativity): cxpr_scope.
 Notation EXPR t := ((fun X => (t%expr: expr X)): Term REAL).
 Notation FXPR t := ((fun X => (t%fxpr: fxpr X)): Term FUN).
 Notation BXPR t := ((fun X => (t%bxpr: bxpr X)): Term BOOL).
+Notation CXPR t := ((fun X => (t%cxpr: cxpr X)): Term PRED).
 
 (*
 Check EXPR (1+e_pi).
 Check EXPR (1+integrate' id' 0 1).
 Check FXPR (id'/id').
 Check EXPR (1+integrate' (id' / fsqrt id') 0 (fromQ' 3.3)).
-Check EXPR (1+integrate' (id' / (fsqrt id' + fromQ' 3.2)) 0 (fromQ' 3.3)).
-Check EXPR (let_ee x := 1+e_pi in x + x).
-Check EXPR (let_ee x := 1+e_pi in x + let_ee y := x*x in sqrt' (y+y)).
-Check FXPR (let_ef x := 1+e_pi in id' + x).
-Check FXPR (let_ff f := 1-id' in id' * id').
+Check EXPR (1+integrate' (id' / (fsqrt id' + fromZ' 3)) 0 (fromQ' 3.3)).
+Check EXPR (let_e x := 1+e_pi in x + x).
+Check EXPR (let_e x := 1+e_pi in x + let_e y := x*x in sqrt' (y+y)).
+Check FXPR (let_e x := 1+e_pi in id' + x).
+Check FXPR (let_f f := 1-id' in id' * id').
 Check BXPR (1 <= 0 \/ cos' pi' < 1 /\ cos' 0 >= 1).
-Check BXPR (b_bounded_forall 10 (fun c => integrate' (id'+cst' (t_var c)) 0 1 <= t_var c+1/fromZ' 2) 0%expr 1%expr).
+Check BXPR (b_forall_bisect' 10 0 1 (fun c => integrate' (id'+c) 0 1 <= c+1/fromZ' 2) ).
+Check BXPR (b_forall_models' 0 1 (id' < 0 /\ 1 <> fsqrt id')).
 *) 
