@@ -24,8 +24,11 @@ Lemma list_rel_app: forall h k, list_rel h k -> forall p q, list_rel p q -> list
 Proof. induction 1; simpl; rel. Qed.
 Hint Resolve list_rel_app: rel.
 
+Lemma list_rel_rev_append: forall h k, list_rel h k -> forall m n, list_rel m n -> list_rel (rev_append h m) (rev_append k n).
+Proof. induction 1=>//m n mn; rewrite /=. rel. Qed.
+
 Lemma list_rel_rev: forall h k, list_rel h k -> list_rel (rev h) (rev k).
-Proof. induction 1; rewrite /= /rev /= ?catrevE; rel. Qed.
+Proof. intros. apply list_rel_rev_append=>//. constructor. Qed.
 
 Lemma list_rel_map A (f: A -> R) (g: A -> S):
   (forall a, rel (f a) (g a)) -> forall l, list_rel (map f l) (map g l).
@@ -39,7 +42,7 @@ Proof. by []. Qed.
 
 End r.
 Global Hint Constructors list_rel: rel.
-Global Hint Resolve list_rel_tl list_rel_app list_rel_rev rpair: rel.
+Global Hint Resolve list_rel_tl list_rel_app list_rel_rev list_rel_rev_append rpair: rel.
 
 Lemma list_rel_map' {A B R S} (rel: A -> B -> Prop) (rel': R -> S -> Prop) (f: A -> R) (g: B -> S):
   (forall a b, rel a b -> rel' (f a) (g b)) ->

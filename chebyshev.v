@@ -320,7 +320,7 @@ Qed.
 
 (** the two evaluation strategies coincide (on R) *)
 Corollary evalR P x: eval' P x = eval P x.
-Proof. rewrite /eval' ClenshawR rev_append_rev rev_involutive eval_app /=. ring. Qed.
+Proof. rewrite /eval' ClenshawR rev_append_rev revE rev_involutive eval_app /=. ring. Qed.
 
 
 

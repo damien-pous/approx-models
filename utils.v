@@ -69,3 +69,8 @@ Module Zmap.
   (** convert the first [n] elements of the array into a list [d] is the default value for uninitialized cells *)
   Definition tolist {A} d n m: list A := Zfold (fun z => cons (get d m z)) n nil.
 End Zmap.
+
+(** * linear implementation of List.rev *)
+Definition rev {A} (l: list A) := List.rev_append l nil.
+Lemma revE {A} (l: list A): rev l = List.rev l.
+Proof. symmetry. apply List.rev_alt. Qed.

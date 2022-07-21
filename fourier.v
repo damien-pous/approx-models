@@ -1095,25 +1095,25 @@ Proof.
     lia.
     have Hlq : length q = (2*n)%nat.
     move : Hq; simpl; lia.    
-    rewrite /= app_assoc_reverse /= eval_app_ /=.
+    rewrite /= revE /= app_assoc_reverse  /= eval_app_ /=.
     rewrite IHn => //.
     rewrite /F Nat.add_1_r Nat.even_succ Nat.even_succ_succ -Nat.negb_even  rev_length Hlq -Nat.double_twice even_double_ /=  -Div2.double_S order_double_S order_double Rmult_plus_distr_r Rmult_minus_distr_r !Rmult_assoc.
-    destruct n. rewrite S0 C0 /=; ring.
+    destruct n. rewrite S0 C0 /= revE; ring.
     have HS : (1 <= n.+1)%nat. lia.
     rewrite CCprod => //; rewrite SSprod => //; rewrite SCprod => //; rewrite CSprod => //.
-    rewrite /= Nat.add_1_r; field.
+    rewrite /= Nat.add_1_r revE; field.
 Qed.
 
 Lemma equiv_eval_fast_eval P x: fast_eval P x = eval P x.
 Proof.
   move : P => [ // | a p ]. move : equiv_eval_fast_eval_ => He. 
-  simpl. rewrite -C1 -S1 /eval /= F0.
+  simpl. rewrite -C1 -S1 /eval /= F0 revE.
   case_eq (even (length p)) => H; rewrite H.
   + apply even_double in H; move: H => [k H]; rewrite Nat.double_twice -rev_length in H.
-    rewrite (He k) => //. rewrite rev_involutive /=. ring.
+    rewrite (He k) => //. rewrite !revE rev_involutive /=. ring.
   + apply odd_double in H; move: H => [ k H]. rewrite Nat.double_twice in H.
     rewrite cons0_nonempty. rewrite (He k .+1) /=.
-    rewrite rev_involutive /= eval_app_0; ring.
+    rewrite !revE/= rev_involutive /= eval_app_0; ring.
     rewrite rev_length H; lia.
     rewrite rev_length H; lia.
 Qed.
@@ -1440,4 +1440,3 @@ Program Definition basis {N: NBH} (D: Domain):
   vectorspace.rbeval := @rfast_eval _ _ _;
   vectorspace.rbrange := @rrange _ _ _;
 |}.
-

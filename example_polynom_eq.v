@@ -105,18 +105,18 @@ Module oval_fourier.
   
   (* timings on Damien's machine, plugged *)
   (* negative degree: do not truncate (and use absolute value for interpolation degree) *)
-  Time Eval native_compute in oval_valid 20.    (* missed / .4s *)
-  Time Eval native_compute in oval_valid (-20). (* 0.006  / .4s *)
-  Time Eval native_compute in oval_valid 25.    (* 0.006  / .6s*)
-  Time Eval native_compute in oval_valid (-25). (* 0.002  / .6s*)
+  Time Eval native_compute in oval_valid 20.    (* missed / .3s *)
+  Time Eval native_compute in oval_valid (-20). (* 0.006  / .3s *)
+  Time Eval native_compute in oval_valid 25.    (* 0.006  / .4s*)
+  Time Eval native_compute in oval_valid (-25). (* 0.002  / .4s*)
   
-  Time Eval native_compute in oval_valid 30.    (* 0.001  / .9s *)
-  Time Eval native_compute in oval_valid (-30). (* 0.0006 / .9s *)
-  Time Eval native_compute in ignore (polynom_eq_oracle (-30) F' phi0). (* .4s -> .5s for the certification *)
+  Time Eval native_compute in oval_valid 30.    (* 0.001  / .5s *)
+  Time Eval native_compute in oval_valid (-30). (* 0.0006 / .5s *)
+  Time Eval native_compute in ignore (polynom_eq_oracle (-30) F' phi0). (* .4s -> .1s for the certification *)
   
-  Time Eval native_compute in oval_valid 50.    (* 1.0e-4  / 4.2s *)
-  Time Eval native_compute in oval_valid (-50). (* 1.4e-5 / 4.2s *)
-  Time Eval native_compute in ignore (polynom_eq_oracle (-50) F' phi0). (* 1s -> 3.2s for the certification *)
+  Time Eval native_compute in oval_valid 50.    (* 1.0e-4  / 1.3s *)
+  Time Eval native_compute in oval_valid (-50). (* 1.4e-5 / 1.4s *)
+  Time Eval native_compute in ignore (polynom_eq_oracle (-50) F' phi0). (* 1s -> .4s for the certification *)
 
   (** manual computation *)
   (** refined solution, with degree [d] for the oracle, and [n] Newton iterations for each point  *)
