@@ -767,25 +767,24 @@ Section ops.
 
   (** Evaluation *)
 
-  Fixpoint fast_eval_ a b (P: list C) cost sint :=
+  Definition fast_eval_ cost sint :=
+    fix fast_eval_ a b (P: list C) :=
     match P with
     | [] => a 
     | [_] => 0
     | a'::b'::Q =>
         let a'' := a+a' in
         let b'' := b+b' in
-        fast_eval_ ( a''* cost + b'' * sint) (b'' * cost - a'' * sint ) Q cost sint
+        fast_eval_ ( a''* cost + b'' * sint) (b'' * cost - a'' * sint ) Q
     end.
 
-  Definition fast_eval (P: list C) x :=
+  Definition fast_eval (P: list C) :=
     match P with
-    | [] => 0
-    | h::Q => let cost := cos x in
-             let sint := sin x in
-             h + fast_eval_ 0 0
-                            (* TODO: opt *)
-                            (if (even (length Q)) then (rev Q) else (cons0 (rev Q)))
-                            cost sint
+    | [] => fun t => 0
+    | h::Q =>
+        (* TODO: opt *)
+        let rQ := if even (length Q) then rev Q else cons0 (rev Q) in
+        fun t => h + fast_eval_ (cos t) (sin t) 0 0 rQ
     end.
 
   (** Integration *)
@@ -1032,15 +1031,6 @@ Qed.
 
 (* Correctness of fast_eval *)
 
-Lemma eval_app_: forall P Q x n, eval_ n (P ++ Q) x = eval_ n P x + eval_ (length P + n) Q x.
-Proof.
-  induction P as [|a P IH]; intros Q x n.
-  - simpl; ring.
-  - rewrite /=IH/= plus_n_Sm. ring.
-Qed.
-Lemma eval_app P Q x: eval (P ++ Q) x = eval P x + eval_ (length P) Q x.
-Proof. rewrite /eval eval_app_ -plus_n_O //. Qed.
-
 Lemma cons0_nonempty (P: list R): length P <> 0%nat -> cons0 P = 0::P.
 Proof. by case P. Qed.
 
@@ -1049,7 +1039,7 @@ Proof. elim: P n=>[n/=|a p IHp n //=]. ring. by rewrite IHp. Qed.
 
 Lemma equiv_eval_fast_eval_ n t: forall a b P,
   length P = (2*n)%nat ->
-  fast_eval_ a b P (CC 1 t) (SS 1 t) = eval_ 1 (rev P) t + a * CC n t + b * SS n t.  
+  fast_eval_ (CC 1 t) (SS 1 t) a b P = eval_ 1 (rev P) t + a * CC n t + b * SS n t.  
 Proof.
   induction n.
   + intros a b;move => [ _ /= |  // ]; rewrite C0 S0 /=; lra. 
@@ -1175,29 +1165,30 @@ Section s.
   Notation pT := (list_rel T).
   
   Lemma rmul_minus: forall x y, pT x y -> forall x' y', pT x' y' -> pT (mul_minus x x') (mul_minus y y').
-  Proof. intros ?? H; induction H; intros ?? [|???]; simpl; rel. Qed.
+  Proof. intros ?? H; induction H; intros ?? []; rel. Qed.
   Lemma rmul_plus: forall x y, pT x y -> forall x' y', pT x' y' -> pT (mul_plus x x') (mul_plus y y').
-  Proof. intros ?? H; induction H; intros ?? [|???]; simpl; rel. Qed.
+  Proof. intros ?? H; induction H; intros ?? []; rel. Qed.
   Lemma rmul_minusSC: forall x y, pT x y -> forall x' y', pT x' y' -> pT (mul_minusSC x x') (mul_minusSC y y').
-  Proof. intros ?? H; induction H; intros ?? [|???]; simpl; rel. Qed.
+  Proof. intros ?? H; induction H; intros ?? []; rel. Qed.
   Lemma rtl: forall x y, pT x y -> pT (tl x) (tl y).
-  Proof. intros ?? [|] => /=; rel. Qed.
+  Proof. intros ?? []; rel. Qed.
   Local Hint Resolve rmul_minus rmul_plus rmul_minusSC rtl: rel.
   Lemma rpmulCC: forall x y, pT x y -> forall x' y', pT x' y' -> pT (pmulCC x x') (pmulCC y y').
-  Proof. simpl. unfold pmulCC. rel. Qed.
+  Proof. unfold pmulCC. rel. Qed.
   Lemma rpmulSS: forall x y, pT x y -> forall x' y', pT x' y' -> pT (pmulSS x x') (pmulSS y y').
-  Proof. simpl. unfold pmulSS. rel. Qed.
+  Proof. unfold pmulSS. rel. Qed.
   Lemma rpmulSC': forall x y, pT x y -> forall x' y', pT x' y' -> pT (pmulSC' x x') (pmulSC' y y').
-  Proof. simpl. unfold pmulSC'. rel. Qed.
+  Proof. unfold pmulSC'. rel. Qed.
   Local Hint Resolve rpmulSC': rel.
   Lemma rpmulSC: forall x y, pT x y -> forall x' y', pT x' y' -> pT (pmulSC x x') (pmulSC y y').
-  Proof. simpl. unfold pmulSC. rel. Qed.
+  Proof. unfold pmulSC. rel. Qed.
+  (* TODO: rework proofs below *)
   Lemma rsplit_fst_: forall x y, pT x y -> pT (split_left x).1 (split_left y).1 /\  pT (split_right x).1 (split_right y).1.
-  Proof. intros ?? H. induction H. simpl. rel.  
+  Proof. intros ?? H. induction H. cbn; rel.  
          inversion IHlist_rel. split. simpl; constructor => //. by [].
   Qed.
   Lemma rsplit_snd_: forall x y, pT x y ->  pT (split_left x).2 (split_left y).2 /\ pT (split_right x).2 (split_right y).2.
-  Proof. intros ?? H. induction H. simpl. rel. 
+  Proof. intros ?? H. induction H. cbn; rel. 
          inversion IHlist_rel. split. simpl => //. constructor => //. 
   Qed.
   Lemma rsplit_fst: forall x y, pT x y ->  pT (split_ x).1 (split_ y).1.
@@ -1234,11 +1225,11 @@ Section s.
   Proof. simpl. unfold psin. rel. Qed.
   Lemma rpcst: forall a b, rel T a b -> pT (pcst a) (pcst b).
   Proof. unfold pcst. rel. Qed.
-  Lemma rfast_eval_: forall P Q,  pT P Q ->
-                                   forall a b , T a b -> forall c d, T c d ->
-                                   forall c1 c2, T c1 c2 -> forall s1 s2, T s1 s2 ->
-                                   rel T (fast_eval_ a c P c1 s1) (fast_eval_ b d Q c2 s2).       
-  Proof.  intro P; elim/@list2_ind: P  => [ | x |  l x y HIP  ] Q HPQ.
+  Lemma rfast_eval_:
+    forall P Q,  pT P Q -> forall a b , T a b -> forall c d, T c d ->
+    forall c1 c2, T c1 c2 -> forall s1 s2, T s1 s2 ->
+    rel T (fast_eval_ c1 s1 a c P) (fast_eval_ c2 s2 b d Q).       
+  Proof. intro P; elim/@list2_ind: P  => [ | x |  l x y HIP  ] Q HPQ.
          + inversion HPQ. by [].
          + inversion HPQ; inversion H3. simpl. rel.
          + inversion HPQ; inversion H3. simpl. intros. apply HIP => //. rel. rel.
@@ -1262,8 +1253,9 @@ Section s.
     intro P; elim/@list2_ind: P => [ | x | l x y HIP ] Q HPQ n; inversion HPQ; try inversion H3; simpl; rel.
   Qed.
   Local Hint Resolve rfast_eval rprim_: rel.
-  Lemma rintegrate: forall P Q, pT P Q -> forall a b, rel T a b -> forall c d , rel T c d ->
-                     rel T (integrate P a c) (integrate Q b d).
+  Lemma rintegrate:
+    forall P Q, pT P Q -> forall a b, rel T a b -> forall c d , rel T c d ->
+    rel T (integrate P a c) (integrate Q b d).
   Proof. intro P; move: P => [ Q H | x p Q H ]; inversion H; unfold integrate; rel. Qed.
   Lemma rrange_ p q: pT p q -> T (range_ p) (range_ q).
   Proof. induction 1; simpl; rel. Qed.
