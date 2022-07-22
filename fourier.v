@@ -652,12 +652,6 @@ Section ops.
 
   (** sin *)
   Definition psin : list C := [0;1].
-  
-  Definition cons0 (p: list C) := match p with [] => p | _=>0::p end.
-  
-  Definition cons00 (p: list C) :=
-    match p with [] => p | _=>0::0::p end.
-
 
   (** Definition of split/merge splitCC splitSS **)
 
@@ -1212,11 +1206,6 @@ Section s.
   Variable T: Rel1 R S.
   Notation pT := (list_rel T).
   
-  Lemma rcons0: forall x y, pT x y -> pT (cons0 x) (cons0 y).
-  Proof. intros ??[|]=>/=; rel. Qed.
-  Lemma rcons00: forall x y, pT x y -> pT (cons00 x) (cons00 y).
-  Proof. intros ??[|]=>/=; rel. Qed.
-  Hint Resolve rcons0 rcons00: rel.
   Lemma rmul_minus: forall x y, pT x y -> forall x' y', pT x' y' -> pT (mul_minus x x') (mul_minus y y').
   Proof. intros ?? H; induction H; intros ?? [|???]; simpl; rel. Qed.
   Lemma rmul_plus: forall x y, pT x y -> forall x' y', pT x' y' -> pT (mul_plus x x') (mul_plus y y').
@@ -1316,7 +1305,7 @@ Section s.
     rewrite /range. intros [|a b AB p' q' p'q']; rel.
   Qed.
 End s.
-Global Hint Resolve rcons0 rcons00 rpmul rpone rpcst rfast_eval rprim_ rintegrate rrange_ rrange: rel.
+Global Hint Resolve rpmul rpone rpcst rfast_eval rprim_ rintegrate rrange_ rrange: rel.
 
 
 (** ** interpolation  *)

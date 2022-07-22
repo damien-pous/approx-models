@@ -188,12 +188,6 @@ Section ops.
 
  (** identity (X) *)
  Definition pid: list C := [0;1].
-
- (** optimised cons operations, from primitive and multiplication *)
- Definition cons0 (p: list C) := match p with [] => p | _=>0::p end.
- 
- Definition cons00 (p: list C) :=
-   match p with [] => p | _=>0::0::p end.
  
  (** multiplication *)
  Fixpoint mul_minus (p q: list C): list C :=
@@ -217,10 +211,10 @@ Section ops.
     | [] => []
     | a :: q =>
       match n with
-        | 0 => sadd [ 0; a] (prim_ 1 q)
+        | 0 => sadd [0; a] (prim_ 1 q)
         | 1 => cons0 (sadd [0; a // 4] (prim_ 2 q))
-        | (_.+1 as n').+1 => sadd [0 - a // (n'*2); 0; a // ((n.+1)*2)%nat]
-                        (cons0 (prim_ n.+1 q))
+        | (_.+1 as n').+1 => sadd [0 - a // (n'*2); 0; a // ((n.+1)*2)]
+                                 (cons0 (prim_ n.+1 q))
       end
   end.
  Definition prim p := prim_ 0 p.
@@ -268,11 +262,6 @@ Proof. compute. rewrite T0/=. ring. Qed.
 
 Lemma eval_id (x: R): eval pid x = x.
 Proof. compute. rewrite T0 T1/=. ring. Qed.
-
-Lemma eval_cons0_ n p (x: R): eval_ n (cons0 p) x = eval_ n.+1 p x.
-Proof. destruct p=>//=. ring. Qed.
-Lemma eval_cons00_ n p (x: R): eval_ n (cons00 p) x = eval_ n.+2 p x.
-Proof. destruct p=>//=. ring. Qed.
 
 Lemma Teval: forall p n m x,
   (n<=m)%nat -> T n x * eval_ m p x = (eval_ (m+n) p x + eval_ (m-n) p x)/2.
@@ -395,11 +384,6 @@ Section s.
  Variable T: Rel1 R S.
  Notation pT := (list_rel T).
 
- Lemma rcons0: forall x y, pT x y -> pT (cons0 x) (cons0 y).
- Proof. intros ??[|]=>/=; rel. Qed.
- Lemma rcons00: forall x y, pT x y -> pT (cons00 x) (cons00 y).
- Proof. intros ??[|]=>/=; rel. Qed.
- Hint Resolve rcons0 rcons00: rel.
  Lemma rmul_minus: forall x y, pT x y -> forall x' y', pT x' y' -> pT (mul_minus x x') (mul_minus y y').
  Proof. intros ?? H; induction H; intros ?? [|???]; simpl; rel. Qed.
  Lemma rmul_plus: forall x y, pT x y -> forall x' y', pT x' y' -> pT (mul_plus x x') (mul_plus y y').
