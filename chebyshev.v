@@ -231,7 +231,8 @@ Section ops.
    | [] => c - x*b
    | a::Q => Clenshaw c (a + mulZ 2 (x*c) - b) Q x 
    end.
- Definition eval' P x := Clenshaw 0 0 (rev P) x.
+ (* below: not eta-expanded to help partial application to share (rev P) *)
+ Definition eval' P := Clenshaw 0 0 (rev P).
  (** recall: 
     - [eval'] is the efficient evaluation of a polynomial, available on R, F, I 
     - [eval]  is the inefficient yet mathematically simple evaluation of a polynomial, available only on R *)
