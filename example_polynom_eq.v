@@ -119,21 +119,31 @@ Module oval_fourier.
   
   (* timings on Damien's machine, plugged *)
   (* negative degree: do not truncate (and use absolute value for interpolation degree) *)
-  Time Eval native_compute in oval_valid 20.    (* missed / .3s *)
-  Time Eval native_compute in oval_valid (-20). (* 0.006  / .3s *)
-  Time Eval native_compute in oval_valid 25.    (* 0.006  / .4s*)
-  Time Eval native_compute in oval_valid (-25). (* 0.002  / .4s*)
+  Time Eval native_compute in oval_valid 20.    (* missed / .07s *)
+  Time Eval native_compute in oval_valid (-20). (* 0.006  / .07s *)
+  Time Eval native_compute in oval_valid 25.    (* 0.006  / .08s*)
+  Time Eval native_compute in oval_valid (-25). (* 0.002  / .08s*)
   
-  Time Eval native_compute in oval_valid 30.    (* 0.001  / .5s *)
-  Time Eval native_compute in oval_valid (-30). (* 0.0006 / .5s *)
-  Time Eval native_compute in ignore (polynom_eq_oracle (-30) F' phi0). (* .4s *)
-  Time Eval native_compute in ignore (full_oracle (-30)).               (* .5s -> .1s for radius *)
+  Time Eval native_compute in oval_valid 30.    (* 0.001  / .08s *)
+  Time Eval native_compute in oval_valid (-30). (* 0.0006 / .09s *)
+  Time Eval native_compute in ignore (polynom_eq_oracle (-30) F' phi0). (* .1s *)
+  Time Eval native_compute in ignore (full_oracle (-30)).               (* .2s -> .1s for radius *)
   
-  Time Eval native_compute in oval_valid 50.    (* 1.0e-4 / 1.3s *)
-  Time Eval native_compute in oval_valid (-50). (* 1.4e-5 / 1.3s *)
-  Time Eval native_compute in ignore (polynom_eq_oracle (-50) F' phi0). (* 1s *)
-  Time Eval native_compute in ignore (full_oracle (-50)).               (* 1.3s -> .3s for radius *)
+  Time Eval native_compute in oval_valid 50.    (* 1.0e-4 / .2s *)
+  Time Eval native_compute in oval_valid (-50). (* 1.4e-5 / .2s *)
+  Time Eval native_compute in ignore (polynom_eq_oracle (-50) F' phi0). (* .1s *)
+  Time Eval native_compute in ignore (full_oracle (-50)).               (* .2s -> .1s for radius *)
 
+  Time Eval native_compute in oval_valid 100.    (* 1.0e-8 / .3s *)
+  Time Eval native_compute in oval_valid (-100). (* 2.4e-9 / .4s *)
+  Time Eval native_compute in ignore (polynom_eq_oracle (-100) F' phi0). (* .2s *)
+  Time Eval native_compute in ignore (full_oracle (-100)).               (* .4s -> .2s for radius *)
+
+  Time Eval native_compute in oval_valid 200.    (* 2.7e-12 / 1.3s *)
+  Time Eval native_compute in oval_valid (-200). (* 2.7e-12 / 1.6s *)
+  Time Eval native_compute in ignore (polynom_eq_oracle (-200) F' phi0). (* .5s *)
+  Time Eval native_compute in ignore (full_oracle (-200)).               (* 1.5s -> 1s for radius *)
+  
   (** manual computation *)
   (** refined solution, with degree [d] for the oracle, and [n] Newton iterations for each point  *)
   Definition phi d: Model := mfc (polynom_eq_oracle d F' phi0).
