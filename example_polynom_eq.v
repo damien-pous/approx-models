@@ -102,6 +102,20 @@ Module oval_fourier.
     IN ret (width (rem x)).
 
   Definition ignore [A] (a: A) := tt.
+
+  Definition full_oracle d :=
+   let phi' := polynom_eq_oracle d F' phi0 in
+   let d2 := (2*d)%Z in
+   let DF := beval (taylor.eval'' d2 (taylor.derive F') phi') in
+   let A' := interpolate d (fun x => 1 / DF x) in
+   let A := mfc A' in
+   let phi := mfc phi' in
+   LET c ::= mnorm (A * taylor.eval'' d2 F phi) IN
+   let L := taylor.derive (polynom_eq.opnewton F A) in
+   let L' := map (fun M => map I2F (pol M)) L in
+   LET l ::= polynom_for_lambda d2 L' phi' IN
+   find_radius (I2F c) l.
+
   
   (* timings on Damien's machine, plugged *)
   (* negative degree: do not truncate (and use absolute value for interpolation degree) *)
@@ -112,11 +126,13 @@ Module oval_fourier.
   
   Time Eval native_compute in oval_valid 30.    (* 0.001  / .5s *)
   Time Eval native_compute in oval_valid (-30). (* 0.0006 / .5s *)
-  Time Eval native_compute in ignore (polynom_eq_oracle (-30) F' phi0). (* .4s -> .1s for the certification *)
+  Time Eval native_compute in ignore (polynom_eq_oracle (-30) F' phi0). (* .4s *)
+  Time Eval native_compute in ignore (full_oracle (-30)).               (* .5s -> .1s for radius *)
   
-  Time Eval native_compute in oval_valid 50.    (* 1.0e-4  / 1.3s *)
-  Time Eval native_compute in oval_valid (-50). (* 1.4e-5 / 1.4s *)
-  Time Eval native_compute in ignore (polynom_eq_oracle (-50) F' phi0). (* 1s -> .4s for the certification *)
+  Time Eval native_compute in oval_valid 50.    (* 1.0e-4 / 1.3s *)
+  Time Eval native_compute in oval_valid (-50). (* 1.4e-5 / 1.3s *)
+  Time Eval native_compute in ignore (polynom_eq_oracle (-50) F' phi0). (* 1s *)
+  Time Eval native_compute in ignore (full_oracle (-50)).               (* 1.3s -> .3s for radius *)
 
   (** manual computation *)
   (** refined solution, with degree [d] for the oracle, and [n] Newton iterations for each point  *)
