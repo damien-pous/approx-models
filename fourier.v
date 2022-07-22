@@ -1294,14 +1294,14 @@ Section i.
  Let sinus := map_points sin. 
  Let value := map_points f.
 
- Definition coeff_aux (g: Z -> C) (i: Z): C :=
+ Let coeff_aux (g: Z -> C) (i: Z): C :=
    Zfold (fun j acc => acc +  value j * g ((i*j) mod sdn)%Z) sdn 0.
       
- Definition coeff_cos (i: Z) :=
+ Let coeff_cos (i: Z) :=
    (if Z.eqb i 0%Z then ssrfun.id else mulZ 2)
    (coeff_aux cosin i // sdn).
 
- Definition coeff_sin (i: Z) :=
+ Let coeff_sin (i: Z) :=
    mulZ 2 (coeff_aux sinus (i+1)) // sdn.
 
  (* TOTHINK: this returns a list of size [2n+1], while interpolation in Chebyshev returns a polynom of degree [n]. We might wante to divide by two in order to be more uniform. On the other hand a list of Fourier coefficients of length [2n+1] should certainly be called 'of degree n'... *)
