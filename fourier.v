@@ -2,72 +2,30 @@
 
 Require Import String Reals.
 Require Import vectorspace rescale utils.
-Require Import Nat.
-
 
 Set Implicit Arguments.
 Unset Strict Implicit.
 Unset Printing Implicit Defensive.
 
 
-
-(* rank 2 induction on lists and natural numbers (TODO: move to utils) *)
-Fixpoint list_ind2 {C: Type} (P: list C -> Prop)
-         (P0: P nil) (P1: forall x, P [x]) (P2: forall x y l, P l -> P (x::y::l)) l: P l.
-Proof.
-  destruct l. apply P0.
-  destruct l. apply P1.
-  now apply P2, list_ind2. 
-Qed.
-
-Fixpoint nat_ind2 (P: nat -> Prop)
-         (P0: P O) (P1: P 1%nat) (P2: forall n, P n -> P (n.+2)) n: P n.
-Proof.
-  destruct n. apply P0.
-  destruct n. apply P1.
-  now apply P2, nat_ind2. 
-Qed.
-
-(* elements at even/odd positions in a list *)
-Section l.
-Context {C: Type}.
-Fixpoint evens l: list C :=
-  match l with
-  | [] => []
-  | x::l => x::odds l
-  end
-with odds l: list C :=
-  match l with
-  | [] => []
-  | x::l => evens l
-  end.
-End l. 
-
-(* basic properties of div2 and even *)
-Lemma even_double k: even (2*k).
-Proof. induction k=>//. by replace (2*k.+1)%nat with ((2*k).+2) by lia. Qed.
-Lemma div2_2n k: div2 (2*k) = k.
-Proof. induction k=>//=. rewrite -plus_n_Sm IHk//. Qed.
-Lemma div2_2np1 k: div2 ((2*k).+1) = k.
-Proof. induction k=>//=. rewrite -plus_n_Sm IHk//. Qed.
-
-(* stupid helper lemma *)
-Lemma Pred_eq {A} (P: A -> Prop) a b: a = b -> P a -> P b.
-Proof. by intros<-. Qed. 
-
-
 (** ** Definition of the Fourier Basis and properties *)
 
-Definition order n := if even n then div2 n else  (div2 n).+1.
-
-Lemma orderSS n: order (n.+2) = (order n).+1.
-Proof. rewrite /order/=. by case even. Qed.
+Fixpoint order n :=
+  match n with
+  | n.+2 => (order n).+1
+  | _ => n
+  end%nat.
+Arguments order !_/: simpl nomatch.
 
 Lemma orderS n: order (n.+1) = if even n then (order n).+1 else order n.
 Proof.
-  induction n using nat_ind2=>//.
-  rewrite !orderSS IHn /=. by case even.
+  induction n using nat_ind2=>//=.
+  rewrite IHn. by case even.
 Qed.
+Lemma order2n n: order (n*2) = n.
+Proof. induction n=>//=. rewrite IHn//. Qed.
+Lemma order2np1 n: order (n*2+1) = n.+1.
+Proof. induction n=>//=. rewrite IHn//. Qed.
 
 Definition CC n x := cos (INR n * x).
 Definition SS n x := sin (INR n * x).
@@ -224,16 +182,9 @@ Qed.
 Lemma is_derive_scal' (k x: R): is_derive (fun t => scal t k) x k.
 Proof. rewrite <- Rmult_1_l. apply @is_derive_scal_l. apply @is_derive_id. Qed.
 
-Lemma Rmult_comm_assoc: forall x y z: R, x*y*z = y*(x*z).
-Proof. intros=>/=. ring. Qed.  
-
-Lemma Rmult_opp: forall x: R, -1 * x =  -x. 
-Proof. intros=>/=. ring. Qed.
-
-(* TODO: simplify *)
 Lemma CC_is_derive n x: is_derive (CC n) x (- INR n * SS n x).
 Proof.
-  rewrite /CC /SS -Rmult_opp Rmult_comm_assoc Rmult_opp.
+  rewrite /CC /SS /=. rewrite -Ropp_mult_distr_l Ropp_mult_distr_r. 
   apply (is_derive_comp (fun t:R => cos t) (fun t => INR n * t )). 
   apply is_derive_cos. apply (is_derive_ext (fun t:R => scal t%R (INR  n))). 
   intros. apply Rmult_comm. apply is_derive_scal'. 
@@ -252,38 +203,34 @@ Definition pow_minus_one n := if even n then 1 else -1.
 
 Definition dephase n := if even n then n.-1 else n.+1.
 
+Lemma Rmult_opp: forall x: R, -1 * x =  -x. 
+Proof. intros=>/=. ring. Qed.
+
 Lemma F_is_derive n x: is_derive (F n) x (pow_minus_one (n+1) * INR (order n) * (F (dephase n) x)).
 Proof.
   destruct n. apply is_derive_ext with (fun t => 1). intros; by rewrite F0.
   rewrite /= F0 Rmult_0_r Rmult_0_l /=. apply @is_derive_const.
-  rewrite /F /pow_minus_one /dephase Nat.add_comm.
-  rewrite Nat.even_succ -Nat.negb_even.
-  case_eq (Nat.even n) => He/=; rewrite He/= orderS He ?orderSS.
+  rewrite /F /pow_minus_one /dephase Nat.add_comm /= orderS evenS.
+  case_eq (even n) => He/=; rewrite ?He/=. 
   rewrite Rmult_1_l. apply SS_is_derive.
-  rewrite Rmult_opp. apply CC_is_derive. 
+  rewrite Rmult_opp. apply CC_is_derive.
 Qed.
 
-Corollary F_is_derive_2n n x: (n>=1)%nat -> is_derive (F (2*n)) x (- INR n * F (2*n - 1) x)%R.
+Lemma Pred_eq {A} (P: A -> Prop) a b: a = b -> P a -> P b.
+Proof. by intros<-. Qed. 
+
+Corollary F_is_derive_2n n x: is_derive (F (n*2)) x (- INR n * F (n*2-1) x)%R.
 Proof.
-  intro Hn.
-  move: (F_is_derive (2*n) x). rewrite /pow_minus_one /order /dephase.
-  rewrite Nat.add_1_r Nat.even_succ -Nat.negb_even.
-  rewrite even_double div2_double/=.
-  apply Pred_eq. rewrite Rmult_opp. repeat f_equal. lia.
+  move: (F_is_derive (n*2) x). apply Pred_eq.
+  rewrite /pow_minus_one /dephase.
+  rewrite even2np1 order2n even2n Rmult_opp pred_of_minus//.
 Qed.
 
-Corollary F_is_derive_2nm1 n x: (n>=1)%nat -> is_derive (F (2*n-1)) x (INR n * F (2*n) x)%R.
+Corollary F_is_derive_2nm1 n x: (n>=1)%nat -> is_derive (F (n*2-1)) x (INR n * F (n*2) x)%R.
 Proof.
-  intro Hn.
-  move: (F_is_derive (2*n-1) x). apply Pred_eq.
-  rewrite /pow_minus_one /order /dephase Nat.add_1_r. 
-  have He: (even (2*n-1) = false).
-   rewrite -Nat.odd_succ -Nat.negb_even.
-   replace ((2*n - 1) .+1)%nat with (2*n)%nat by lia.
-  by rewrite even_double. 
-  rewrite Nat.even_succ -Nat.negb_even He /negb.
-  setoid_rewrite Rmult_1_l. cbn -[INR Nat.mul]. repeat f_equal. 2: lia.
-  destruct n=>//. rewrite -{2}(div2_2np1 (n.+1))/=. do 2 f_equal. lia. 
+  intro Hn. move: (F_is_derive (n*2-1) x). apply Pred_eq.
+  rewrite /pow_minus_one /dephase. destruct n=>/=. lia. 
+  rewrite !evenS even2np1 even2n orderS order2n even2n /=. ring. 
 Qed.
 
 (** naive evaluation (defined in vectorspace) 
@@ -295,14 +242,6 @@ Notation evalSS_ := (eval_ SS).
 Notation evalSS := (eval_ SS 1).
 Notation eval_ := (eval_ F).
 Notation eval := (eval F).
-
-(** derivability of evaluation *)
-
-Lemma eval_ex_derive_ n P x: ex_derive (eval_ n P) x.
-Proof. apply eval_ex_derive_basis_, F_ex_derive. Qed.
-
-Lemma eval_ex_derive P x: ex_derive (eval P) x.
-Proof. apply eval_ex_derive_. Qed.
 
 
 (** ** Operations on trigonometric polynomials
@@ -378,10 +317,10 @@ Section ops0.
     case even=>/=; rewrite rev_involutive//. 
   Qed.
   
-  Lemma order_length_rev2 l: even (length l) -> order (length (rev2 l)) = div2 (length l).
+  Lemma order_length_rev2 l: even (length l) -> order (length (rev2 l)) = Nat.div2 (length l).
   Proof.
     induction l as [|x|x y q IH] using list_ind2=>//=k.
-    by rewrite rev2CC app_length/=Nat.add_comm orderSS IH. 
+    by rewrite rev2CC app_length/=Nat.add_comm /= IH. 
   Qed.
   
   (** multiplication *)  
@@ -587,11 +526,11 @@ Lemma eval_mulSC_: forall pS qC n x,
     (evalSS_ (n+n) (mul_plus pS qC) x - evalSS_ 0 (mul_minusSC pS qC) x)/2.
 Proof.
   induction pS as [ | a p IHp]; intros [ | b q] n x; simpl; try field.
-  rewrite !eval_add_ /=; ring_simplify. replace ( a * SS n x * b * CC n x )%R with (a * b * (SS n x * CC n x) )%R by (simpl;ring).
+  rewrite !eval_add_ /=; ring_simplify.
+  replace ( a * SS n x * b * CC n x )%R with (a * b * (SS n x * CC n x) )%R by (simpl;ring).
   rewrite IHp. rewrite !eval_sub_ !eval_add_  !eval_scal_ /= !evalSS_cons00_ SCsqr /= Nat.add_succ_r.
-  replace ( evalSS_ n .+1 p x * b * CC n x )%R with ( b * (CC n x * evalSS_ n .+1 p x)%R)%R by (simpl;ring).
+  replace (evalSS_ n .+1 p x*b*CC n x )%R with (b*(CC n x * evalSS_ n .+1 p x)%R)%R by (simpl;ring).
   rewrite 2!Rmult_assoc. rewrite SCeval. rewrite CSeval. 2: lia. 2:lia.
-  
   replace (S n-n)%nat with 1%nat by lia.
   rewrite S0 Rmult_0_r /=. field.
 Qed.
@@ -622,9 +561,9 @@ Lemma eval_split_ n p x:
 Proof.
   elim: p n => [ | a p IHp] n.
   + case even => /=; lra.
-  + cbn. fold (@evens R). fold (@odds R). (* BUG: simplification *)
-    rewrite IHp /F orderSS Nat.even_succ -Nat.negb_even.
-    case even; cbn; lra.
+  + simpl. fold (@odds R). (* BUG: simplification *)
+    rewrite IHp /F /= orderS evenS.
+    case even; simpl; change (odds (a::p)) with (evens p); lra. (* BUG: simplification *)
 Qed.
 
 Proposition eval_split p x: eval p x = evalCC (evens p) x + evalSS (odds p) x.
@@ -637,9 +576,7 @@ Lemma eval_inject n q x:
 Proof.
   elim: q n => [ | b q IHq] n /=.
   + by case (even n).
-  + rewrite IHq. 
-    rewrite Nat.even_succ_succ orderSS /F Nat.even_succ -Nat.negb_even.
-    rewrite orderS. case even; simpl; ring. 
+  + rewrite IHq /F /= orderS evenS. case even; simpl; ring. 
 Qed.
 
 Lemma eval_merge_ n p q x:
@@ -647,11 +584,10 @@ Lemma eval_merge_ n p q x:
   if even n then evalCC_ (order n) p x + evalSS_ (order n .+1) q x
   else evalSS_ (order n) p x + evalCC_ (order n .+1) q x.
 Proof. 
-  elim: p q n => [ q n   /= | a p IHp [ | b q ] n  /=].
-  + rewrite eval_inject orderS. case even=>/=; ring.
-  + rewrite eval_inject /F Nat.even_succ -Nat.negb_even orderS. case even=>/=; ring.
-  + rewrite IHp /F Nat.even_succ_succ Nat.even_succ -Nat.negb_even /= !orderSS orderS.
-    case even=>/=; ring.
+  elim: p q n => [ q n | a p IHp [ | b q ] n ]/=; rewrite /F /=?orderS/=?evenS/=.
+  + rewrite eval_inject. case even=>/=; ring.
+  + rewrite eval_inject evenS orderS. case even=>/=; ring.
+  + rewrite IHp/=orderS/=. case even=>/=; ring.
 Qed.
 
 Proposition eval_merge p q x: eval (merge p q) x = evalCC p x + evalSS q x.
@@ -669,25 +605,22 @@ Qed.
 
 Lemma fast_evalE_ t P: forall a b,
     even (length P) -> 
-    let n := div2 (length P) in
+    let n := Nat.div2 (length P) in
     fast_eval_ (CC 1 t) (SS 1 t) a b P = eval_ 1 (rev2 P) t + a * CC n t + b * SS n t.
 Proof.
   induction P as [|x|x y q IH] using list_ind2=>//=a b E.
   + rewrite C0 S0. cbn; ring.
-  + move:IH=>->//. set k := div2 _.
+  + move:IH=>->//. set k := Nat.div2 _.
     rewrite rev2CC eval_app_ /=. set k' := length _.
     rewrite (Nat.add_comm k')/=. 
-    rewrite {3 4}/F orderS !Nat.even_succ Nat.odd_succ -Nat.negb_even.
-    rewrite even_length_rev2/= orderSS.
+    rewrite {3 4}/F orderS/=evenS.
+    rewrite even_length_rev2/=.
     rewrite order_length_rev2//= -/k. 
-    rewrite !Rplus_assoc. f_equal. 
-    ring_simplify.
+    rewrite !Rplus_assoc. f_equal.
+    rewrite !Rmult_minus_distr_r !Rmult_plus_distr_r. 
     have D: (k=0 \/ 1<=k)%nat by lia. case: D=>[->|D].
-    rewrite C1 C0 S1 S0. cbn; field. 
-    rewrite !Rmult_assoc.
-    replace (CC 1 t * (y * SS k t))%R with (y * (CC 1 t * SS k t)) by (simpl; ring).
-    replace (CC 1 t * (b * SS k t))%R with (b * (CC 1 t * SS k t)) by (simpl; ring).
-    rewrite CCprod//SSprod//SCprod//CSprod//.
+    rewrite C1 C0 S1 S0. simpl; ring.
+    rewrite !Rmult_assoc CCprod//SSprod//SCprod//CSprod//.
     rewrite (Nat.add_comm k)/=.
     simpl; field.
 Qed.
@@ -707,30 +640,33 @@ Qed.
     
 (** Integration *)
 
-Lemma eval_prim_ o p x: (o >= 1)%nat -> Derive (eval_ (2*o-1) (prim_ (Z.of_nat o) p)) x = eval_ (2*o-1) p x.
+Lemma eval_prim_ o p x: (o >= 1)%nat -> Derive (eval_ (o*2-1) (prim_ (Z.of_nat o) p)) x = eval_ (o*2-1) p x.
 Proof.
+  (* TODO: rework *)
   move: o. elim/(@list_ind2): p => [ o Ho /= | a o Ho /= | a b p IHp n Hn /= ].
   + apply Derive_const.
     
-  + rewrite (@Derive_ext _ (fun x => - a // Z.of_nat o * F (2*o) x)).  
-    rewrite Derive_scal. rewrite (@is_derive_unique _ _ (- INR o * F (2*o - 1)%nat x)).
+  + rewrite (@Derive_ext _ (fun x => - a // Z.of_nat o * F (o*2) x)).
+    rewrite Derive_scal. rewrite (@is_derive_unique _ _ (- INR o * F (o*2 - 1)%nat x)).
     2: apply F_is_derive_2n => //.
     rewrite /= -INR_IZR_INZ. field. apply not_0_INR; lia.
-    simpl; replace ((o + (o + 0) - 1) .+1) with (o+(o+0))%nat. intro t; field.
-    rewrite -INR_IZR_INZ. apply not_0_INR; lia. lia.  
+    replace ((o * 2 - 1).+1) with (o*2)%nat by lia.
+    intro t; simpl; field.
+    rewrite -INR_IZR_INZ. apply not_0_INR; lia.
  
   + rewrite !Derive_plus. rewrite  !Derive_scal.
-    rewrite (@is_derive_unique _ _ ( INR n * F (2*n) x) ) /=.
-    rewrite (@is_derive_unique _ _ (- INR n * F ((2*n - 1)) x) ) /=.
-    replace ((n+(n+0)-1) .+2)%nat with (2* (n .+1) - 1)%nat by lia.
-    replace (n+(n+0)-1) .+1 with (n+(n+0))%nat by lia.
+    rewrite (@is_derive_unique _ _ ( INR n * F (n*2) x) ) /=.
+    rewrite (@is_derive_unique _ _ (- INR n * F ((n*2 - 1)) x) ) /=.
+    replace ((n*2-1) .+2) with ((n .+1)*2 - 1)%nat by lia.
+    replace ((n*2-1) .+1) with (n*2)%nat by lia.
     rewrite -INR_IZR_INZ -Nat2Z.inj_succ IHp. 2: lia.
     field. apply not_0_INR; lia.
-    replace (n+(n+0)-1) .+1 with (n+(n+0))%nat by lia.
+    replace ((n*2-1) .+1) with (n*2)%nat by lia.
     apply F_is_derive_2n => //. apply F_is_derive_2nm1 => //.   
-    apply ex_derive_scal. apply F_ex_derive. apply eval_ex_derive_.
+    apply ex_derive_scal. apply F_ex_derive. apply eval_ex_derive_basis_, F_ex_derive.
     apply ex_derive_scal. apply F_ex_derive.
-    apply @ex_derive_plus. apply ex_derive_scal. apply F_ex_derive. apply eval_ex_derive_.
+    apply @ex_derive_plus. apply ex_derive_scal. apply F_ex_derive.
+    apply eval_ex_derive_basis_, F_ex_derive.
 Qed.
     
 Lemma eval_prim_Derive_ p x: Derive (eval_ 1 (prim_ 1 p)) x = eval_ 1 p x.
@@ -750,7 +686,7 @@ Proof.
     rewrite RInt_const.   
     simpl. rewrite /plus /scal /= /mult /= !eval_cons0_ /=. ring.
     intros. rewrite F0 /=; ring.
-    intros; apply eval_ex_derive_. 
+    intros; apply eval_ex_derive_basis_, F_ex_derive.
     intros.  eapply continuous_ext.
     intro x1. by rewrite eval_prim_Derive_.
     apply continuity_pt_filterlim, eval_cont_, F_cont.

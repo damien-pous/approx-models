@@ -1,8 +1,9 @@
 (** * Basic utilities for oracles: pseudo fixpoint operator, arrays on [Z] *)
 (** the functions below are left unspecified, they are only used to implement oracles *)
 
-Require Import FSets.FMapPositive ZArith.
+Require Import FSets.FMapPositive ZArith List.
 Require Import ssreflect ssrbool.
+Import ListNotations.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -17,6 +18,30 @@ Lemma implE P b: impl b P <-> (b -> P).
 Proof. split. by case. case b; constructor; auto. Qed.
 Lemma implT P: impl true P <-> P.
 Proof. split. by inversion 1. by constructor. Qed.
+
+(** * alternative induction schemes on lists and natural numbers *)
+Fixpoint list_ind2 {C: Type} (P: list C -> Prop)
+         (P0: P nil) (P1: forall x, P [x]) (P2: forall x y l, P l -> P (x::y::l)) l: P l.
+Proof.
+  destruct l. apply P0.
+  destruct l. apply P1.
+  now apply P2, list_ind2.
+Qed.
+
+Fixpoint nat_ind2 (P: nat -> Prop)
+         (P0: P O) (P1: P 1%nat) (P2: forall n, P n -> P (S (S n))) n: P n.
+Proof.
+  destruct n. apply P0.
+  destruct n. apply P1.
+  now apply P2, nat_ind2.
+Qed.
+
+Lemma nat2_ind (P: nat -> Prop) :
+  P 0%nat -> P 1%nat -> (forall n, P n -> P (S n) -> P (S (S n))) -> forall n, P n.
+Proof.
+  intros ???. cut (forall n, P n /\ P (S n)). firstorder.
+  induction n; firstorder.
+Qed.
 
 (** * efficient pseudo-fixpoint operator *)
 Section powerfix.
@@ -74,3 +99,30 @@ End Zmap.
 Definition rev {A} (l: list A) := List.rev_append l nil.
 Lemma revE {A} (l: list A): rev l = List.rev l.
 Proof. symmetry. apply List.rev_alt. Qed.
+
+(** * even predicate *)
+Arguments Nat.even !_/: simpl nomatch.
+Notation even := Nat.even.
+Lemma evenS n: even (S n) = negb (even n).
+Proof. by induction n using nat_ind2. Qed.
+Lemma even2n n: even (n*2) = true.
+Proof. by induction n. Qed.
+Lemma even2np1 n: even (n*2+1) = false.
+Proof. by induction n. Qed.
+
+(** * elements at even/odd positions in a list *)
+Section l.
+Context {C: Type}.
+Fixpoint evens l: list C :=
+  match l with
+  | [] => []
+  | x::l => x::odds l
+  end
+with odds l: list C :=
+  match l with
+  | [] => []
+  | x::l => evens l
+  end.
+End l.
+Arguments evens {_} !_/: simpl nomatch.
+Arguments odds {_} !_/: simpl nomatch.

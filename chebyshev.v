@@ -31,13 +31,6 @@ Proof. simpl. ring. Qed.
 
 Opaque T.
 
-Lemma nat2_ind (P: nat -> Prop) :
-  P 0%nat -> P 1%nat -> (forall n, P n -> P (n.+1) -> P (n.+2)) -> forall n, P n.
-Proof.
-  intros ???. cut (forall n, P n /\ P (S n)). firstorder.
-  induction n; firstorder. 
-Qed.  
-
 Lemma Tprod: forall n m (x: R),
     (n<=m)%nat -> T n x * T m x = (T (m+n) x + T (m-n) x) / 2.
 Proof.

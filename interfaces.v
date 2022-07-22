@@ -37,6 +37,8 @@ Notation "n .+5" := n.+1.+4 (at level 2) : nat_scope.
 (** injection from natural numbers to real numbers  *)
 Notation INRS := S_INR.
 Lemma INR0: INR O = 0. Proof. reflexivity. Qed.
+Arguments INR _: simpl nomatch.
+
 
 (** blocking identity to document irrelevant values *)
 Lemma IRRELEVANT (A: Type): A -> A.
