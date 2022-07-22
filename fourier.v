@@ -803,30 +803,34 @@ Section ops.
     match P with
     | [] => a 
     | [_] => 0
-    | a'::b'::Q => let (a'',b'') := (a + a', b + b') in fast_eval_ ( a''* cost + b'' * sint) (b'' * cost - a'' * sint ) Q cost sint
+    | a'::b'::Q =>
+        let a'' := a+a' in
+        let b'' := b+b' in
+        fast_eval_ ( a''* cost + b'' * sint) (b'' * cost - a'' * sint ) Q cost sint
     end.
 
-  Definition fast_eval (P: list C) (x:C) :=
+  Definition fast_eval (P: list C) x :=
     match P with
     | [] => 0
-    | h::Q => h + let cost  := cos x in
-                  let sint := sin x in
-                  fast_eval_ 0 0
-                             (if (even (length Q)) then (rev Q) else (cons0 (rev Q)))
-                             cost sint
+    | h::Q => let cost := cos x in
+             let sint := sin x in
+             h + fast_eval_ 0 0
+                            (* TODO: opt *)
+                            (if (even (length Q)) then (rev Q) else (cons0 (rev Q)))
+                            cost sint
     end.
 
   (** Integration *)
 
-  (* primitive of a Fourier polynom without constant coefficient *)
-  Fixpoint prim_ (order : nat) (p : list C) : list C :=
+  (** primitive of a Fourier polynom without constant coefficient *)
+  Fixpoint prim_ (order: Z) (p : list C) :=
     match p with
     | [] => []
-    | [b] => [0;(0 - b // order)]
-    | b::a::q => a//order::(0-b//order)::(prim_ (order .+1) q)
+    | [b] => [0; 0-b//order]
+    | b::a::q => a//order :: 0-b//order :: prim_ (order.+1) q
     end.
 
-  Definition integrate (p : list C ) a b :=
+  Definition integrate (p: list C) a b :=
     match p with
     | [] => 0
     | h::q => h*(b-a) + let Q := prim_ 1 q in fast_eval (0::Q) b - fast_eval (0::Q) a
@@ -1123,12 +1127,12 @@ Qed.
     
 (** Integration *)
 
-Lemma eval_prim_ o p x : (o >= 1)%nat -> Derive (eval_ (2*o-1) (prim_ o p)) x = eval_ (2*o-1) p x.
+Lemma eval_prim_ o p x : (o >= 1)%nat -> Derive (eval_ (2*o-1) (prim_ (Z.of_nat o) p)) x = eval_ (2*o-1) p x.
 Proof.
   move : o. elim/(@list2_ind): p => [ o Ho /= | a o Ho /= | a b p IHp n Hn /= ].
   + apply Derive_const.
     
-  + rewrite (@Derive_ext _ (fun x => - a // o * F (2* o) x)).  
+  + rewrite (@Derive_ext _ (fun x => - a // Z.of_nat o * F (2*o) x)).  
     rewrite Derive_scal. rewrite (@is_derive_unique _ _ (- INR o * F (2*o - 1)%nat x)).
     2: apply F_is_derive_2n => //.
     rewrite /= -INR_IZR_INZ. field. apply not_0_INR; lia.
@@ -1138,11 +1142,11 @@ Proof.
   + rewrite !Derive_plus. rewrite  !Derive_scal.
     rewrite (@is_derive_unique _ _ ( INR n * F (2*n) x) ) /=.
     rewrite (@is_derive_unique _ _ (- INR n * F ((2*n - 1)) x) ) /=.
-    replace ((n+(n+0)-1) .+2)%nat with (2* (n .+1) - 1)%nat.
-    replace (n+(n+0)-1) .+1 with (n+(n+0))%nat.   
-    rewrite -INR_IZR_INZ IHp. field. apply not_0_INR; lia.
-    move : Hn => /=. lia. lia. lia. 
-    replace (n+(n+0)-1) .+1 with (n+(n+0))%nat. 2:lia.
+    replace ((n+(n+0)-1) .+2)%nat with (2* (n .+1) - 1)%nat by lia.
+    replace (n+(n+0)-1) .+1 with (n+(n+0))%nat by lia.
+    rewrite -INR_IZR_INZ -Nat2Z.inj_succ IHp. 2: lia.
+    field. apply not_0_INR; lia.
+    replace (n+(n+0)-1) .+1 with (n+(n+0))%nat by lia.
     apply F_is_derive_2n => //. apply F_is_derive_2nm1 => //.   
     apply ex_derive_scal. apply F_ex_derive. apply eval_ex_derive_.
     apply ex_derive_scal. apply F_ex_derive.
@@ -1316,10 +1320,9 @@ Section i.
  Variable f: C -> C.
 
  Let n := Z.abs d.
- Let sn: Z := n+1.
- Let sdn: Z := 2*n+1.
- Let osdn: C := divZ sdn 1.
- Let twopisdn: C := mulZ 2 (pi * osdn).
+ Let sn: Z := 1+n.
+ Let sdn: Z := 1+2*n.
+ Let twopisdn: C := mulZ 2 pi // sdn.
  
  (** interpolation points *)
  Let point: Z -> C :=
@@ -1340,10 +1343,10 @@ Section i.
       
  Definition coeff_cos (i : Z) :=
    (if Z.eqb i 0%Z then ssrfun.id else mulZ 2)
-   (coeff_aux cosin i * osdn).
+   (coeff_aux cosin i // sdn).
 
  Definition coeff_sin (i : Z) :=
-   mulZ 2 (coeff_aux sinus (i+1) * osdn).
+   mulZ 2 (coeff_aux sinus (i+1)) // sdn.
 
  (* TOTHINK: this returns a list of size [2n+1], while interpolation in Chebyshev returns a polynom of degree [n]. We might wante to divide by two in order to be more uniform. On the other hand a list of Fourier coefficients of length [2n+1] should certainly be called 'of degree n'... *)
  Definition interpolate :=

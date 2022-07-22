@@ -103,18 +103,18 @@ Section r.
    end.
 
  (** derivation *)
- Fixpoint derive_ n (P: poly) :=
+ Fixpoint derive_ (n: Z) (P: poly) :=
    match P with
    | [] => []
-   | x::P => mulN n x :: derive_ (S n) P
+   | x::P => mulZ n x :: derive_ (n.+1) P
    end.
  Definition derive P := derive_ 1 (tl P).
 
  (** primitive *)
- Fixpoint prim_ n (P: poly) :=
+ Fixpoint prim_ (n: Z) (P: poly) :=
    match P with
    | [] => []
-   | x::P => x//n :: prim_ (S n) P
+   | x::P => x//n :: prim_ (n.+1) P
    end.
  Definition prim P := 0::prim_ 1 P.
 
@@ -152,17 +152,19 @@ Proof.
   rewrite eval_add eval_mul eval_cst evalC IH /=. ring. 
 Qed.
 
-Lemma deriveS (P: list R) x: forall k,
-  eval (derive_ k .+1 P) x =  eval P x + eval (derive_ k P) x.
+Lemma deriveS P x: forall k,
+  eval (derive_ (k.+1) P) x =  eval P x + eval (derive_ k P) x.
 Proof.
   induction P as [|a p IHP]=>k /=. cbv; ring.
   rewrite 3!evalC /= IHP.
-  rewrite Zpos_P_of_succ_nat succ_IZR /=. ring. 
+  rewrite succ_IZR/=. ring. 
 Qed.
 
-Lemma derive0 (P : list R) x:
-  eval (derive_ 0 P) x =  x * eval (derive P) x.
+Lemma derive0 P x: eval (derive_ 0 P) x =  x * eval (derive P) x.
 Proof. destruct P=>/=. cbn; ring. rewrite evalC; cbn; ring. Qed.  
+
+Lemma derive1 P x: eval (derive P) x =  eval (tl P) x + x * eval (derive (tl P)) x.
+Proof. by rewrite {1} (deriveS _ _ 0) derive0. Qed.
 
 Lemma eval_derive (P : list R) x: eval (derive P) x = Derive (eval P) x.
 Proof.
@@ -170,7 +172,7 @@ Proof.
   + by rewrite /f_cst Derive_const.
     rewrite (Derive_ext _ _ _ (evalC a p)). 
     rewrite Derive_plus. rewrite Derive_const Derive_mult.
-    rewrite -IHP Derive_id deriveS derive0 /=; lra.
+    rewrite -IHP Derive_id derive1 /=; lra.
     apply ex_derive_id. apply eval_ex_derive. 
     apply ex_derive_const. apply ex_derive_mult. apply ex_derive_id. apply eval_ex_derive. 
 Qed.
@@ -179,14 +181,14 @@ Lemma is_derive_eval (P : list R) (x:R):
   is_derive (eval P) x (eval (derive P) x).
 Proof. rewrite eval_derive. apply Derive_correct, eval_ex_derive. Qed.  
 
-Lemma eval_prim_ n p x : Derive (eval_ n.+1 (prim_ n.+1 p)) x = eval_ n p x.
+Lemma eval_prim_ n p x : Derive (eval_ n.+1 (prim_ (Z.of_nat n.+1) p)) x = eval_ n p x.
 Proof.
-  elim: p n => [ | a p IHp] /= n. 
-+ by rewrite Derive_const.
-+ rewrite Derive_plus; last apply eval_ex_derive_.
-  rewrite Derive_scal IHp M_Derive.
-  fold (Z.of_nat (n.+1)). rewrite -INR_IZR_INZ. simpl; field.
-  by apply (not_0_INR n.+1).
+  elim: p n => [ | a p IHp] n. 
++ by rewrite /=Derive_const.
++ rewrite Derive_plus; last apply eval_ex_derive_; rewrite -/eval_ -/prim_.
+  rewrite Derive_scal -Nat2Z.inj_succ IHp M_Derive.
+  rewrite INR_IZR_INZ. cbn; field.
+  fold (Z.of_nat (n.+1)). rewrite -INR_IZR_INZ. by apply (not_0_INR n.+1).
   apply ex_derive_scal; apply (M_ex_derive n.+1).
 Qed.
 

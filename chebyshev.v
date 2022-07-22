@@ -205,18 +205,15 @@ Section ops.
  Definition pmul (p q: list C): list C :=
    sdivZ 2 (sadd (mul_minus p q) (mul_plus p q)).
 
- (** primitive  *)
- Fixpoint prim_ (n : nat) (p : list C) : list C :=
-  match p with
-    | [] => []
-    | a :: q =>
-      match n with
-        | 0 => sadd [0; a] (prim_ 1 q)
-        | 1 => cons0 (sadd [0; a // 4] (prim_ 2 q))
-        | (_.+1 as n').+1 => sadd [0 - a // (n'*2); 0; a // ((n.+1)*2)]
-                                 (cons0 (prim_ n.+1 q))
-      end
-  end.
+ (** primitive *)
+ Fixpoint prim_ (n : Z) (p : list C) : list C :=
+   match p with
+   | [] => []
+   | a :: q =>
+       if Z.eqb 0 n then sadd [0; a] (prim_ 1 q)
+       else if Z.eqb 1 n then cons0 (sadd [0; a//4] (prim_ 2 q))
+       else let n' := Z.succ n in sadd [0-a//(2*Z.pred n); 0; a//(2*n')] (cons0 (prim_ n' q))
+   end.
  Definition prim p := prim_ 0 p.
 
  (** linear time evaluation (Clenshaw) *)
@@ -314,11 +311,16 @@ Proof. rewrite /eval' ClenshawR rev_append_rev revE rev_involutive eval_app /=. 
 
 
 
-Lemma prim_consSS_ n (a: R) p : prim_ n.+2 (a :: p) =
-  sadd [0 - a // ((n.+1)*2); 0; a // ((n.+3)*2)] (cons0 (prim_ n.+3 p)).
-Proof. reflexivity. Qed.
+Lemma prim_consSS_ n (a: R) p : prim_ (Z.of_nat n.+2) (a :: p) =
+  sadd [0 - a // ((Z.of_nat n.+1)*2); 0; a // ((Z.of_nat n.+3)*2)] (cons0 (prim_ (Z.of_nat n.+3) p)).
+Proof.
+  cbn -[INR Zmult Z.of_nat Z.eqb].
+  case Z.eqb_spec. lia. 
+  case Z.eqb_spec. lia.
+  move=> _ _. repeat (f_equal; try lia).
+Qed.
 
-Lemma eval_prim_ n p x : Derive (eval_ n.-1 (prim_ n p)) x = eval_ n p x.
+Lemma eval_prim_ n p x : Derive (eval_ n.-1 (prim_ (Z.of_nat n) p)) x = eval_ n p x.
 Proof.
   revert n. 
   induction p as [ | a p IHp]; intros n; [| destruct n as [ | [ | ]]]. 
@@ -334,10 +336,10 @@ Proof.
 + erewrite Derive_ext.
   rewrite /= -IHp -T_DeriveSS -Derive_scal -Derive_plus => //; last apply eval_ex_derive_.
   apply ex_derive_scal, ex_derive_minus with (f:=fun t => _*T _ t); apply ex_derive_scal; apply T_ex_derive.
-  intro. rewrite prim_consSS_ eval_add_.
-  replace (eval_ n.+2.-1 (0 :: prim_ n.+3 p) t) with (eval_ n.+3.-1 (prim_ n.+3 p) t); last by compute; ring.
-  rewrite -!RdivN !mult_INR !INRS eval_cons0_ /=.
-    by field; split; rewrite -?INRS; apply not_0_INR.
+  intro. rewrite prim_consSS_ eval_add_ eval_cons0_. apply (f_equal (Rplus^~ _)).
+  cbn -[INR Zmult Z.of_nat]. 
+  rewrite !mult_IZR !INRS !mult_INR -!INR_IZR_INZ !INRS INR0.
+  field. pose proof (pos_INR n). lra.
 Qed.
 
 Lemma eval_prim_Derive p x : Derive (eval (prim p)) x = eval p x.
@@ -405,7 +407,13 @@ Section s.
  Lemma reval: forall P Q, pT P Q -> forall x y, rel T x y -> rel T (eval' P x) (eval' Q y).
  Proof. intros. apply rClenshaw; rel. Qed.
  Lemma rprim_: forall p q, pT p q -> forall n, pT (prim_ n p) (prim_ n q).
- Proof. induction 1. constructor; simpl. destruct n as [|[|n]]; simpl; rel. Qed.
+ Proof.
+   induction 1. constructor. move=>n.
+   cbn -[INR Zmult Z.of_nat Z.eqb].
+   case Z.eqb_spec. rel.  
+   case Z.eqb_spec. rel.
+   rel. 
+ Qed.
  Hint Resolve reval rprim_: rel.
  Lemma rprim: forall p q, pT p q -> pT (prim p) (prim q).
  Proof. unfold prim. rel. Qed.
@@ -440,7 +448,7 @@ Section i.
 
  Let n := Z.abs d.
  Let dn: Z := 2*n.
- Let sn: Z := n+1.
+ Let sn: Z := 1+n.
  Let cn: C := fromZ n.
 
  (** interpolation points *)

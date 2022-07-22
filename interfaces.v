@@ -28,6 +28,7 @@ Proof. repeat intro. lra. Qed.
 (** a few notations for natural numbers *)
 Notation "n .-1" := (Nat.pred n) (at level 2) : nat_scope.
 Notation "n .+1" := (S n) (at level 2) : nat_scope.
+Notation "n .+1" := (Z.succ n) (at level 2) : Z_scope.
 Notation "n .+2" := n.+1.+1 (at level 2) : nat_scope.
 Notation "n .+3" := n.+2.+1 (at level 2) : nat_scope.
 Notation "n .+4" := n.+2.+2 (at level 2) : nat_scope.
@@ -80,6 +81,7 @@ Infix "*" := mul: RO_scope.
 Notation "a *[ d  ] b" := (mul' d a b) (at level 40, left associativity): RO_scope.
 Infix "-" := sub: RO_scope.
 Infix "/" := div: RO_scope.
+Notation "x // n" := (divZ n x) (at level 40, left associativity): RO_scope .
 Notation "0" := (zer _): RO_scope.
 Notation "1" := (one _): RO_scope.
 Arguments fromZ {_}. 
@@ -95,9 +97,6 @@ Open Scope RO_scope.
 (** derived operations *)
 Definition fromN {C: Ops1} (n: nat): C := fromZ (Z.of_nat n). 
 Definition fromQ {C: Ops1} (q: Q): C := divZ (Zpos (Qden q)) (fromZ (Qnum q)).
-Definition mulN {C: Ops0} n: C -> C := mulZ (Z.of_nat n).
-Definition divN {C: Ops0} n: C -> C := divZ (Z.of_nat n).
-Notation "x // n" := (divN n x) (at level 40, left associativity): RO_scope .
 
 (* TOTHINK: powN, powP? *)
 Fixpoint pow (C: Ops0) n (x: C) :=
@@ -158,13 +157,10 @@ Lemma RfromQ: forall q, Q2R q = fromQ q.
 Proof. reflexivity. Qed.
 Lemma RmulZ x z: IZR z * x = mulZ z x.
 Proof. reflexivity. Qed.
-Lemma RmulN x n: INR n * x = mulN n x.
-Proof. cbn. now rewrite RfromN. Qed.
-Lemma RdivZ x z: x / IZR z = divZ z x.
+Lemma RdivZ x z: x / IZR z = x // z.
 Proof. reflexivity. Qed.
-Lemma RdivN x n: x / INR n = divN n x.
-Proof. cbn. now rewrite RfromN. Qed.
 
+(* TOTHINK: efficiency? *)
 Lemma Rpow n x: x^n = pow n x.
 Proof. induction n=>//=. congruence. Qed.
 
@@ -207,14 +203,6 @@ Global Hint Resolve rfromN: rel.
 Lemma rfromQ R S (T: Rel1 R S) q: T (fromQ q) (fromQ q).
 Proof. unfold fromQ; rel. Qed.
 Global Hint Resolve rfromQ: rel.
-
-Lemma rmulN R S (T: Rel0 R S) n x y: T x y -> T (mulN n x) (mulN n y).
-Proof. apply rmulZ. Qed.
-Global Hint Resolve rmulN: rel.
-
-Lemma rdivN R S (T: Rel0 R S) n x y: T x y -> T (divN n x) (divN n y).
-Proof. apply rdivZ. Qed.
-Global Hint Resolve rdivN: rel.
 
 
 (** ** neighborhoods (effective abstractions for real numbers) *)
