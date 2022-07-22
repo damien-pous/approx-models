@@ -202,17 +202,20 @@ Section n.
 
  (** division and square root, using interpolation as oracle ; [d] is the interpolation degree *)
  Definition mdiv d (M N: Tube): E Tube :=
-   let p := mcf M in
-   let q := mcf N in
+   (* partial application of [beval] enables precomputation and sharing of potential list reversals *)
+   let p := beval (mcf M) in    
+   let q := beval (mcf N) in
    mdiv_aux d M N
-            (interpolate d (fun x => beval p x / beval q x))
-            (interpolate d (fun x => 1 / beval q x)).
+            (interpolate d (fun x => p x / q x))
+            (interpolate d (fun x => 1 / q x)).
  Definition msqrt d (M: Tube): E Tube :=
-   let p := mcf M in
-   let h := interpolate d (fun x => sqrt (beval p x)) in
+   (* partial application of [beval] enables precomputation and sharing of potential list reversals *)
+   let p := beval (mcf M) in
+   let h := interpolate d (fun x => sqrt (p x)) in
+   let h' := beval h in
    msqrt_aux d M
              h
-             (interpolate d (fun x => 1 / (mulZ 2 (beval h x)))).
+             (interpolate d (fun x => 1 / (mulZ 2 (h' x)))).
 
  (** solution of polynomial equation : F is a polynom with model coefficients
      - d is the truncation degree (if positive)
@@ -404,8 +407,9 @@ Section n.
    let F' := map mcf F in
    let phi' := polynom_eq_oracle d F' phi0 in
    let d2 := (2*d)%Z in
-   let DF := eval' d2 (derive F') phi' in
-   let A' := interpolate d (fun x => 1 / beval DF x) in
+   (* partial application of [beval] enables precomputation and sharing of potential list reversals *)
+   let DF := beval (eval' d2 (derive F') phi') in
+   let A' := interpolate d (fun x => 1 / DF x) in
    let A := mfc A' in
    let phi := mfc phi' in
    LET c ::= mnorm (A * eval' d2 F phi) IN
@@ -427,8 +431,9 @@ Section n.
  
  (** testing nullability, [d] is the interpolation degree used for conditionning the problem *)
  Definition mne0 d (M: Tube): bool :=
-   let p := mcf M in
-   let q := interpolate d (fun x: FF => 1 / beval p x) in
+   (* partial application of [beval] enables precomputation and sharing of potential list reversals *)
+   let p := beval (mcf M) in
+   let q := interpolate d (fun x => 1 / p x) in
    is_ne 0 (mrange (M * mfc q)).
  
  (** testing positivity, [d] is the interpolation degree used for conditionning the problem  *)
