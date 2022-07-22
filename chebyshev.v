@@ -450,29 +450,30 @@ Section i.
  Let dn: Z := 2*n.
  Let sn: Z := 1+n.
  Let cn: C := fromZ n.
+ Let pin: C := pi / cn.
 
  (** interpolation points *)
  Let point: Z -> C :=
    Zmap.get 0 (
-     Zmap.mk (fun i => cos (mulZ i (pi / cn))) dn).
+     Zmap.mk (fun i => cos (mulZ i pin)) dn).
 
  (** values at interpolation points *)
  Let value: Z -> C :=
    Zmap.get 0 (
      Zmap.mk (fun i => f (point i)) sn).
 
- Let DCTinv_coeff_aux (i j: Z): C :=
+ Let coeff_aux (i j: Z): C :=
    Zfold' (fun j acc => acc +
      if Z.ltb j n 
      then mulZ 2 (value j * point ((i*j) mod dn))
      else         value j * point ((i*j) mod dn)
          ) j (value 0).
- Let DCTinv_coeff (i: Z): C :=
+ Let coeff (i: Z): C :=
    (if Z.eqb i 0 then divZ 2 else ssrfun.id)
-     (DCTinv_coeff_aux i n / cn).
+     (coeff_aux i n / cn).
  
  Definition interpolate: list C :=
-   Zmap.tolist 0 sn (Zmap.mk DCTinv_coeff sn).
+   Zmap.tolist 0 sn (Zmap.mk coeff sn).
 End i.
 
 

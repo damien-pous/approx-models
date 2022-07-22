@@ -1278,7 +1278,8 @@ Section i.
  Let n := Z.abs d.
  Let sn: Z := 1+n.
  Let sdn: Z := 1+2*n.
- Let twopisdn: C := mulZ 2 pi // sdn.
+ Let csdn: C := fromZ sdn.
+ Let twopisdn: C := mulZ 2 pi / csdn.
  
  (** interpolation points *)
  Let point: Z -> C :=
@@ -1299,10 +1300,10 @@ Section i.
       
  Let coeff_cos (i: Z) :=
    (if Z.eqb i 0%Z then ssrfun.id else mulZ 2)
-   (coeff_aux cosin i // sdn).
+   (coeff_aux cosin i / csdn).
 
  Let coeff_sin (i: Z) :=
-   mulZ 2 (coeff_aux sinus (i+1)) // sdn.
+   mulZ 2 (coeff_aux sinus (i+1)) / csdn.
 
  (* TOTHINK: this returns a list of size [2n+1], while interpolation in Chebyshev returns a polynom of degree [n]. We might wante to divide by two in order to be more uniform. On the other hand a list of Fourier coefficients of length [2n+1] should certainly be called 'of degree n'... *)
  Definition interpolate :=
