@@ -1,4 +1,4 @@
-(** * Hierarchy of structures: basic operations, operations on functions, neighbourhoods *)
+(** * Interfaces for the library: basic operations, operations on functions, neighborhoods *)
 
 Require Export QArith_base Psatz Rbase Rfunctions Ranalysis.
 Require Export Coquelicot.Coquelicot.
@@ -182,7 +182,6 @@ Proof. reflexivity. Qed.
 Lemma RdivZ x z: x / IZR z = x // z.
 Proof. reflexivity. Qed.
 
-(* TOTHINK: efficiency? *)
 Lemma Rpow n x: x^n = pow n x.
 Proof. induction n=>//=. congruence. Qed.
 
@@ -228,6 +227,49 @@ Lemma fromQR R S (T: Rel1 R S) q: T (fromQ q) (fromQ q).
 Proof. rel. Qed.
 
 Global Hint Resolve powR  mul''R fromNR fromQR: rel.
+
+(** ** lifting relations to lists and pairs *)
+Section r.
+ 
+Variables R S: Type.
+Variable rel: R -> S -> Prop.
+
+Inductive list_rel: list R -> list S -> Prop :=
+| rnil: list_rel [] []
+| rcons: forall x y h k, rel x y -> list_rel h k -> list_rel (x::h) (y::k).
+Hint Constructors list_rel: rel.
+
+Lemma tlR : forall h k , list_rel h k -> list_rel (tl h) (tl k).
+Proof. destruct 1; rel. Qed.
+
+Lemma appR: forall h k, list_rel h k -> forall p q, list_rel p q -> list_rel (h++p) (k++q).
+Proof. induction 1; rel. Qed.
+
+Lemma rev_appendR: forall h k, list_rel h k -> forall m n, list_rel m n -> list_rel (rev_append h m) (rev_append k n).
+Proof. induction 1; rel. Qed.
+
+Lemma revR: forall h k, list_rel h k -> list_rel (rev h) (rev k).
+Proof. intros. apply rev_appendR; rel. Qed.
+
+Lemma mapR A (f: A -> R) (g: A -> S):
+  (forall a, rel (f a) (g a)) -> forall l, list_rel (map f l) (map g l).
+Proof. induction l; rel. Qed.
+
+Definition pair_rel: R*R -> S*S -> Prop :=
+  fun p q => rel p.1 q.1 /\ rel p.2 q.2.
+
+Lemma pairR: forall p q, rel p q -> forall p' q', rel p' q' -> pair_rel (p,p') (q,q').
+Proof. by []. Qed.
+
+End r.
+Global Hint Constructors list_rel: rel.
+Global Hint Resolve tlR appR revR rev_appendR pairR: rel.
+
+Lemma list_rel_map' {A B R S} (rel: A -> B -> Prop) (rel': R -> S -> Prop) (f: A -> R) (g: B -> S):
+  (forall a b, rel a b -> rel' (f a) (g b)) ->
+  forall h k, list_rel rel h k -> list_rel rel' (map f h) (map g k).
+Proof. intros H h k. induction 1; rel. Qed.
+
 
 
 (** ** neighborhoods (effective abstractions for real numbers) *)
@@ -282,6 +324,10 @@ Class NBH := {
 }.
 Coercion II: NBH >-> Ops1.
 Global Hint Resolve F2IE: rel.
+
+(** derived containment relations in neighborhoods *)
+Definition scontains {N: NBH} := (list_rel contains).
+Definition pcontains {N: NBH} := (pair_rel contains).
 
 (** derived operations and their specification *)
 Definition mag {N: NBH} x: option II := max (abs x).

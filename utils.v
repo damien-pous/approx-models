@@ -1,5 +1,6 @@
-(** * Basic utilities for oracles: pseudo fixpoint operator, arrays on [Z] *)
-(** the functions below are left unspecified, they are only used to implement oracles *)
+(** * Basic utilities *)
+
+(** some of the functions below are left unspecified, they are only used to implement oracles *)
 
 Require Import FSets.FMapPositive ZArith List.
 Require Import ssreflect ssrbool.

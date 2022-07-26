@@ -6,54 +6,6 @@ Set Implicit Arguments.
 Unset Strict Implicit.
 Unset Printing Implicit Defensive.
 
-(** ** lifting relations to lists and pairs *)
-Section r.
- 
-Variables R S: Type.
-Variable rel: R -> S -> Prop.
-
-Inductive list_rel: list R -> list S -> Prop :=
-| rnil: list_rel [] []
-| rcons: forall x y h k, rel x y -> list_rel h k -> list_rel (x::h) (y::k).
-Hint Constructors list_rel: rel.
-
-Lemma tlR : forall h k , list_rel h k -> list_rel (tl h) (tl k).
-Proof. destruct 1; rel. Qed.
-
-Lemma appR: forall h k, list_rel h k -> forall p q, list_rel p q -> list_rel (h++p) (k++q).
-Proof. induction 1; rel. Qed.
-
-Lemma rev_appendR: forall h k, list_rel h k -> forall m n, list_rel m n -> list_rel (rev_append h m) (rev_append k n).
-Proof. induction 1; rel. Qed.
-
-Lemma revR: forall h k, list_rel h k -> list_rel (rev h) (rev k).
-Proof. intros. apply rev_appendR; rel. Qed.
-
-Lemma mapR A (f: A -> R) (g: A -> S):
-  (forall a, rel (f a) (g a)) -> forall l, list_rel (map f l) (map g l).
-Proof. induction l; rel. Qed.
-
-Definition pair_rel: R*R -> S*S -> Prop :=
-  fun p q => rel p.1 q.1 /\ rel p.2 q.2.
-
-Lemma pairR: forall p q, rel p q -> forall p' q', rel p' q' -> pair_rel (p,p') (q,q').
-Proof. by []. Qed.
-
-End r.
-Global Hint Constructors list_rel: rel.
-Global Hint Resolve tlR appR revR rev_appendR pairR: rel.
-
-Lemma list_rel_map' {A B R S} (rel: A -> B -> Prop) (rel': R -> S -> Prop) (f: A -> R) (g: B -> S):
-  (forall a b, rel a b -> rel' (f a) (g b)) ->
-  forall h k, list_rel rel h k -> list_rel rel' (map f h) (map g k).
-Proof. intros H h k. induction 1; rel. Qed.
-
-
-(** derived containment relations in neighborhoods *)
-Definition scontains {N: NBH} := (list_rel contains).
-Definition pcontains {N: NBH} := (pair_rel contains).
-
-
 (** ** linear operations *)
 Section abs.
  Context {C: Ops0}.
@@ -241,7 +193,7 @@ End s.
 Global Hint Resolve saddR smulZR sdivZR sscalR soppR ssubR szerR cons0R cons00R snthR: rel.
 
 
-(** ** [Basis]: requirements for generating pseudo-polynomial models (in approx.v) *)
+(** ** requirements for generating pseudo-polynomial models (in approx.v) *)
 
 Class BasisOps_on (C: Type) := {
   lo: C;
@@ -336,7 +288,7 @@ Class Basis {N: NBH} (B: BasisOps) := {
 Global Hint Resolve bmulR boneR bidR bcosR bsinR bintegrateR bevalR loR hiR: rel.
 
 
-(** ** simple derived properties of bases *)
+(** ** derived properties *)
 Section s.
 Context `{Basis}.
 

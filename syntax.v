@@ -133,7 +133,7 @@ Definition sem' S (u: Term S): rval S := sem (u rval).
 
 
 
-(** ** reification for the above syntax *)
+(** ** reification *)
 
 (* TODO: 
    - maximal sharing using let-ins? [need OCaml?]
@@ -740,7 +740,7 @@ Arguments check {_ _} _ _ _.
 End Dynamic.
 
 
-(** ** notations for expressions *)
+(** ** notations for reified expressions *)
 (** mostly used for tests in tests.v for now 
     sadly, trying to declare canonical structures of Ops0, Ops1, raises universe inconsistencies
  *)

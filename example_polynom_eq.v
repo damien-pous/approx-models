@@ -1,4 +1,4 @@
-(** * examples of polynomial functional equation resolution *)
+(** * Example 3: resolution of polynomial functional equations *)
 
 Require Import interfaces.
 Require Import vectorspace taylor approx.
@@ -15,7 +15,7 @@ Local Existing Instance IPrimFloat.nbh.
 
 Module sqrt_cheb.
   
-  (** * a square root as a solution of a polynomial functional equations
+  (** ** a square root as a solution of a polynomial functional equations
 
         F(phi) = - (1 + X^2 / 10) + phi^2
         F(phi) = 0  <->   phi(X) = sqrt (1 + X^2 / 10)
@@ -55,6 +55,9 @@ Module sqrt_cheb.
   Eval vm_compute in e_map (fun M => width (rem M)) (valid_aux_s 40 None). (* 7e-6 *)
   
 End sqrt_cheb.
+
+
+(** ** a parametrisation for Abelian integrals (related to example_h16.v) *)
 
 Module oval_fourier.
  Section s.

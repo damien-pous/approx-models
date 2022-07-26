@@ -8,7 +8,7 @@ Unset Strict Implicit.
 Unset Printing Implicit Defensive.
 
 
-(** ** Definition of the Fourier Basis and properties *)
+(** ** Fourier vectors and their properties *)
 
 Fixpoint order n :=
   match n with
@@ -118,7 +118,7 @@ Proof.
              Rmult_plus_distr_r Rmult_minus_distr_r form_prod_sin_cos.
 Qed.
 
-(** Range of Fourier vectors *)
+(** range of Fourier vectors *)
 
 Lemma F_range n x: -1 <= F n x <= 1.
 Proof.
@@ -233,21 +233,19 @@ Proof.
   rewrite !evenS even2np1 even2n orderS order2n even2n /=. ring. 
 Qed.
 
-(** naive evaluation (defined in vectorspace) 
-    eval [a b c] x = a * F 0 x + b * F 1 x + c * F 2 x + 0
+(** ** operations on trigonometric polynomials
+    This time parametrised by a abstract set C of operations.
+    Later, C will be instanciated with reals, floating points, and intervals.
  *)
+
+(** naive evaluation (defined in vectorspace) 
+    eval [a b c] x = a * F 0 x + b * F 1 x + c * F 2 x + 0 *)
 Notation evalCC_ := (eval_ CC).
 Notation evalCC := (eval CC).
 Notation evalSS_ := (eval_ SS). 
 Notation evalSS := (eval_ SS 1).
 Notation eval_ := (eval_ F).
 Notation eval := (eval F).
-
-
-(** ** Operations on trigonometric polynomials
-    This time parametrised by a abstract set C of operations.
-    Later, C will be instanciated with reals, floating points, and intervals.
- *)
 
 Section ops0.
 
@@ -384,8 +382,6 @@ Section ops1.
     | h::Q => let rQ := rev2 Q in fun t => h + fast_eval_ (cos t) (sin t) 0 0 rQ
     end.
 
-  (** integration *)
-
   (** primitive of a Fourier polynom without constant coefficient *)
   Fixpoint prim_ (order: Z) (p: list C) :=
     match p with
@@ -394,6 +390,7 @@ Section ops1.
     | b::a::q => a//order :: 0-b//order :: prim_ (order.+1) q
     end.
 
+  (** integration *)
   Definition integrate (p: list C) a b :=
     match p with
     | [] => 0
@@ -401,10 +398,9 @@ Section ops1.
     end.
   
   (** range on C
-    since the [F n] have their range in [-1;1], we chose to take the sum of the absolute values of the coefficients. for the constant coefficient, we don't even have to take the absolute value.
-    
-    TO THINK ... | a cos(nt) + b sin(nt) | <= sqrt ( a^2 + b^2 ) could give a better range, but it would be more expansive to compute...
-   *)
+    since the [F n] have their range in [-1;1], we chose to take the sum of the absolute values of the coefficients. for the constant coefficient, we don't even have to take the absolute value. *)
+  (* TOTHINK ... | a cos(nt) + b sin(nt) | <= sqrt ( a^2 + b^2 ) could give a better range, 
+     but it would be more expansive to compute... *)
   Definition range_: list C -> C := List.fold_right (fun a x => abs a + x) 0.
   Definition range p :=
     match p with
@@ -416,7 +412,7 @@ End ops1.
 
 
 
-(** ** Correctness of the above polynomial operations, on R *)
+(** ** correctness of the above operations, on R *)
 
 Lemma eval_cst a x: eval (pcst a) x = a.
 Proof. rewrite /pcst /eval /= F0 /=. ring. Qed.
@@ -430,7 +426,7 @@ Proof. rewrite /pcos /eval /= F2 /=. ring. Qed.
 Lemma eval_sin x: eval psin x = sin x.
 Proof. rewrite /psin /eval /= F1 /=. ring. Qed.
   
-(* multiplication of cosinus polynoms *)
+(** multiplication of cosinus polynoms *)
 Lemma evalCC_cons00_ n p x: evalCC_ n (cons00 p) x = evalCC_ n.+2 p x.
 Proof. destruct p=>//=. ring. Qed.
 
@@ -461,7 +457,7 @@ Qed.
 Lemma eval_mulCC pC qCC x: evalCC (pmulCC pC qCC) x = evalCC pC x * evalCC qCC x.
 Proof. rewrite /evalCC eval_mulCC_ /pmulCC eval_divZ_ eval_add_/= /Rdiv /=. ring. Qed.
 
-(* multiplication of sinus polynoms *)
+(** multiplication of sinus polynoms *)
 Lemma evalSS_cons00_ n p x: evalSS_ n (cons00 p) x = evalSS_ n.+2 p x.
 Proof. destruct p=>//=. ring. Qed.
 
@@ -496,7 +492,7 @@ Proof.
   ring.
 Qed.
 
-(* Multiplication of a sinus polynom with a cosinus polynom *)
+(** multiplication of a sinus polynom with a cosinus polynom *)
 Lemma SCeval: forall p n m x,
     (n<=m)%nat -> SS n x * evalCC_ m p x = (evalSS_ (m+n) p x - evalSS_ (m-n) p x)/2.
 Proof.
@@ -552,7 +548,7 @@ Proof.
   by rewrite /pmulSC evalSS_0_1 eval_mulSC' -evalSS_0_1 tail_cons0.
 Qed.
 
-(* evaluation of lists after split or merge operations *)
+(** evaluation w.r.t. split/merge operations *)
 
 Lemma eval_split_ n p x:
   eval_ n p x =
@@ -593,7 +589,7 @@ Qed.
 Proposition eval_merge p q x: eval (merge p q) x = evalCC p x + evalSS q x.
 Proof. by apply eval_merge_. Qed.
   
-(* multiplication of Fourier polynoms *)
+(** we deduce correctness of multiplication *)
 
 Theorem eval_mul P Q x: eval (pmul P Q) x = eval P x * eval Q x.
 Proof.
@@ -601,7 +597,7 @@ Proof.
   rewrite eval_add eval_add_ eval_mulCC eval_mulSS 2!eval_mulSC /=. ring.
 Qed.
 
-(* Correctness of fast evaluation *)
+(** fast evaluation *)
 
 Lemma fast_evalE_ t P: forall a b,
     even (length P) -> 
@@ -638,7 +634,7 @@ Proof.
   rewrite eval_rev2_rev2 /eval/=F0. simpl; ring.
 Qed.
     
-(** Integration *)
+(** integration *)
 
 Lemma eval_prim_ o p x: (o >= 1)%nat -> Derive (eval_ (o*2-1) (prim_ (Z.of_nat o) p)) x = eval_ (o*2-1) p x.
 Proof.
@@ -694,8 +690,9 @@ Proof.
     intros. apply continuity_pt_filterlim, F_cont.
     apply ex_RInt_continuous. 
     intros. apply continuity_pt_filterlim, eval_cont_, F_cont.
-Qed.    
+Qed.
 
+(** range *)
 Lemma eval_range_ x: forall p n, Rabs (eval_ n p x) <= range_ p.
 Proof.
   elim => [ | a q IH] n /=.
@@ -718,7 +715,9 @@ Qed.
 (** ** parametricity of the operations 
     above, we have only specified the instance of the operations on R
     by proving the following parametricity results, we intuitively obtain that they are valid for all instances which are coherent with R (this will be the case with intervals, I).
- *)
+
+    those proofs are mostly automatic.
+*)
 
 Section s.
   Context {R S: Ops1}.

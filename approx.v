@@ -439,7 +439,7 @@ Section n.
    if ~~ is_lt 0 (meval_unsafe M lo) then ret false
    else ret (mne0 d M).
  
- (** ** correctness of the above operations in valid bases *)
+ (** ** correctness of the above operations *)
 
  Context {B: Basis BO}.
  
