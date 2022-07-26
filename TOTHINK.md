@@ -1,15 +1,21 @@
-## TODO list
+## TODO before next release
 
 - document fourier.v
 - more examples / more doc in examples.v
+- remove dep on reduction-effects
+- separate main theory files from examples (theories/ examples/ src/)
+
+## TODO
+
 - further improve syntax/reification (eval, quantifiers)
-- side-conditions left to the user (mcontinuous)
 - more functions on reals from coq-interval
 - interpolation oracle for Taylor basis
 - better radius heuristics for solutions of polynomial equations
+- better model interface to allow mnth
 
 ## TOTHINK
 
+- side-conditions left to the user (mcontinuous)
 - modular approach to continuity and/or other properties?
 - uniform notation for containments?
 - reals from mathcomp-analysis -> integration for possibly non-continuous functions
