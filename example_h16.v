@@ -12,10 +12,11 @@ Section s.
  (** [r_] is a parameter for the considered computations *)
  Variable r_: Q.
  (** [N] is the interpolation degree for divisions/square roots 
-     and the truncation degree for multiplications 
+     [T] is the truncation degree for multiplications 
      (in other words, the maximal degree for the considered approximations)
   *)
  Variable N: Z.
+ Variable T: option nat.
 
  Let r: II := fromQ r_.
  Let x0: II := fromQ 0.9.
@@ -32,31 +33,31 @@ Section s.
  Let Fx := approx.model_ops (chebyshev.basis_ops xmin xmax).
  Let Fy := approx.model_ops (chebyshev.basis_ops ymin ymax).
  
- Let sqrx (f: Fx): Fx := mtruncate N (f * f).
- Let sqry (f: Fy): Fy := mtruncate N (f * f).
- Let powx f n: Fx := match n with 1 => f | 2 => sqrx f | 3 => mtruncate N (f*sqrx f) | 4 => sqrx (sqrx f) | _ => 1 end.
+ Let sqrx (f: Fx): Fx := f *[.T] f.
+ Let sqry (f: Fy): Fy := f *[.T] f.
+ Let powx f n: Fx := match n with 1 => f | 2 => sqrx f | 3 => f*[.T]sqrx f | 4 => sqrx (sqrx f) | _ => 1 end.
  Infix "^x" := powx (at level 30).
- Let powy f n: Fy := match n with 1 => f | 2 => sqry f | 3 => mtruncate N (f*sqry f) | 4 => sqry (sqry f) | _ => 1 end.
+ Let powy f n: Fy := match n with 1 => f | 2 => sqry f | 3 => f*[.T]sqry f | 4 => sqry (sqry f) | _ => 1 end.
  Infix "^y" := powy (at level 30).
  
  (** the considered integrals, in monadic style for dealing with potential runtime errors *)
  Definition calcul :=
    LET midx ::= mid IN
    LET midy ::= mid IN
-   LET deltay ::= msqrt N (mcst r2 - sqrx (sqrx midx - mcst x0)) IN
-   LET deltax ::= msqrt N (mcst r2 - sqry (sqry midy - mcst y0)) IN
-   LET ydown ::= msqrt N (mcst y0 - deltay) IN
-   LET yup ::= msqrt N (mcst y0 + deltay) IN
+   LET deltay ::= msqrt N T (mcst r2 - sqrx (sqrx midx - mcst x0)) IN
+   LET deltax ::= msqrt N T (mcst r2 - sqry (sqry midy - mcst y0)) IN
+   LET ydown ::= msqrt N T (mcst y0 - deltay) IN
+   LET yup ::= msqrt N T (mcst y0 + deltay) IN
    LET yupdown ::= 
-     LET a ::= mdiv N 1 yup IN
-     LET b ::= mdiv N 1 ydown IN
+     LET a ::= mdiv N T 1 yup IN
+     LET b ::= mdiv N T 1 ydown IN
      ret (a-b)
    IN
-   LET xleft ::= msqrt N (mcst x0 - deltax) IN
-   LET xright ::= msqrt N (mcst x0 + deltax) IN
+   LET xleft ::= msqrt N T (mcst x0 - deltax) IN
+   LET xright ::= msqrt N T (mcst x0 + deltax) IN
    LET xleftright ::=
-     LET a ::= mdiv N 1 (xleft * deltax) IN
-     LET b ::= mdiv N 1 (xright * deltax) IN
+     LET a ::= mdiv N T 1 (xleft *[.T] deltax) IN
+     LET b ::= mdiv N T 1 (xright *[.T] deltax) IN
      ret (a+b)
    IN
    let integrand1 (i j : nat) :=
@@ -68,7 +69,7 @@ Section s.
    let integrand2 (i j : nat) :=
        match i with
        | 0 => ret (xleftright * (midy ^y j * (midy ^y 2 - mcst y0)))
-       | S i' => mdiv N ((xleft ^y i' + xright ^y i') * midy ^y j * (midy ^y 2 - mcst y0)) deltax
+       | S i' => mdiv N T ((xleft ^y i' + xright ^y i') *[.T] midy ^y j *[.T] (midy ^y 2 - mcst y0)) deltax
        end
    in
    let Integral1 (i j : nat) := mintegrate (integrand1 i j) None None in
@@ -85,27 +86,27 @@ End s.
 Arguments calcul: clear implicits.
 
 (** computations with the virtual machine *)
-Time Eval vm_compute in     calcul       _       0.5  13.
+Time Eval vm_compute in     calcul       _       0.5  13 (Some 13%nat).
 
 (** computations with native runtime
    first call is always slow: native_compute must initialise *)
-Time Eval native_compute in calcul       _       0.5  13.
-Time Eval native_compute in calcul       _       0.5  13.
-Time Eval native_compute in calcul       _       0.78 15.
+Time Eval native_compute in calcul       _       0.5  13 (Some 13%nat).
+Time Eval native_compute in calcul       _       0.5  13 (Some 13%nat).
+Time Eval native_compute in calcul       _       0.78 15 (Some 15%nat).
 
 (** by default, native floating point numbers are used
     by specifying the first argument, we may chose other options *)
 (** here with emulated floating point numbers, based on BigInts (big numbers based on 63bit native integers) 
     -> quite slower *)
-Time Eval native_compute in @calcul IBigInt60.nbh  0.5 8.
+Time Eval native_compute in @calcul IBigInt60.nbh  0.5 8 (Some 8%nat).
 (** or with emulated floating point numbers, based on emulated relative numbers 
     -> even slower *)
-Time Eval native_compute in @calcul IStdZ60.nbh  0.5 8.
+Time Eval native_compute in @calcul IStdZ60.nbh  0.5 8 (Some 8%nat).
 
 
 (** more precise computations, but pretty slow and thus commented out *)
 (**
-Time Eval native_compute in calcul IBigInt120.nbh 0.88   65.
-Time Eval native_compute in calcul IBigInt120.nbh 0.89   95.
-Time Eval native_compute in calcul IBigInt300.nbh 0.895 135.
+Time Eval native_compute in calcul IBigInt120.nbh 0.88   65 (Some 100%nat). (* 8s *)
+Time Eval native_compute in calcul IBigInt120.nbh 0.89   95 (Some 100%nat). (* 14s *)
+Time Eval native_compute in calcul IBigInt300.nbh 0.895 135 (Some 150%nat). (* 83s *)
 *)

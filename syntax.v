@@ -46,7 +46,7 @@ Inductive term {X: sort -> Type}: sort -> Type :=
 | f_cos: term FUN
 | f_sin: term FUN
 | f_cst: term REAL -> term FUN
-| f_trunc: Z -> term FUN -> term FUN         (* the identity, simply truncates the model *)
+| f_trunc: nat -> term FUN -> term FUN         (* the identity, simply truncates the model *)
 (* boolean expressions *)
 (* TODO: true, false *)
 | b_le: term REAL -> term REAL -> term BOOL
@@ -67,14 +67,14 @@ Inductive term {X: sort -> Type}: sort -> Type :=
 | c_conj: term PRED -> term PRED -> term PRED
 | c_cst: term BOOL -> term PRED
 | c_forall_bisect: term REAL -> term REAL -> (X REAL -> term PRED) -> term PRED
-(* setting the degree/bisection depth in a subexpression *)
-| t_deg {S}: Z -> term S -> term S
-| t_depth {S}: nat -> term S -> term S
+(* setting the parameters in a subexpression *)
+| t_set {S}: prm -> term S -> term S
 (* let..in and variable *)
 | t_var: forall {S}, X S -> term S
 | t_let: forall {S T}, term S -> (X S -> term T) -> term T.
 Definition let' {X S T}: @term X S -> (term S -> term T) -> term T :=
   fun a k => t_let a (fun x => k (t_var x)). 
+Definition f_trunc' {X} d u: @term X FUN := match d with None => u | Some d => f_trunc d u end.
 
 (** closed terms: they act polymorphically in X *)
 Definition Term S := forall X, @term X S.
@@ -125,8 +125,7 @@ Fixpoint sem S (t: @term rval S): rval S :=
   | c_conj b c => fun x => sem b x /\ sem c x
   | c_cst b => fun x => sem b
   | c_forall_bisect a b k => fun x => forall y: R, sem a <= y <= sem b -> sem (k y) x
-  | t_deg _ _ x 
-  | t_depth _ _ x => sem x
+  | t_set _ _ x => sem x
   | t_var _ x => x
   | t_let _ _ x k => sem (k (sem x))
   end.
@@ -161,7 +160,7 @@ Ltac ereify e :=
   | Rtrigo_def.cos ?e => let e:=ereify e in uconstr:(e_cos e)
   | Rtrigo_def.sin ?e => let e:=ereify e in uconstr:(e_sin e)
   | Rabs ?e => let e:=ereify e in uconstr:(e_abs e)
-  | at_degree ?d ?e => let e:=ereify e in uconstr:(t_deg d e)
+  | set ?p ?e => let e:=ereify e in uconstr:(t_set p e)
   | Q2R ?q => uconstr:(e_fromQ q)
   | IZR ?z => uconstr:(e_fromZ z)
   | Rtrigo1.PI => uconstr:(e_pi)
@@ -184,7 +183,7 @@ Ltac ereify e :=
   | Rtruncate ?d ?e => let e:=freify e in uconstr:(f_trunc d e)
   | Rdiv ?e ?f => let e:=freify e in let f:=freify f in uconstr:(f_div e f)
   | R_sqrt.sqrt ?e => let e:=freify e in uconstr:(f_sqrt e)
-  | at_degree ?d ?e => let e:=freify e in uconstr:(t_deg d e)
+  | set ?p ?e => let e:=freify e in uconstr:(t_set p e)
   | Rtrigo_def.cos VAR => uconstr:(f_cos)
   | Rtrigo_def.sin VAR => uconstr:(f_sin)
   | VAR => uconstr:(f_id)
@@ -213,13 +212,14 @@ Ltac breify b :=
   | ?e <> ?f => let e:=ereify e in let f:=ereify f in uconstr:(b_ne e f)
   | ?b /\ ?c => let b:=breify b in let c:=breify c in uconstr:(b_conj b c)
   | ?b \/ ?c => let b:=breify b in let c:=breify c in uconstr:(b_disj b c)
-  | at_degree ?d ?e => let e:=breify e in uconstr:(t_deg d e)
+  | set ?p ?e => let e:=breify e in uconstr:(t_set p e)
   | forall x, ?a <= x <= ?b -> @?p x =>
     let a:=ereify a in
     let b:=ereify b in
     let pVAR:=reduce (p VAR) in
     let p:=creify pVAR in
     uconstr:(b_forall_models a b p)
+  | ?e => fail "unrecognised propositional expression:" e
   end
     with creify b :=
   lazymatch b with
@@ -231,8 +231,8 @@ Ltac breify b :=
   | ?e <> ?f => let e:=freify e in let f:=freify f in uconstr:(c_ne e f)
   | ?b /\ ?c => let b:=creify b in let c:=creify c in uconstr:(c_conj b c)
   | ?b \/ ?c => let b:=creify b in let c:=creify c in uconstr:(c_disj b c)
-  | at_degree ?d ?e => let e:=creify e in uconstr:(t_deg d e)
   | ?e => let e:=breify e in uconstr:(c_cst e)
+  | set ?p ?e => let e:=creify e in uconstr:(t_set p e)
   end.
 Ltac reify_real e :=
   let e := reduce e in
@@ -266,7 +266,7 @@ Goal True.
   let e := reify_real constr:(RInt (@sqrt _ + @sqrt _) R0 R1) in pose e.
   let e := reify_real constr:(RInt (@sqrt _ *[4] @sqrt _) R0 R1) in pose e.
   let e := reify_real constr:(RInt (fun x => sqrt x *[4] sqrt x) R0 R1) in pose e.
-  let e := reify_real constr:(RInt (fun x => sqrt x *[4] (at_degree 5 (sqrt x))) R0 R1) in pose e.
+  let e := reify_real constr:(RInt (fun x => sqrt x *[4] (set (degree 5) (sqrt x))) R0 R1) in pose e.
   let e := reify_real constr:(RInt (fun x => sqrt x *[4] (Rtruncate 5 (sqrt x))) R0 R1) in pose e.
   let e := reify_real constr:(RInt (fun z => R0+z+cos (1/fromZ 2)) R0 R1) in pose e.
   let f := reify_fun  constr:(fun x: R => x * sqrt x) in pose f.
@@ -275,7 +275,7 @@ Goal True.
   let b := reify_prop constr:(4 < 5 /\ 3 <= RInt id 3.3 4.4 <= 18.9) in pose b.
   let b := reify_prop constr:(4 >= 5) in pose b. 
   let b := reify_prop constr:(forall x, 4 <= x <= 5 -> x*x < sqrt x) in pose b.
-  let b := reify_prop constr:(at_degree 3 (1/2 <= 3) /\ at_degree 4 (0 <= 1/2)) in pose b. (* DAGGER: double check *)
+  let b := reify_prop constr:(set (degree 3) (1/2 <= 3) /\ set (depth 4) (0 <= 1/2)) in pose b.
   let b := reify_prop constr:(forall x, 2<=x<=cos 2 -> 1/x <> sqrt x) in pose b. 
   Fail let b := reify_prop constr:(forall x, 2<=x<=cos x -> 1/x <> sqrt x) in pose b. 
   exact I. 
@@ -343,8 +343,7 @@ Inductive trel X Y (R: forall S, X S -> Y S -> Prop): forall S, @term X S -> @te
 | rc_forall_bisect: forall x y, trel R x y -> forall x' y', trel R x' y' -> 
                     forall h k, (forall a b, R REAL a b -> trel R (h a) (k b)) -> 
                            trel R (c_forall_bisect x x' h) (c_forall_bisect y y' k)
-| rt_deg: forall d S x y, trel R x y -> trel R (@t_deg _ S d x) (@t_deg _ S d y)
-| rt_depth: forall d S x y, trel R x y -> trel R (@t_depth _ S d x) (@t_depth _ S d y)
+| rt_set: forall p S x y, trel R x y -> trel R (@t_set _ S p x) (@t_set _ S p y)
 | rt_var: forall S x y, R S x y -> trel R (t_var x) (t_var y)
 | rt_let: forall S T x y h k, trel R x y -> (forall a b, R S a b -> trel R (h a) (k b)) -> trel R (t_let x h) (@t_let _ _ T y k).
 
@@ -354,8 +353,6 @@ Inductive trel X Y (R: forall S, X S -> Y S -> Prop): forall S, @term X S -> @te
     (see lemmas [Static.correct] and [Dynamic.correct] below) *)
 Definition parametric S (u: Term S) :=
   forall X Y (R: forall S, X S -> Y S -> Prop), trel R (u X) (u Y).
-
-Record prms := Prms { p_deg: Z; p_depth: nat }. 
 
 
 (** ** static evaluation function *)
@@ -401,8 +398,8 @@ Fixpoint Sem (p: prms) S (t: @term sval S): sval S :=
   | f_add e f => e_map2 (@add _) (Sem p e) (Sem p f)
   | f_sub e f => e_map2 (@sub _) (Sem p e) (Sem p f)
   | f_mul e f => e_map2 (@mul _) (Sem p e) (Sem p f)
-  | f_div e f => LET e ::= Sem p e IN LET f ::= Sem p f IN mdiv (p_deg p) e f
-  | f_sqrt e => LET e ::= Sem p e IN msqrt (p_deg p) e
+  | f_div e f => LET e ::= Sem p e IN LET f ::= Sem p f IN mdiv (p_deg p) (p_trunc p) e f
+  | f_sqrt e => LET e ::= Sem p e IN msqrt (p_deg p) (p_trunc p) e
   | f_id => mid
   | f_cos => mcos
   | f_sin => msin
@@ -428,8 +425,7 @@ Fixpoint Sem (p: prms) S (t: @term sval S): sval S :=
       if ~~is_le dlo a then err "model comparison: lower bound beyond domain" else
       if ~~is_le b dhi then err "model comparison: upper bound beyond domain" else
       Sem p k
-  | t_deg _ d x => Sem (Prms d (p_depth p)) x
-  | t_depth _ d x => Sem (Prms (p_deg p) d) x
+  | t_set _ q x => Sem (set_prm q p) x
   | t_var _ x => x
   | t_let _ _ x k => Sem p (k (Sem p x))
   end.
@@ -582,8 +578,8 @@ Fixpoint Sem (p: prms) S (t: @term sval S): sval S :=
   | f_add e f => fun MO => e_map2 (@add _) (Sem p e MO) (Sem p f MO)
   | f_sub e f => fun MO => e_map2 (@sub _) (Sem p e MO) (Sem p f MO)
   | f_mul e f => fun MO => e_map2 (@mul _) (Sem p e MO) (Sem p f MO)
-  | f_div e f => fun MO => LET e ::= Sem p e MO IN LET f ::= Sem p f MO IN mdiv (p_deg p) e f
-  | f_sqrt e => fun MO => LET e ::= Sem p e MO IN msqrt (p_deg p) e
+  | f_div e f => fun MO => LET e ::= Sem p e MO IN LET f ::= Sem p f MO IN mdiv (p_deg p) (p_trunc p) e f
+  | f_sqrt e => fun MO => LET e ::= Sem p e MO IN msqrt (p_deg p) (p_trunc p) e
   | f_id => fun MO => mid
   | f_cos => fun MO => mcos
   | f_sin => fun MO => msin
@@ -623,8 +619,7 @@ Fixpoint Sem (p: prms) S (t: @term sval S): sval S :=
       LET a ::= Sem p a IN
       LET b ::= Sem p b IN
       bisect (p_depth p) (fun ab => Sem p (k (ret ab)) M) (bnd a b)
-  | t_deg _ d x => Sem (Prms d (p_depth p)) x
-  | t_depth _ d x => Sem (Prms (p_deg p) d) x
+  | t_set _ q x => Sem (set_prm q p) x
   | t_var _ x => x
   | t_let _ _ x k => Sem p (k (Sem p x))
   end.
@@ -641,7 +636,7 @@ Definition cval S: sval S -> rval S -> Prop :=
   end.
 Lemma correct S (u: term S) (v: term S): trel cval u v -> forall p, cval (Sem p u) (sem v).
 Proof.
-  induction 1; intro p; cbn -[RInt] in *;
+  induction 1; intro ps; cbn -[RInt] in *;
     try (intros MO' a b M';
          try specialize (IHtrel  _ _ _ M');
          try (specialize (IHtrel1  _ _ _ M'); specialize (IHtrel2  _ _ _ M'))); trivial.
@@ -661,7 +656,7 @@ Proof.
   - eapply ep_bind=>[A Aa|]; eauto.  
     eapply ep_bind=>[B Bb|]; eauto.  
     case_eq (is_lt A B)=>//=ab. 
-    specialize (IHtrel1 p _ _ _ (M (DfromI2 Aa Bb ab))).
+    specialize (IHtrel1 ps _ _ _ (M (DfromI2 Aa Bb ab))).
     eapply ep_bind=>[F Ff|]; eauto.
     eapply rmintegrate; first apply Ff; by constructor. 
   - eapply ep_map2; eauto. intros. by apply (radd (r:=mcontains)).
@@ -796,7 +791,7 @@ Notation "1" := f_one: fxpr_scope.
 Definition integrate' X: fxpr X -> expr X -> expr X -> expr X := e_integrate.
 Definition eval' X: fxpr X -> expr X -> expr X := e_eval.
 Definition id' {X}: fxpr X := f_id.
-Definition truncate' X: Z -> fxpr X -> fxpr X := f_trunc.
+Definition truncate' X: nat -> fxpr X -> fxpr X := f_trunc.
 Definition fsqrt X: fxpr X -> fxpr X := f_sqrt.
 Definition fcos X: fxpr X := f_cos.
 Definition fsin X: fxpr X := f_sin.
@@ -858,6 +853,7 @@ Check EXPR (1+e_pi).
 Check EXPR (1+integrate' id' 0 1).
 Check FXPR (id'/id').
 Check EXPR (1+integrate' (id' / fsqrt id') 0 (fromQ' 3.3)).
+Check EXPR (1+integrate' (id' / (fsqrt id' + fromZ' 3)) 0 (fromQ' 3.3)).
 Check EXPR (1+integrate' (id' / (fsqrt id' + fromZ' 3)) 0 (fromQ' 3.3)).
 Check EXPR (let_e x := 1+e_pi in x + x).
 Check EXPR (let_e x := 1+e_pi in x + let_e y := x*x in sqrt' (y+y)).

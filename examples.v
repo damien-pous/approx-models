@@ -83,6 +83,19 @@ Goal forall x, 0.1<=x<=0.9 -> x <> sqrt x.
   approx.
 Qed.
 
+(** it uses a bisection method, together with a nullability test on models requiring an oracle to estimate an inverse of the function *)
+Goal forall x, 0.001<=x<=0.999 -> x <> sqrt x.
+  (** recursion depth for bisection can be specified with [depth]; default is 5 *)
+  Fail approx.
+  approx (depth 6).
+  Restart.
+  (** recursion depth 1 means no bisection; in that case we need to increase the interpolation degree *)
+  approx (i_deg 69, depth 1).
+  Restart.
+  (** a bit less with bisection depth 2 *)
+  approx (i_deg 42, depth 2).
+Qed.
+
 
 
 (** the tactic [estimate e] makes it possible to compute and print an interval enclosing the expression [e]
@@ -112,12 +125,12 @@ Goal 0.405465108108 <= RInt (fun x => 1/(2+x)) 0 1 <= 0.405465108109.
   approx (static (-1.5) 1.5, i_deg 41). 
 Qed.
 
-(** the degree may also by specified locally, using the [at_degree] identity function  *)
+(** the interpolation degree may also by specified locally, using the [set _] identity function  *)
 Goal True.
-  estimate (RInt (fun x => 1/(at_degree 25 (sqrt (1+x)))) 0 1).
-  estimate (RInt (fun x => 1/(at_degree 45 (sqrt (1+x)))) 0 1).
+  estimate (RInt (fun x => 1/(set (degree 25) (sqrt (1+x)))) 0 1).
+  estimate (RInt (fun x => 1/(set (degree 45) (sqrt (1+x)))) 0 1).
   (** similarly the [Rtruncate] identity function may be use to truncate the models obtained for certain subexpressions *)
-  estimate (RInt (fun x => 1/(Rtruncate 20 (at_degree 45 (sqrt (1+x))*(1+x)))) 0 1).
+  estimate (RInt (fun x => 1/(Rtruncate 20 (set (degree 45) (sqrt (1+x))*(1+x)))) 0 1).
   (** truncated multiplications can be specified via [Rmult'] and its infix notation [x *[deg] y] *)
   estimate (RInt (fun x => 1/(Rtruncate 20 (sqrt (1+x)) *[45] (1+x))) 0 1).
 Abort.

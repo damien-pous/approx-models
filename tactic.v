@@ -37,6 +37,8 @@ End s.
 Variant param :=
 (** interpolation degree (default: 10) *)
 | i_deg of Z
+(** truncation degree (default: none) *)
+| truncate of nat
 (** bisection depth (default: 5) *)
 | depth of nat
 (** floating point implementation *)
@@ -95,10 +97,19 @@ Ltac get_depth x y :=
   | _ => get_depth y tt
   end.
 
+Ltac get_truncate x y :=
+  lazymatch x with
+  | tt => uconstr:(None)
+  | truncate ?z => constr:(Some z)
+  | (?p,?q) => get_truncate p constr:((q,y))
+  | _ => get_truncate y tt
+  end.
+
 Ltac get_prms x :=
   let deg := get_deg x tt in
+  let truncate := get_truncate x tt in
   let depth := get_depth x tt in
-  constr:(Prms deg depth).                     
+  constr:(Prms deg truncate depth).
 
 Ltac get_native x y :=
   lazymatch x with
@@ -263,13 +274,15 @@ Tactic Notation "estimate" constr(e) := estimate e tt.
 (** nice notation for intervals with primitive floating points endpoints *)
 Notation "[[ a ; b ]]" := (Float.Ibnd a%float b%float). 
 
-(*
 (* simple tests for the above tactics *)
+(*
 Goal 1.4 <= sqrt 2 <= 1.5.
 Proof.
   approx.
   Restart.
   approx (i_deg 15).
+  Restart.
+  approx (truncate 15, depth 3).
   Restart.
   approx chebyshev11.
   Restart.

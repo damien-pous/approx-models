@@ -63,13 +63,18 @@ Lemma evalC a Q x: eval (a::Q) x = a + x * eval Q x.
 Proof. by rewrite -evalR /= evalR. Qed.
 
 (** same as [eval'], but with truncated multiplications *)
-Fixpoint eval'' {R: Ops0} d (P: list R) (x: R): R :=
+Fixpoint eval'' {C: Ops0} d (P: list C) (x: C): C :=
   match P with
   | [] => 0
   | a::Q => a + x *[d] eval'' d Q x
   end.
 (* Lemma eval''E d (P: list R) (x: R): eval'' d P x = eval' P x. *)
 (* Proof. elim: P=>//=a q H. congruence. Qed. *)
+Definition eval't {C: Ops0} d :=
+  match d with
+  | Some d => @eval'' C d
+  | None => @eval' C
+  end.
 
 Section r.
  Context {C: Ops0}.
@@ -228,6 +233,8 @@ Section s.
  Proof. induction 1; simpl; rel. Qed.
  Lemma reval': forall d P Q, sT P Q -> forall x y, T x y -> T (eval'' d P x) (eval' Q y).
  Proof. induction 1; simpl; rel. Qed.
+ Lemma reval't: forall d P Q, sT P Q -> forall x y, T x y -> T (eval't d P x) (eval' Q y).
+ Proof. destruct d. apply reval'. apply reval. Qed.
 End s.
 
 Section s'.

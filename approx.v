@@ -24,7 +24,7 @@ Record Tube C := { pol: list C; rem: C; cont: bool }.
 Section n.
  Context {N: NBH} {BO: BasisOps}.
  Notation Tube := (Tube (car (ops0 (@II N)))).
- Notation eval' := taylor.eval''.
+ Notation eval' := taylor.eval't.
  Notation derive := taylor.derive.
  
  (** range of a polynomial *)
@@ -44,14 +44,10 @@ Section n.
        end
    | Some range => ret (range p)
    end.
-
  
- (** truncation of a model
-     (noop if given a negative degree [n]) *)
- Definition mtruncate (n: Z) (M: Tube): Tube :=
-   if Z.leb n 0 then M else
-     (* TODO: avoid conversion to nat for splitting *)
-   let (p,q) := split_list (Z.to_nat n) (pol M) in 
+ (** truncation of a model *)
+ Definition mtruncate (n: nat) (M: Tube): Tube :=
+   let (p,q) := split_list n (pol M) in 
    {| pol := p; rem := rem M + srange q; cont := cont M |}.
 
  (** model with empty remainder *)
@@ -87,7 +83,6 @@ Section n.
       cont := cont M && cont N; |}.
  Definition mzer: Tube := msingle 0.
  Definition mone: Tube := msingle 1.
- (** (potentially) truncated multiplication *)
  Definition mmul' d M N := mtruncate d (mmul M N).
 
  (** by defining this structure, we get nice notations for the above operations on models *)
@@ -161,24 +156,24 @@ Section n.
  Definition mfc (p: list FF): Tube := {| pol := map F2I p; rem := 0; cont := true |}.
  
  (** division: H and W are given by an oracle
-     [d] is the potential truncation degree
+     [t] is the truncation degree
      H ~ F/G
      W ~ 1/G *)
- Definition mdiv_aux d (F G: Tube) (H W: list FF): E Tube :=
+ Definition mdiv_aux (t: option nat) (F G: Tube) (H W: list FF): E Tube :=
    let H := mfc H in
    let W := mfc W in
    let K1 := 1 - W*G in
-   let K2 := W*(G*[d]H - F) in
+   let K2 := W*(G*[.t]H - F) in
    LET mu ::= mnorm K1 IN
    LET b ::= mnorm K2 IN
    if is_lt mu 1 then ret {| pol := pol H; rem := sym (b / (1 - mu)); cont := cont F && cont G; |}
    else err "mdiv: missed mu<1".
 
  (** square root: H and W are given by an oracle 
-     [d] is the potential truncation degree
+     [t] is the truncation degree
      H ~ sqrt F
      W ~ 1 / 2H *)
- Definition msqrt_aux d (F: Tube) (H W: list FF): E Tube :=
+ Definition msqrt_aux (t: option nat) (F: Tube) (H W: list FF): E Tube :=
    let H := mfc H in
    let W := mfc W in
    let x0' := (lo+hi)//2 in
@@ -186,7 +181,7 @@ Section n.
    if ~~ is_lt 0 y0' then err "msqrt: potentially negative value" else
    let K1 := 1 - (mmulZ 2 (W*H)) in
    (* TOTHINK: better way to compute (truncated) H^2 ? *)
-   let K2 := W*(H*[d]H - F) in
+   let K2 := W*(H*[.t]H - F) in
    LET mu0 ::= mnorm K1 IN
    LET mu1 ::= mnorm W IN
    LET b ::= mnorm K2 IN
@@ -200,34 +195,36 @@ Section n.
        else err "msqrt: missed 0<delta"
      else err "msqrt: missed mu0<1".
 
- (** division and square root, using interpolation as oracle ; [d] is the interpolation degree *)
- Definition mdiv d (M N: Tube): E Tube :=
+ (** division and square root, using interpolation as oracle ; 
+     [d] is the interpolation degree, 
+     [t] is the truncation degree *)
+ Definition mdiv d t (M N: Tube): E Tube :=
    (* partial application of [beval] enables precomputation and sharing of potential list reversals *)
    let p := beval (mcf M) in    
    let q := beval (mcf N) in
-   mdiv_aux d M N
+   mdiv_aux t M N
             (interpolate d (fun x => p x / q x))
             (interpolate d (fun x => 1 / q x)).
- Definition msqrt d (M: Tube): E Tube :=
+ Definition msqrt d t (M: Tube): E Tube :=
    (* partial application of [beval] enables precomputation and sharing of potential list reversals *)
    let p := beval (mcf M) in
    let h := interpolate d (fun x => sqrt (p x)) in
    let h' := beval h in
-   msqrt_aux d M
+   msqrt_aux t M
              h
              (interpolate d (fun x => 1 / (mulZ 2 (h' x)))).
 
  (** solution of polynomial equation : F is a polynom with model coefficients
-     - d is the truncation degree (if positive)
-     - phi, A are given by an oracle, such that F(phi) ~ 0 and A ~ 1 / DF(phi)
-     - r is a radius also given by an oracle, such that the Newton operator is stable and lambda contracting on B(phi,r) *) 
- Definition mpolynom_eq_aux d (F: list Tube) (phi A: list FF) (r: FF): E Tube :=
+     - [t] is the truncation degree
+     - [phi], [A] are given by an oracle, such that F(phi) ~ 0 and A ~ 1 / DF(phi)
+     - [r] is a radius also given by an oracle, such that the Newton operator is stable and lambda contracting on B(phi,r) *) 
+ Definition mpolynom_eq_aux t (F: list Tube) (phi A: list FF) (r: FF): E Tube :=
    let phi := mfc phi in
    let A := mfc A in
    let r := F2I r in 
    let phir := {| pol := pol phi ; rem := sym r ; cont := false |} in
-   LET lambda ::= mnorm (eval' d (derive (polynom_eq.opnewton F A)) phir) IN
-   LET c ::= mnorm (A * eval' d F phi) IN
+   LET lambda ::= mnorm (eval' t (derive (polynom_eq.opnewton F A)) phir) IN
+   LET c ::= mnorm (A * eval' t F phi) IN
    if is_lt lambda 1 then
      if is_le (c + lambda * r) r then
        let eps := c / (1 - lambda) in
@@ -289,7 +286,7 @@ Section n.
  
  (** oracle for solutions of polynomial equations:
      by interpolation, using Newton's method to approximate the solution at the interpolation points
-     - [d] is the interpolation degree / number of interpolation points
+     - [d] is the interpolation degree 
      - [phi0] is a preliminary candidate *)
  Definition polynom_eq_oracle d (F: list (list FF)) (phi0: list FF): list FF :=
    let f t :=
@@ -315,12 +312,12 @@ Section n.
      rather fine, but O(d^2) model multiplications,
      and possibly too fine (finer than what is used in validation, cf. oval example at degree 20)
   *)
- Definition polynom_for_lambda1 (d: Z) (L: list (list FF)) (phi: list FF): E (list FF) :=
+ Definition polynom_for_lambda1 t (L: list (list FF)) (phi: list FF): E (list FF) :=
    LET l ::=
      Fix (fun lambda L => 
        match L with
        | [] => ret []
-       | _ => LET r ::= fnorm (eval' d L phi) IN
+       | _ => LET r ::= fnorm (eval' t L phi) IN
               LET q ::= lambda (derive L) IN 
               ret (r::q)
        end) (fun _ => err "assert false") L
@@ -329,15 +326,15 @@ Section n.
  (** ... <= ||L(phi)|| + \sum_i>0 ||L||^(i)(||phi||)/!i r^i 
      only O(d) model multiplications, and probably closer to the estimation used during validation
   *)
- Definition polynom_for_lambda2 (d: Z) (L: list (list FF)) (phi: list FF): E (list FF) :=
-   LET l0 ::= fnorm (eval' d L phi) IN
+ Definition polynom_for_lambda2 t (L: list (list FF)) (phi: list FF): E (list FF) :=
+   LET l0 ::= fnorm (eval' t L phi) IN
    LET Nphi ::= fnorm phi IN
    LET NL ::= emap fnorm L IN
    let l' :=
      Fix (fun lambda NL => 
        match NL with
        | [] => []
-       | _ => eval' d NL Nphi :: lambda (derive NL)
+       | _ => eval' t NL Nphi :: lambda (derive NL)
        end) (fun _ => 0) (derive NL)
    in ret (l0 :: taylorise 1 1 l'). 
 
@@ -399,28 +396,27 @@ Section n.
  
  (** putting everything together, we obtain the following function for computing solutions of polynomial functional equations.
      - [d] is the interpolation degree
-     - [2d] is used for truncations, if positive
+     - [t] is the trucnation degree
      - [phi0] is a temptative solution (from which Newton iterations start with)
      NOTE: here we inline the relevant part of [mpolynom_eq_aux]: this makes it possible to avoid duplicate computations (see correctness proof below)
   *)
- Definition mpolynom_eq d (F: list Tube) (phi0: list FF): E Tube :=
+ Definition mpolynom_eq d t (F: list Tube) (phi0: list FF): E Tube :=
    let F' := map mcf F in
    let phi' := polynom_eq_oracle d F' phi0 in
-   let d2 := (2*d)%Z in
    (* partial application of [beval] enables precomputation and sharing of potential list reversals *)
-   let DF := beval (eval' d2 (derive F') phi') in
+   let DF := beval (eval' t (derive F') phi') in
    let A' := interpolate d (fun x => 1 / DF x) in
    let A := mfc A' in
    let phi := mfc phi' in
-   LET c ::= mnorm (A * eval' d2 F phi) IN
+   LET c ::= mnorm (A * eval' t F phi) IN
    let L := derive (polynom_eq.opnewton F A) in
    let L' := map (fun M => map I2F (pol M)) L in
-   LET l ::= polynom_for_lambda d2 L' phi' IN
+   LET l ::= polynom_for_lambda t L' phi' IN
    LET r' ::= find_radius (I2F c) l IN
    let r := F2I r' in
    if negb (is_le 0 r) then err "mpolynom_eq: negative radius" else
    let phir := {| pol := pol phi; rem := sym r; cont := false |} in
-   LET lambda ::= mnorm (eval' d2 L phir) IN
+   LET lambda ::= mnorm (eval' t L phir) IN
    let _ := print "validated lambda"%string in
    let _ := print lambda in
    if is_lt lambda 1 then
@@ -642,10 +638,9 @@ Section n.
 
  Lemma rmtruncate n: forall F f, mcontains F f -> mcontains (mtruncate n F) f.
  Proof.
-   rewrite /mtruncate.
-   case Z.leb=>//F f [Cf [p [Hp H]]].
-   generalize (rsplit_list (Z.to_nat n) Hp).
-   generalize (eval_split_list TT (Z.to_nat n) p).  
+   rewrite /mtruncate=>F f [Cf [p [Hp H]]].
+   generalize (rsplit_list n Hp).
+   generalize (eval_split_list TT n p).  
    simpl. case split_list=> p1 p2.
    case split_list=> P1 P2. simpl. 
    intros E [R1 R2]. split. exact Cf. 
@@ -671,6 +666,9 @@ Section n.
      rdivZ := rmdivZ;
    |}.
 
+ Lemma rmmul'': forall t M f, mcontains M f -> forall P g, mcontains P g -> mcontains (M*[.t] P) (f*g).
+ Proof. apply rmul''. Qed.
+ 
  Lemma rmcontinuous: forall F f,
      (forall x, dom x -> continuity_pt f x) -> mcontains F f -> mcontains (mcontinuous F) f.
  Proof.
@@ -801,9 +799,9 @@ Section n.
  
  (** *** division *)
  
- Lemma rmdiv_aux d F G f g H W:
+ Lemma rmdiv_aux t F G f g H W:
    mcontains F f -> mcontains G g ->
-   EP' mcontains (mdiv_aux d F G H W) (f_bin Rdiv f g).
+   EP' mcontains (mdiv_aux t F G H W) (f_bin Rdiv f g).
  Proof.
    rewrite /mdiv_aux=>Hf Hg. 
    pose proof (Hh := rmfc H).
@@ -811,7 +809,7 @@ Section n.
    have Hp: scontains (map F2I H) p by apply list_rel_map; rel.
    pose proof (HW := rmfc W). set (w := eval (map F2R W)) in *.
    ecase rmnorm=>//=; [by eauto using rmsub,rmone,rmmul|]=>Mu [mu [MU Hm]]. 
-   ecase rmnorm=>//=; [by eauto using rmsub,rmone,rmmul,rmmul'|]=>C [c [Cc Hc]].
+   ecase rmnorm=>//=; [by eauto using rmsub,rmone,rmmul,rmmul''|]=>C [c [Cc Hc]].
    case is_ltE => [Hmu|]=>//.
    specialize (Hmu _ 1 MU (rone _)).
    have L: forall x, dom x -> g x <> 0 /\ Rabs (h x - f x / g x) <= c / (R1 - mu).
@@ -829,9 +827,9 @@ Section n.
      rewrite Rabs_minus_sym. by apply L.
  Qed.
 
- Lemma rmdiv d:
+ Lemma rmdiv d t:
    forall M f, mcontains M f ->
-   forall N g, mcontains N g -> EP' mcontains (mdiv d M N) (f_bin Rdiv f g).
+   forall N g, mcontains N g -> EP' mcontains (mdiv d t M N) (f_bin Rdiv f g).
  Proof. intros; by apply rmdiv_aux. Qed.
 
  (** *** square root *)
@@ -854,7 +852,7 @@ Section n.
    simpl negb.
    ecase rmnorm=>//=; [by eauto using rmsub,rmone,rmmul,rmmulZ|]=>Mu0 [mu0 [MU0 Hmu0]]. 
    ecase rmnorm=>//=; [by eauto using rmsub,rmmul|]=>Mu1 [mu1 [MU1 Hmu1]]. 
-   ecase rmnorm=>//=; [by eauto using rmsub,rmmul,rmmul'|]=>BB [b [Bb Hb]]. 
+   ecase rmnorm=>//=; [by eauto using rmsub,rmmul,rmmul''|]=>BB [b [Bb Hb]]. 
    case is_ltE =>// Hmu01. specialize (Hmu01 _ _ MU0 (rone _)).
    case is_ltE =>// Hmu0b. 
    case is_ltE => [Hmu|] =>//.
@@ -880,18 +878,18 @@ Section n.
      rewrite Rabs_minus_sym. by apply L.
  Qed.
 
- Lemma rmsqrt d M f: 
-   mcontains M f -> EP' mcontains (msqrt d M) (f_unr R_sqrt.sqrt f).
+ Lemma rmsqrt d t M f: 
+   mcontains M f -> EP' mcontains (msqrt d t M) (f_unr R_sqrt.sqrt f).
  Proof. by apply rmsqrt_aux. Qed.
 
  (** *** solutions of polynomial functional equations *)
 
- Lemma rmpolynom_eq_aux d
+ Lemma rmpolynom_eq_aux t
        (F': list Tube) (phi' A': list FF) (r': FF)
        (F: list (R->R)):
    list_rel mcontains F' F ->
    0 <= F2R r' ->
-   EP (fun M => exists f, mcontains M f /\ forall t, dom t ->  taylor.eval' F f t = 0) (mpolynom_eq_aux d F' phi' A' r').  
+   EP (fun M => exists f, mcontains M f /\ forall x, dom x ->  taylor.eval' F f x = 0) (mpolynom_eq_aux t F' phi' A' r').  
  Proof.
    move => HF Hr0. rewrite /mpolynom_eq_aux/=.
    pose proof (Hphi := rmfc phi'). 
@@ -902,14 +900,14 @@ Section n.
    set A := eval (map F2R A') in HA.
    have Hp: scontains (map F2I phi') p by apply list_rel_map; rel. 
    unfold mnorm at 1. case magE=>[lambda' lambda clambda Hlambda|]=>//=.
-   ecase rmnorm=>//=; [by apply rmmul; try apply taylor.reval'; eassumption|]=>c' [c [cc Hc]].
+   ecase rmnorm=>//=; [by apply rmmul; try apply taylor.reval't; try eassumption|]=>c' [c [cc Hc]].
    case is_ltE => [Hl1|]=>//.
    case is_leE => [Hdlr|]=>//. constructor.
    have Hnewton : exists f, forall t, dom t ->  taylor.eval' F f t = 0 /\ Rabs ( f t - phi t ) <= c / (1 - lambda).
    apply polynom_eq.newton with A r.
-   + move => s Hs t Dt.
+   + move => s Hs y Dy.
      apply Hlambda, eval_mrange => //=.
-     apply taylor.reval'. apply taylor.rderive. rel.
+     apply taylor.reval't. apply taylor.rderive. rel.
      split; first constructor.
      exists p; split => //. 
      move => x Dx /=.
@@ -918,7 +916,7 @@ Section n.
    + split. 2 : apply Hl1 => //; rel.
      apply Rle_trans with (Rabs (taylor.eval' (derive (polynom_eq.opnewton F A)) phi hi)).
      apply Rabs_pos.   
-     apply Hlambda, eval_mrange. apply taylor.reval'. apply taylor.rderive => //. rel.
+     apply Hlambda, eval_mrange. apply taylor.reval't. apply taylor.rderive => //. rel.
      split ; first constructor.
      exists p; split => //=.
      move => x Dx /=.
@@ -938,9 +936,9 @@ Section n.
  Qed.
 
  (** [mpolynom_eq] essentially is an instance of [mpolynom_eq_aux] *)
- Lemma mpolynom_eq_link d F phi0:
-   EP (fun M => exists phi A r, ret M = mpolynom_eq_aux (2*d) F phi A r /\ 0 <= F2R r)
-      (mpolynom_eq d F phi0).
+ Lemma mpolynom_eq_link d t F phi0:
+   EP (fun M => exists phi A r, ret M = mpolynom_eq_aux t F phi A r /\ 0 <= F2R r)
+      (mpolynom_eq d t F phi0).
  Proof.
    rewrite /mpolynom_eq.
    set A' := interpolate _ _. set A := mfc _.
@@ -961,10 +959,10 @@ Section n.
  Qed.
 
  (** whence its correctness *)
- Lemma rmpolynom_eq d F' F phi0:
+ Lemma rmpolynom_eq d t F' F phi0:
    list_rel mcontains F' F ->  
    EP (fun M => exists f, mcontains M f /\ forall t, dom t ->  taylor.eval' F f t = 0)
-      (mpolynom_eq d F' phi0).
+      (mpolynom_eq d t F' phi0).
  Proof.
    move=> HF. case mpolynom_eq_link=>//M.
    intros (phi&A&r&->&Hr). eapply rmpolynom_eq_aux; eauto. 

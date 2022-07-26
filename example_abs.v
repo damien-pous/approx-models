@@ -118,21 +118,12 @@ Proof.
   (* Fail approx (i_deg 300).            *)
   (* Fail approx (i_deg 400).            *)
   (* Fail approx (i_deg 500).            *)
-  (** at degree 81 the model is constructed but not precise enough *)
-  Fail approx (i_deg 81, depth 1, bigint120, native).
-  (** at degree 102 we used to get a proof (commented out: takes long) *)
-  (* approx (i_deg 102, depth 1, bigint120, native). *)
+  (** at degree 102 we get a proof when using a higher precision *)
+  (* Time approx (i_deg 102, depth 1, bigint300, native). (* 15s *) *)
   
-  (** subdivision works nicely... *)
+  (** subdivision works nicely, and much faster... *)
   approx (depth 8). 
 Qed.
-
-(** thus we select a different implementation of floating points, with bigger precision *)
-Goal let eps := 1/1000 in
-     forall x, 0 <= x <= 1 -> g eps x - x < eps+eps/10.
-Proof.
-  intros eps; unfold eps, g.
-Abort.
 
 
 (** ** direct computations *)
@@ -153,10 +144,11 @@ Definition wrem (x: E (Tube II)) := x >>= fun x => ret (width (rem x)).
 (** model approximating the absolute value function,
     parameterised by 
     - [deg]: the interpolation degree for square root
+    - [None]: no truncation in validation
     - [eps]: the smaller the better *)
 Definition NearAbs (MM: ModelOps) (deg: Z) (eps: Q): E MM :=
   LET mid ::= mid IN
-  msqrt deg (mcst (fromQ (eps*eps)) + mid * mid). 
+  msqrt deg None (mcst (fromQ (eps*eps)) + mid * mid). 
 
 
 

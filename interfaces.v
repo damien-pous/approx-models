@@ -55,12 +55,14 @@ Record Ops0 := {
   add: car -> car -> car;
   sub: car -> car -> car;
   mul: car -> car -> car;
-  mul': Z -> car -> car -> car;    (* (potentially) truncated multiplication *)
+  mul': nat -> car -> car -> car;    (* truncated multiplication *)
   zer: car;
   one: car;
   mulZ: Z -> car -> car;
   divZ: Z -> car -> car;
-}.
+  }.
+Definition mul'' {C: Ops0} d :=
+  match d with None => @mul C | Some d => @mul' C d end.
 
 (** extended operations *)
 (** (will be instantiated on R, I, F) *)
@@ -80,7 +82,8 @@ Declare Scope RO_scope.
 Bind Scope RO_scope with car.
 Infix "+" := add: RO_scope. 
 Infix "*" := mul: RO_scope.
-Notation "a *[ d  ] b" := (mul' d a b) (at level 40, left associativity): RO_scope.
+Notation "a *[ d  ] b" := (mul' d%nat a b) (at level 40, left associativity): RO_scope.
+Notation "a *[. d  ] b" := (mul'' d%nat a b) (at level 40, left associativity): RO_scope.
 Infix "-" := sub: RO_scope.
 Infix "/" := div: RO_scope.
 Notation "x // n" := (divZ n x) (at level 40, left associativity): RO_scope .
@@ -125,10 +128,26 @@ Canonical Structure f_Ops0 (A: Type) (C: Ops0): Ops0 := {|
 |}.
 
 (** tagged multiplication on reals, to indicate truncated multiplication request *)
-Definition Rmult' (d: Z) := Rmult.
-(** other tagged identities, to indicate truncations/requested degrees *)
-Definition Rtruncate (d: Z) (x: R) := x.
-Definition at_degree (d: Z) [A] (x: A) := x.
+Definition Rmult' (d: nat) := Rmult.
+(** tagged identity, to indicate truncation requests *)
+Definition Rtruncate (d: nat) (x: R) := x.
+
+
+(** parameters for evaluating terms:
+    - interpolation degree (for divisions, square roots, and model comparisons)
+    - truncation degree, if any, for multiplications in validations
+    - bisection depth (for universally quantified formulas and model comparisons)
+ *)
+Variant prm := degree of Z | trunc of option nat | depth of nat.
+Record prms := Prms { p_deg: Z; p_trunc: option nat; p_depth: nat }.
+Definition set_prm p ps :=
+  match p with
+  | degree d => {| p_deg := d; p_trunc := p_trunc ps; p_depth := p_depth ps |}
+  | trunc d => {| p_deg := p_deg ps; p_trunc := d; p_depth := p_depth ps |}
+  | depth d => {| p_deg := p_deg ps; p_trunc := p_trunc ps; p_depth := d |}
+  end.
+(** tagged identity, to indicate requested degrees/truncations in validation/bisection depth *)
+Definition set (p: prm) [A] (x: A) := x.
 
 (** ** instances on real numbers *)
 Canonical Structure ROps0 := {|
@@ -205,6 +224,10 @@ Global Hint Resolve rfromN: rel.
 Lemma rfromQ R S (T: Rel1 R S) q: T (fromQ q) (fromQ q).
 Proof. unfold fromQ; rel. Qed.
 Global Hint Resolve rfromQ: rel.
+
+Lemma rmul'' R S (T: Rel0 R S): forall d x y, T x y -> forall x' y', T x' y' -> T (x*[.d]x') (y*y').
+Proof. destruct d; rel. Qed.
+Global Hint Resolve rmul'': rel.
 
 
 (** ** neighborhoods (effective abstractions for real numbers) *)
@@ -355,13 +378,14 @@ Class ModelOps {N: NBH} := {
   meval: MM -> II -> E II;
   (** integration; missing bounds are assumed to be those of the domain *)
   mintegrate: MM -> option II -> option II -> E II;
-  (** division and square root: we use an certification a posteriori, the first argument is supposed to be the interpolation degree for the oracles 
+  (** division and square root: we use an certification a posteriori, 
+      the first two arguments are the interpolation degree for the oracle and the truncation degree for the validation
       may raise errors, in case the oracles do not provide appropriate approximations
    *)
-  mdiv: Z -> MM -> MM -> E MM;
-  msqrt: Z -> MM -> E MM;
+  mdiv: Z -> option nat -> MM -> MM -> E MM;
+  msqrt: Z -> option nat -> MM -> E MM;
   (** [truncate] acts as the identity *)
-  mtruncate: Z -> MM -> MM;
+  mtruncate: nat -> MM -> MM;
   (** [mrange] returns an approximation of the range of the model on the considered domain *)
   mrange: MM -> II;
   (** nullability/positivity test, first argument is supposed to be the interpolation degree for computing the inverse of the model in order get a well-conditionned problem 
@@ -384,16 +408,16 @@ Class Model {N: NBH} (MO: ModelOps) (lo hi: R) := {
   rmcst: forall C c, contains C c -> mcontains (mcst C) (fun _ => c);
   rmeval: forall F f, mcontains F f ->
           forall X x, contains X x -> 
-                      EP' contains (meval F X) (f x);
+                 EP' contains (meval F X) (f x);
   rmintegrate: forall F f, mcontains F f ->
                forall A a, ocontains lo A a ->
                forall C c, ocontains hi C c ->
                            EP' contains (mintegrate F A C) (RInt f a c);
-  rmdiv: forall n F f, mcontains F f ->
-         forall   G g, mcontains G g -> 
-                       EP' mcontains (mdiv n F G) (fun x => f x / g x);
-  rmsqrt: forall n F f, mcontains F f ->
-                        EP' mcontains (msqrt n F) (fun x => sqrt (f x));
+  rmdiv: forall n t F f, mcontains F f ->
+             forall G g, mcontains G g -> 
+                    EP' mcontains (mdiv n t F G) (fun x => f x / g x);
+  rmsqrt: forall n t F f, mcontains F f ->
+                     EP' mcontains (msqrt n t F) (fun x => sqrt (f x));
   rmtruncate: forall n F f, mcontains F f ->
                             mcontains (mtruncate n F) f;
   rmrange: forall F f, mcontains F f ->
