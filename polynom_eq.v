@@ -90,7 +90,7 @@ Proof.
     have Ht0 : forall t0 : R , I t0 -> Rabs (phi t0 - phi t0) <= r.
       move => t0 IT0; by rewrite Rminus_eq_0 Rabs_R0.  
     move => It HAt; move : (Hlambda phi Ht0 t It).
-    rewrite /opnewton -eval'_apply apply_derive evalR eval_derive.
+    rewrite /opnewton -eval'_apply apply_derive evalE eval_derive.
     rewrite apply_sub apply_scal apply_id.
     rewrite (Derive_ext _ (fun x => x - (A t) * eval (apply F t) x)).
     rewrite Derive_minus. rewrite Derive_mult. rewrite Derive_id Derive_const HAt.

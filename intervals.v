@@ -139,22 +139,22 @@ Canonical Structure FOps1 :=
 Definition Icontains i x := contains (I.convert i) (Xreal x).
 Local Notation Imem x i := (Icontains i x).
 
-Lemma Iradd i x (H: Imem x i) j y (K: Imem y j): Imem (x+y) (i+j).
+Lemma IaddR i x (H: Imem x i) j y (K: Imem y j): Imem (x+y) (i+j).
 Proof. apply (I.add_correct _ _ _ _ _ H K). Qed.
 
-Lemma Irmul i x (H: Imem x i) j y (K: Imem y j): Imem (x*y) (i*j).
+Lemma ImulR i x (H: Imem x i) j y (K: Imem y j): Imem (x*y) (i*j).
 Proof. apply (I.mul_correct _ _ _ _ _ H K). Qed.
 
-Lemma Irsub i x (H: Imem x i) j y (K: Imem y j): Imem (x-y) (i-j).
+Lemma IsubR i x (H: Imem x i) j y (K: Imem y j): Imem (x-y) (i-j).
 Proof. apply (I.sub_correct _ _ _ _ _ H K). Qed.
 
-Lemma Irzer: Imem 0 0.
+Lemma IzerR: Imem 0 0.
 Proof. unfold Icontains. now rewrite I.zero_correct. Qed.
 
-Lemma Irone: Imem 1 1.
+Lemma IoneR: Imem 1 1.
 Proof. apply I.fromZ_correct. Qed.
 
-Lemma Irdiv J j: Imem j J -> forall K k, Imem k K -> Imem (j / k) (J / K).
+Lemma IdivR J j: Imem j J -> forall K k, Imem k K -> Imem (j / k) (J / K).
 Proof.
   move => Hj K k Hk.
   case: (Req_dec k 0) => Hk0.
@@ -169,52 +169,52 @@ Proof.
   by rewrite H; apply I.div_correct.
 Qed.
 
-Lemma IrfromZ n: Imem (fromZ n) (fromZ n).
+Lemma IfromZR n: Imem (fromZ n) (fromZ n).
 Proof. by apply I.fromZ_correct. Qed.
 
-Lemma IrmulZ z j y (K: Imem y j): Imem (IZR z*y) (mulZ z j).
-Proof. apply Irmul=>//. apply IrfromZ. Qed.
+Lemma ImulZR z j y (K: Imem y j): Imem (IZR z*y) (mulZ z j).
+Proof. apply ImulR=>//. apply IfromZR. Qed.
 
-Lemma IrdivZ z j y (K: Imem y j): Imem (y/IZR z) (divZ z j).
-Proof. apply Irdiv=>//. apply IrfromZ. Qed.
+Lemma IdivZR z j y (K: Imem y j): Imem (y/IZR z) (divZ z j).
+Proof. apply IdivR=>//. apply IfromZR. Qed.
 
-Lemma Irsqrt J j: Imem j J -> Imem (sqrt j) (sqrt J).
+Lemma IsqrtR J j: Imem j J -> Imem (sqrt j) (sqrt J).
 Proof.
   move => Hj /=; rewrite /Icontains.
   move: (I.sqrt_correct prec J (Xreal j) Hj).
   rewrite /= /Xsqrt'; case: (is_negative_spec j) => Hj0 // H.
 Qed.
 
-Lemma Irabs i x (H: Imem x i): Imem (abs x) (abs i).
+Lemma IabsR i x (H: Imem x i): Imem (abs x) (abs i).
 Proof. apply (I.abs_correct _ _ H). Qed.
 
-Lemma Ircos i x (H: Imem x i): Imem (cos x) (cos i).
+Lemma IcosR i x (H: Imem x i): Imem (cos x) (cos i).
 Proof. apply (I.cos_correct prec _ _ H). Qed.
 
-Lemma Irsin i x (H: Imem x i): Imem (sin x) (sin i).
+Lemma IsinR i x (H: Imem x i): Imem (sin x) (sin i).
 Proof. apply (I.sin_correct prec _ _ H). Qed.
       
 Canonical Structure IRel0 :=
   {| rel := Icontains;
-     radd := Iradd;
-     rmul := Irmul;
-     rmul' _ := Irmul;
-     rsub := Irsub;
-     rzer := Irzer;
-     rone := Irone;
-     rmulZ := IrmulZ;
-     rdivZ := IrdivZ;
+     addR := IaddR;
+     mulR := ImulR;
+     mul'R _ := ImulR;
+     subR := IsubR;
+     zerR := IzerR;
+     oneR := IoneR;
+     mulZR := ImulZR;
+     divZR := IdivZR;
   |}.
 
 Canonical Structure IRel1 :=
   {| rel0 := IRel0;
-     rdiv := Irdiv;
-     rsqrt := Irsqrt;
-     rabs := Irabs;
-     rcos := Ircos;
-     rsin := Irsin;
-     rpi := I.pi_correct prec;
-     rfromZ := IrfromZ |}.
+     divR := IdivR;
+     sqrtR := IsqrtR;
+     absR := IabsR;
+     cosR := IcosR;
+     sinR := IsinR;
+     piR := I.pi_correct prec;
+     fromZR := IfromZR |}.
 
 Lemma ImemE: forall x X, Imem x X <->
                  match X with

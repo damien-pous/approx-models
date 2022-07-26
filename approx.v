@@ -30,14 +30,14 @@ Section n.
  (** range of a polynomial *)
  Definition srange p: II :=
    match brange with
-   | None => beval p (bnd lo hi)
-   | Some range => let (m,M):=range p in bnd m M
+   | None => beval p (interval lo hi)
+   | Some range => let (m,M):=range p in interval m M
    end.
  (** corresponding function in (unspecified) flating points *)
  Definition frange p: E (FF*FF) :=
    match brange with
    | None =>
-       let r := beval (map F2I p) (bnd lo hi) in
+       let r := beval (map F2I p) (interval lo hi) in
        match min r,max r with
        | Some m, Some M => ret (I2F m, I2F M)
        | _,_ => err "could not estimate the range"
@@ -468,178 +468,178 @@ Section n.
  
  (** *** basic operations *)
  
- Lemma rmeval_unsafe (M: Tube) f:
+ Lemma meval_unsafeR (M: Tube) f:
    mcontains M f -> forall X x, contains X x -> dom x -> contains (meval_unsafe M X) (f x).
  Proof.
    intros [_ (p&Hp&H)] X x Xx HX. rewrite /meval.
    replace (f x) with (eval p x + (f x - eval p x)) by (simpl; ring).
-   apply radd; auto. rewrite -evalE. by apply rbeval. 
+   apply addR; auto. rewrite -evalE. rel. 
  Qed.
 
- Lemma rmeval (M: Tube) f:
+ Lemma mevalR (M: Tube) f:
    mcontains M f -> forall X x, contains X x -> EP' contains (meval M X) (f x).
  Proof.
    intros Mf X x Xx. rewrite /meval.
    case DomE=>// H. constructor.
-   now apply rmeval_unsafe; auto. 
+   now apply meval_unsafeR; auto. 
  Qed.
    
- Lemma rdom x: dom x -> contains (bnd lo hi) x.
- Proof. rewrite /dom /Dom. apply bndE. apply rlo. apply rhi. Qed.
+ Lemma domE x: dom x -> contains (interval lo hi) x.
+ Proof. rewrite /dom /Dom. apply intervalE; rel. Qed.
 
  Lemma eval_srange P p x: scontains P p -> dom x -> contains (srange P) (eval p x).
  Proof.
    rewrite /srange => Pp Hx. 
-   generalize (rbrange). generalize (eval_range). unfold BI; simpl.
+   generalize brangeR. generalize eval_range. unfold BI; simpl.
    case brange=>[rangeR eval_rangeR|_]; case brange=>[rangeI rrange|] =>//.
    - generalize (rrange _ _ Pp).
      generalize (eval_rangeR p _ Hx).
      destruct (rangeI P) as [A C].
      simpl (car (ops0 ROps1)).
      destruct (rangeR p) as [a c] =>/=.
-     intros E [Aa Cc]. eapply bndE; eauto.
-   - move=>_. rewrite -evalE. apply rbeval=>//. by apply rdom. 
- Qed.   
+     intros E [Aa Cc]. eapply intervalE; eauto.
+   - move=>_. rewrite -evalE. apply bevalR=>//. by apply domE. 
+ Qed.
 
- Lemma eval_mrange M f : mcontains M f -> forall x, dom x -> contains (mrange M) (f x).
+ Lemma mrangeR M f : mcontains M f -> forall x, dom x -> contains (mrange M) (f x).
  Proof.
    move => [_ [p [Hp Hf]]] x Hx.
    rewrite /mrange; replace (f x) with (eval p x + (f x - eval p x)); last by rewrite /=; ring.
-   apply radd; auto. by apply eval_srange. 
+   apply addR; auto. by apply eval_srange. 
  Qed.
 
- Lemma rmnorm M f: mcontains M f ->
+ Lemma mnormR M f: mcontains M f ->
                    EP (fun I => exists b, contains I b /\ forall x, dom x -> Rabs (f x) <= b) (mnorm M).
  Proof.
    rewrite /mnorm=>Mf. case magE=>//= I b Ib H.
    constructor. eexists; split. eassumption.
-   intros. by apply H, eval_mrange.
+   intros. by apply H, mrangeR.
  Qed.
- Arguments rmnorm [_]. 
+ Arguments mnormR [_]. 
  
- Lemma rmadd: forall M f, mcontains M f -> forall P g, mcontains P g -> mcontains (madd M P) (f+g).
+ Lemma maddR: forall M f, mcontains M f -> forall P g, mcontains P g -> mcontains (madd M P) (f+g).
  Proof.
    move=> M f [Cf [p [Hp Hf]]] P g [Cg [q [Hq Hg]]]. split.
    cbn. case:Cf=>[Cf|]; case:Cg=>[Cg|]; constructor=>x Dx.
    now apply continuity_pt_plus; auto. 
-   exists (p+q); split. by apply rsadd.
+   exists (p+q); split. by apply saddR.
    move=> x Hx. replace (_-_) with ((f x - eval p x) + (g x - eval q x)).
-   apply radd; auto. rewrite eval_add/=/f_bin; ring. 
+   apply addR; auto. rewrite eval_add/=/f_bin; ring. 
  Qed.
  
- Lemma rmsub: forall M f, mcontains M f -> forall P g, mcontains P g -> mcontains (msub M P) (f-g).
+ Lemma msubR: forall M f, mcontains M f -> forall P g, mcontains P g -> mcontains (msub M P) (f-g).
  Proof.
    move=> M f [Cf [p [Hp Hf]]] P g [Cg [q [Hq Hg]]]. split.
    cbn. case:Cf=>[Cf|]; case:Cg=>[Cg|]; constructor=>x Dx.
    now apply continuity_pt_minus; auto. 
-   exists (p-q); split. by apply rssub.
+   exists (p-q); split. by apply ssubR.
    move=> x Hx. replace (_-_) with ((f x - eval p x) - (g x - eval q x)).
-   apply rsub; auto. rewrite eval_sub/=/f_bin; ring. 
+   apply subR; auto. rewrite eval_sub/=/f_bin; ring. 
  Qed.
 
- Lemma rmscal: forall C c, contains C c -> forall M f, mcontains M f -> mcontains (mscal C M) (fun x => c * f x). 
+ Lemma mscalR: forall C c, contains C c -> forall M f, mcontains M f -> mcontains (mscal C M) (fun x => c * f x). 
  Proof.
    move=> C c Hc M f [Cf [p [Hp Hf]]]. split.
    cbn. case:Cf=>[Cf|]; constructor=>x Dx.
    apply continuity_pt_mult; auto. now apply continuity_pt_const.
-   exists (sscal c p); split. by apply rsscal.
+   exists (sscal c p); split. by apply sscalR.
    move=> x Hx. replace (_-_) with (c*(f x - eval p x)).
-   apply rmul; auto. rewrite eval_scal/=; ring. 
+   apply mulR; auto. rewrite eval_scal/=; ring. 
  Qed.
 
- Lemma rmmulZ: forall z M f, mcontains M f -> mcontains (mmulZ z M) (mulZ z f). 
+ Lemma mmulZR: forall z M f, mcontains M f -> mcontains (mmulZ z M) (mulZ z f). 
  Proof.
    move=> z M f [Cf [p [Hp Hf]]]. split.
    cbn. case:Cf=>[Cf|]; constructor=>x Dx.
    apply continuity_pt_mult; auto. now apply continuity_pt_const.
-   exists (smulZ z p); split. by apply rsmulZ.
+   exists (smulZ z p); split. by apply smulZR.
    move=> x Hx. replace (_-_) with (mulZ z (f x - eval p x)).
-   apply rmulZ; auto. rewrite eval_mulZ/=/f_unr. ring. 
+   apply mulZR; auto. rewrite eval_mulZ/=/f_unr. ring. 
  Qed.
 
- Lemma rmdivZ: forall z M f, mcontains M f -> mcontains (mdivZ z M) (divZ z f). 
+ Lemma mdivZR: forall z M f, mcontains M f -> mcontains (mdivZ z M) (divZ z f). 
  Proof.
    move=> z M f [Cf [p [Hp Hf]]]. split.
    cbn. case:Cf=>[Cf|]; constructor=>x Dx.
    apply continuity_pt_mult; auto. now apply continuity_pt_const.
-   exists (sdivZ z p); split. by apply rsdivZ.
+   exists (sdivZ z p); split. by apply sdivZR.
    move=> x Hx. replace (_-_) with (divZ z (f x - eval p x)).
-   apply rdivZ; auto. rewrite eval_divZ/=/f_unr/Rdiv. ring. 
+   apply divZR; auto. rewrite eval_divZ/=/f_unr/Rdiv. ring. 
  Qed.
  
- Lemma rmmul: forall M f, mcontains M f -> forall P g, mcontains P g -> mcontains (mmul M P) (f*g).
+ Lemma mmulR: forall M f, mcontains M f -> forall P g, mcontains P g -> mcontains (mmul M P) (f*g).
  Proof.
    move=> M f [Cf [p [Hp Hf]]] P g [Cg [q [Hq Hg]]]. split.
    cbn. case:Cf=>[Cf|]; case:Cg=>[Cg|]; constructor=>x Dx.
    now apply continuity_pt_mult; auto. 
-   exists (p*q); split. by apply rbmul.
+   exists (p*q); split. by apply bmulR.
    move=> x Hx.
    replace (_-_) with
        (eval p x * (g x - eval q x) + eval q x * (f x - eval p x) + (f x - eval p x) * (g x - eval q x)) by (rewrite eval_mul/=/f_bin; ring).
-   apply radd. apply radd.
-   - apply rmul. by apply eval_srange. by apply Hg. 
-   - apply rmul. by apply eval_srange. by apply Hf. 
+   apply addR. apply addR.
+   - apply mulR. by apply eval_srange. by apply Hg. 
+   - apply mulR. by apply eval_srange. by apply Hf. 
    - rel. 
  Qed.
  
- Lemma rmsingle P p: scontains P p -> mcontains (msingle P) (eval p).
+ Lemma msingleR P p: scontains P p -> mcontains (msingle P) (eval p).
  Proof.
    intros. split. constructor=>x Dx. apply eval_cont.
    exists p. split=>// x Hx.
    replace (_-_) with R0 by (simpl; ring). 
-   apply rzer.
+   apply zerR.
  Qed.
 
- Lemma rmsingle' P p f: scontains P p -> (forall x, (* dom x -> *) eval p x = f x) -> mcontains (msingle P) f.
- Proof. intros Pp H. apply (mcontains_ext H). by apply rmsingle. Qed.
+ Lemma msingleR' P p f: scontains P p -> (forall x, (* dom x -> *) eval p x = f x) -> mcontains (msingle P) f.
+ Proof. intros Pp H. apply (mcontains_ext H). by apply msingleR. Qed.
  
- Lemma rmzer: mcontains mzer 0.
- Proof. eapply rmsingle'. constructor. reflexivity. Qed.
+ Lemma mzerR: mcontains mzer 0.
+ Proof. eapply msingleR'. constructor. reflexivity. Qed.
  
- Lemma rmone: mcontains mone 1.
- Proof. eapply rmsingle'. apply rbone. apply eval_one. Qed.
+ Lemma moneR: mcontains mone 1.
+ Proof. eapply msingleR'. apply boneR. apply eval_one. Qed.
  
- Lemma rmid: EP' mcontains mid ssrfun.id.
+ Lemma midR: EP' mcontains mid ssrfun.id.
  Proof.
-   unfold mid. generalize eval_id. case rbid. 2: constructor.    
-   intros bid bid' rbid H. inversion_clear H. constructor.
-   eapply rmsingle'; eauto.
+   unfold mid. generalize eval_id. case bidR. 2: constructor.
+   intros bid bid' bidR H. inversion_clear H. constructor.
+   eapply msingleR'; eauto.
  Qed.
  
- Lemma rmcos: EP' mcontains mcos (@cos _).
+ Lemma mcosR: EP' mcontains mcos (@cos _).
  Proof.
-   unfold mcos. generalize eval_cos. case rbcos. 2: constructor.    
-   intros bcos bcos' rbcos H. inversion_clear H. constructor.
-   eapply rmsingle'; eauto.
+   unfold mcos. generalize eval_cos. case bcosR. 2: constructor.    
+   intros bcos bcos' bcosR H. inversion_clear H. constructor.
+   eapply msingleR'; eauto.
  Qed.
  
- Lemma rmsin: EP' mcontains msin (@sin _).
+ Lemma msinR: EP' mcontains msin (@sin _).
  Proof.
-   unfold msin. generalize eval_sin. case rbsin. 2: constructor.    
-   intros bsin bsin' rbsin H. inversion_clear H. constructor.
-   eapply rmsingle'; eauto.
+   unfold msin. generalize eval_sin. case bsinR. 2: constructor.    
+   intros bsin bsin' bsinR H. inversion_clear H. constructor.
+   eapply msingleR'; eauto.
  Qed.
  
- Lemma rmnth n: mcontains (mnth n) (TT n).
- Proof. eapply rmsingle'. apply rsnth. apply eval_nth. Qed.
+ Lemma mnthR n: mcontains (mnth n) (TT n).
+ Proof. eapply msingleR'. apply snthR. apply eval_nth. Qed.
  
- Lemma rmcst C (c : R): contains C c -> mcontains (mcst C) (f_cst c).
+ Lemma mcstR C (c : R): contains C c -> mcontains (mcst C) (f_cst c).
  Proof.
-   move=>H. eapply mcontains_ext. 2: apply rmscal. 2: apply H. 2: apply rmone.
+   move=>H. eapply mcontains_ext. 2: apply mscalR. 2: apply H. 2: apply moneR.
    cbv. move=>_. ring.
  Qed.
  
- Lemma rmbot f: mcontains mbot f.
+ Lemma mbotR f: mcontains mbot f.
  Proof.
    split. constructor. 
-   exists 0; split. apply rszer.
+   exists 0; split. apply szerR.
    intros. apply botE.
  Qed.
 
- Lemma rmtruncate n: forall F f, mcontains F f -> mcontains (mtruncate n F) f.
+ Lemma mtruncateR n: forall F f, mcontains F f -> mcontains (mtruncate n F) f.
  Proof.
    rewrite /mtruncate=>F f [Cf [p [Hp H]]].
-   generalize (rsplit_list n Hp).
+   generalize (split_listR n Hp).
    generalize (eval_split_list TT n p).  
    simpl. case split_list=> p1 p2.
    case split_list=> P1 P2. simpl. 
@@ -647,29 +647,29 @@ Section n.
    exists p1. split=>//. 
    intros x Hx.  
    replace (_-_) with ((f x - eval p x) + eval p2 x) by (rewrite E; simpl; ring).
-   apply radd. by apply H. by apply eval_srange.
+   apply addR. by apply H. by apply eval_srange.
  Qed.
 
- Lemma rmmul': forall d M f, mcontains M f -> forall P g, mcontains P g -> mcontains (mmul' d M P) (mul' d f g).
- Proof. intros. by apply rmtruncate, rmmul. Qed.
+ Lemma mmul'R: forall d M f, mcontains M f -> forall P g, mcontains P g -> mcontains (mmul' d M P) (mul' d f g).
+ Proof. intros. by apply mtruncateR, mmulR. Qed.
 
  Canonical Structure mcontains_Rel0: Rel0 MOps0 (f_Ops0 R ROps0) :=
    {|
      rel := mcontains;
-     radd := rmadd;
-     rsub := rmsub;
-     rmul := rmmul;
-     rmul' := rmmul';
-     rzer := rmzer;
-     rone := rmone;    
-     rmulZ := rmmulZ;
-     rdivZ := rmdivZ;
+     addR := maddR;
+     subR := msubR;
+     mulR := mmulR;
+     mul'R := mmul'R;
+     zerR := mzerR;
+     oneR := moneR;    
+     mulZR := mmulZR;
+     divZR := mdivZR;
    |}.
 
- Lemma rmmul'': forall t M f, mcontains M f -> forall P g, mcontains P g -> mcontains (M*[.t] P) (f*g).
- Proof. apply rmul''. Qed.
+ Lemma mmul''R: forall t M f, mcontains M f -> forall P g, mcontains P g -> mcontains (M*[.t] P) (f*g).
+ Proof. apply mul''R. Qed.
  
- Lemma rmcontinuous: forall F f,
+ Lemma mcontinuousR: forall F f,
      (forall x, dom x -> continuity_pt f x) -> mcontains F f -> mcontains (mcontinuous F) f.
  Proof.
    intros F f Cf Ff. split. constructor. exact Cf. apply Ff. 
@@ -732,14 +732,14 @@ Section n.
    have Hpint : ex_RInt (eval p) a d by apply cont_ex_RInt; last (intros; apply eval_cont).
    have Hfpint : ex_RInt (f - eval p) a d by apply @ex_RInt_minus with (V:=R_NormedModule).
    rewrite (RInt_ext _ (eval p+(f-eval p))); last by (move => x _; rewrite /=/f_bin; lra).
-   rewrite RInt_plus => //; first apply radd.
+   rewrite RInt_plus => //; first apply addR.
    rewrite -integrateE. rel. 
    case (Req_dec a d) => ad.
    destruct ad. replace (RInt _ _ _) with (RInt (fun _ => f a - eval p a) a a).
-     by rewrite RInt_const; apply rmul; rel.
+     by rewrite RInt_const; apply mulR; rel.
      apply RInt_ext. intro. unfold Rmin, Rmax. lra.
    replace (RInt _ _ _) with ((d-a) * (RInt (f-eval p) a d / (d-a))) by (simpl; field; lra).
-   apply rmul. rel.   
+   apply mulR. rel.   
    clear - ad HA HD Hfpint Hf.
    wlog: a d ad HA HD Hfpint / a < d.
    destruct (total_order_T a d) as [[ad'|ad']|ad'] => H.
@@ -775,7 +775,7 @@ Section n.
      it might be useful to use directly [mintegrate_unsafe] and [rmintegrate_unsafe] depending on the target application
   *)
 
- Lemma rmintegrate: forall M f, 
+ Lemma mintegrateR: forall M f, 
      mcontains M f -> 
      forall A a, ocontains lo A a -> 
      forall D d, ocontains hi D d -> EP' contains (mintegrate M A D) (RInt f a d).
@@ -794,24 +794,24 @@ Section n.
  Qed.
 
  (** auxiliary lemma for operations involving interpolation *)
- Lemma rmfc p: mcontains (mfc p) (eval (map F2R p)).
- Proof. apply rmsingle, list_rel_map, F2IE. Qed.
+ Lemma mfcR p: mcontains (mfc p) (eval (map F2R p)).
+ Proof. apply msingleR, mapR, F2IE. Qed.
  
  (** *** division *)
  
- Lemma rmdiv_aux t F G f g H W:
+ Lemma mdiv_auxR t F G f g H W:
    mcontains F f -> mcontains G g ->
    EP' mcontains (mdiv_aux t F G H W) (f_bin Rdiv f g).
  Proof.
    rewrite /mdiv_aux=>Hf Hg. 
-   pose proof (Hh := rmfc H).
+   pose proof (Hh := mfcR H).
    set p := map F2R H in Hh. set h := eval p in Hh.
-   have Hp: scontains (map F2I H) p by apply list_rel_map; rel.
-   pose proof (HW := rmfc W). set (w := eval (map F2R W)) in *.
-   ecase rmnorm=>//=; [by eauto using rmsub,rmone,rmmul|]=>Mu [mu [MU Hm]]. 
-   ecase rmnorm=>//=; [by eauto using rmsub,rmone,rmmul,rmmul''|]=>C [c [Cc Hc]].
+   have Hp: scontains (map F2I H) p by apply mapR; rel.
+   pose proof (HW := mfcR W). set (w := eval (map F2R W)) in *.
+   ecase mnormR=>//=; [by eauto using msubR,moneR,mmulR|]=>Mu [mu [MU Hm]]. 
+   ecase mnormR=>//=; [by eauto using msubR,moneR,mmulR,mmul''R|]=>C [c [Cc Hc]].
    case is_ltE => [Hmu|]=>//.
-   specialize (Hmu _ 1 MU (rone _)).
+   specialize (Hmu _ 1 MU (oneR _)).
    have L: forall x, dom x -> g x <> 0 /\ Rabs (h x - f x / g x) <= c / (R1 - mu).
      move=>x Dx; refine (div.newton _ _ _ _ Dx)=>//.
      + by intros; apply Hm.
@@ -827,33 +827,33 @@ Section n.
      rewrite Rabs_minus_sym. by apply L.
  Qed.
 
- Lemma rmdiv d t:
+ Lemma mdivR d t:
    forall M f, mcontains M f ->
    forall N g, mcontains N g -> EP' mcontains (mdiv d t M N) (f_bin Rdiv f g).
- Proof. intros; by apply rmdiv_aux. Qed.
+ Proof. intros; by apply mdiv_auxR. Qed.
 
  (** *** square root *)
 
- Lemma rmsqrt_aux d F f H W:
+ Lemma msqrt_auxR d F f H W:
    mcontains F f -> 
    EP' mcontains (msqrt_aux d F H W) (fun x => R_sqrt.sqrt (f x)).
  Proof.
    rewrite /msqrt_aux=>Hf.
-   pose proof (Hh := rmfc H).
+   pose proof (Hh := mfcR H).
    set p := map F2R H in Hh. set h := eval p in Hh.
-   have Hp: scontains (map F2I H) p by apply list_rel_map; rel.
-   pose proof (Hw := rmfc W).
+   have Hp: scontains (map F2I H) p by apply mapR; rel.
+   pose proof (Hw := mfcR W).
    pose proof (Hwcont := eval_cont (map F2R W)). set (w := eval (map F2R W)) in *.
    set (x0:=(lo+hi)//2).
    have domx0: dom ((lo+hi)/2) by generalize domlo; generalize domhi; rewrite /dom; lra. 
    have rx0: contains x0 ((lo+hi)/2) by rel.
    case is_ltE => [Hwx0|]=>[|//=]. 
-   specialize (Hwx0 _ _ (rzer _) (rmeval_unsafe Hw rx0 domx0)).
+   specialize (Hwx0 _ _ (zerR _) (meval_unsafeR Hw rx0 domx0)).
    simpl negb.
-   ecase rmnorm=>//=; [by eauto using rmsub,rmone,rmmul,rmmulZ|]=>Mu0 [mu0 [MU0 Hmu0]]. 
-   ecase rmnorm=>//=; [by eauto using rmsub,rmmul|]=>Mu1 [mu1 [MU1 Hmu1]]. 
-   ecase rmnorm=>//=; [by eauto using rmsub,rmmul,rmmul''|]=>BB [b [Bb Hb]]. 
-   case is_ltE =>// Hmu01. specialize (Hmu01 _ _ MU0 (rone _)).
+   ecase mnormR=>//=; [by eauto using msubR,moneR,mmulR,mmulZR|]=>Mu0 [mu0 [MU0 Hmu0]]. 
+   ecase mnormR=>//=; [by eauto using msubR,mmulR|]=>Mu1 [mu1 [MU1 Hmu1]]. 
+   ecase mnormR=>//=; [by eauto using msubR,mmulR,mmul''R|]=>BB [b [Bb Hb]]. 
+   case is_ltE =>// Hmu01. specialize (Hmu01 _ _ MU0 (oneR _)).
    case is_ltE =>// Hmu0b. 
    case is_ltE => [Hmu|] =>//.
    have L: forall x, dom x -> 0 <= f x /\ Rabs (h x - sqrt (f x)) <= sqrt.rmin b mu0 mu1.
@@ -878,13 +878,13 @@ Section n.
      rewrite Rabs_minus_sym. by apply L.
  Qed.
 
- Lemma rmsqrt d t M f: 
+ Lemma msqrtR d t M f: 
    mcontains M f -> EP' mcontains (msqrt d t M) (f_unr R_sqrt.sqrt f).
- Proof. by apply rmsqrt_aux. Qed.
+ Proof. by apply msqrt_auxR. Qed.
 
  (** *** solutions of polynomial functional equations *)
 
- Lemma rmpolynom_eq_aux t
+ Lemma mpolynom_eq_auxR t
        (F': list Tube) (phi' A': list FF) (r': FF)
        (F: list (R->R)):
    list_rel mcontains F' F ->
@@ -892,22 +892,22 @@ Section n.
    EP (fun M => exists f, mcontains M f /\ forall x, dom x ->  taylor.eval' F f x = 0) (mpolynom_eq_aux t F' phi' A' r').  
  Proof.
    move => HF Hr0. rewrite /mpolynom_eq_aux/=.
-   pose proof (Hphi := rmfc phi'). 
-   pose proof (HA := rmfc A'). 
+   pose proof (Hphi := mfcR phi'). 
+   pose proof (HA := mfcR A'). 
    set r := F2R r'. 
    set p := map F2R phi' in Hphi. 
    set phi := eval p in Hphi.
    set A := eval (map F2R A') in HA.
-   have Hp: scontains (map F2I phi') p by apply list_rel_map; rel. 
+   have Hp: scontains (map F2I phi') p by apply mapR; rel. 
    unfold mnorm at 1. case magE=>[lambda' lambda clambda Hlambda|]=>//=.
-   ecase rmnorm=>//=; [by apply rmmul; try apply taylor.reval't; try eassumption|]=>c' [c [cc Hc]].
+   ecase mnormR=>//=; [by apply mmulR; try apply taylor.eval'tR; try eassumption|]=>c' [c [cc Hc]].
    case is_ltE => [Hl1|]=>//.
    case is_leE => [Hdlr|]=>//. constructor.
    have Hnewton : exists f, forall t, dom t ->  taylor.eval' F f t = 0 /\ Rabs ( f t - phi t ) <= c / (1 - lambda).
    apply polynom_eq.newton with A r.
    + move => s Hs y Dy.
-     apply Hlambda, eval_mrange => //=.
-     apply taylor.reval't. apply taylor.rderive. rel.
+     apply Hlambda, mrangeR => //=.
+     apply taylor.eval'tR. apply taylor.deriveR. rel.
      split; first constructor.
      exists p; split => //. 
      move => x Dx /=.
@@ -916,7 +916,7 @@ Section n.
    + split. 2 : apply Hl1 => //; rel.
      apply Rle_trans with (Rabs (taylor.eval' (derive (polynom_eq.opnewton F A)) phi hi)).
      apply Rabs_pos.   
-     apply Hlambda, eval_mrange. apply taylor.reval't. apply taylor.rderive => //. rel.
+     apply Hlambda, mrangeR. apply taylor.eval'tR. apply taylor.deriveR => //. rel.
      split ; first constructor.
      exists p; split => //=.
      move => x Dx /=.
@@ -959,17 +959,17 @@ Section n.
  Qed.
 
  (** whence its correctness *)
- Lemma rmpolynom_eq d t F' F phi0:
+ Lemma mpolynom_eqR d t F' F phi0:
    list_rel mcontains F' F ->  
    EP (fun M => exists f, mcontains M f /\ forall t, dom t ->  taylor.eval' F f t = 0)
       (mpolynom_eq d t F' phi0).
  Proof.
    move=> HF. case mpolynom_eq_link=>//M.
-   intros (phi&A&r&->&Hr). eapply rmpolynom_eq_aux; eauto. 
+   intros (phi&A&r&->&Hr). eapply mpolynom_eq_auxR; eauto. 
  Qed.
  
  (** *** non-nullability test *)
- Lemma rmne0 n M f: mcontains M f -> impl (mne0 n M) (forall x, dom x -> f x <> 0).
+ Lemma mne0E n M f: mcontains M f -> impl (mne0 n M) (forall x, dom x -> f x <> 0).
  Proof.
    rewrite /mne0=>Mf.
    case is_neE=>//=H. constructor=>x Hx E. 
@@ -977,8 +977,8 @@ Section n.
    set f' := eval (map F2R M').
    have E': (f x * f' x = 0) by rewrite E/=; ring. revert E'.
    apply nesym. apply H. rel. 
-   apply (eval_mrange (f:=fun x => f x * f' x))=>//. apply rmmul=>//.
-   apply rmfc.
+   apply (mrangeR (f:=fun x => f x * f' x))=>//. apply mmulR=>//.
+   apply mfcR.
  Qed.
 
  (** *** positivity test *)
@@ -1003,32 +1003,32 @@ Section n.
    move=> z [Dz Hz]. apply H in Hz; lra. 
  Qed.
  
- Lemma rmgt0 n M f: mcontains M f -> Eimpl (mgt0 n M) (forall x, dom x -> 0 < f x).
+ Lemma mgt0E n M f: mcontains M f -> Eimpl (mgt0 n M) (forall x, dom x -> 0 < f x).
  Proof.
    rewrite /mgt0. case_eq (cont M)=>//=Cf Mf. 
    case is_ltE=>//=H'. constructor.
-   ecase rmne0=>//=. eassumption. constructor. 
+   ecase mne0E=>//=. eassumption. constructor. 
    apply continuous_gt0 with lo=>//.
    - by eapply mcont; eauto.
    - exact domlo.
-   - apply H'. rel. apply rmeval_unsafe=>//. rel. exact domlo.
+   - apply H'. rel. apply meval_unsafeR=>//. rel. exact domlo.
  Qed.
 
  (** packing all operations together *)
  Program Definition model: Model model_ops lo hi := {|
    interfaces.mcontains := mcontains_Rel0;
-   interfaces.rmid := rmid;
-   interfaces.rmcos := rmcos;
-   interfaces.rmsin := rmsin;
-   interfaces.rmcst := rmcst;
-   interfaces.rmeval := rmeval;
-   interfaces.rmintegrate := rmintegrate;
-   interfaces.rmdiv := rmdiv;
-   interfaces.rmsqrt := rmsqrt;
-   interfaces.rmtruncate := rmtruncate;
-   interfaces.rmrange := eval_mrange;               
-   interfaces.rmne0 := rmne0;               
-   interfaces.rmgt0 := rmgt0;               
+   interfaces.midR := midR;
+   interfaces.mcosR := mcosR;
+   interfaces.msinR := msinR;
+   interfaces.mcstR := mcstR;
+   interfaces.mevalR := mevalR;
+   interfaces.mintegrateR := mintegrateR;
+   interfaces.mdivR := mdivR;
+   interfaces.msqrtR := msqrtR;
+   interfaces.mtruncateR := mtruncateR;
+   interfaces.mrangeR := mrangeR;               
+   interfaces.mne0E := mne0E;               
+   interfaces.mgt0E := mgt0E;               
  |}.
 
 End n.

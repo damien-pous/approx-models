@@ -418,7 +418,7 @@ Fixpoint Sem (p: prms) S (t: @term sval S): sval S :=
   | b_forall_bisect a b k => 
       LET a ::= Sem p a IN
       LET b ::= Sem p b IN
-      bisect (p_depth p) (fun x => Sem p (k (ret x))) (bnd a b)
+      bisect (p_depth p) (fun x => Sem p (k (ret x))) (interval a b)
   | b_forall_models a b k => 
       LET a ::= Sem p a IN
       LET b ::= Sem p b IN
@@ -447,7 +447,7 @@ Proof.
   - eapply ep_map2; eauto. rel. 
   - eapply ep_map2; eauto. rel. 
   - constructor. rel. 
-  - constructor. apply rfromQ. 
+  - constructor. apply fromQR. 
   - constructor. rel. 
   - constructor. rel. 
   - constructor. rel.
@@ -458,24 +458,24 @@ Proof.
   - eapply ep_map; eauto. rel. 
   - eapply ep_bind=>[F Ff|]; eauto. 
     eapply ep_bind=>[X Xx|]; eauto.
-    by apply rmeval.
+    by apply mevalR.
   - eapply ep_bind=>[F Ff|]; eauto.  
     eapply ep_bind=>[A Aa|]; eauto.  
     eapply ep_bind=>[B Bb|]; eauto.  
-    apply rmintegrate; rel. 
-  - eapply ep_map2; eauto. intros. by apply (radd (r:=mcontains)). 
-  - eapply ep_map2; eauto. intros. by apply (rsub (r:=mcontains)). 
-  - eapply ep_map2; eauto. intros. by apply (rmul (r:=mcontains)). 
+    apply mintegrateR; rel. 
+  - eapply ep_map2; eauto. intros. by apply: addR.
+  - eapply ep_map2; eauto. intros. by apply: subR.
+  - eapply ep_map2; eauto. intros. by apply: mulR.
   - eapply ep_bind=>[F Ff|]; eauto. 
     eapply ep_bind=>[G Gg|]; eauto.
-    by apply rmdiv.
+    by apply mdivR.
   - eapply ep_bind=>[F Ff|]; eauto.
-    by apply rmsqrt.
-  - apply rmid.
-  - apply rmcos.
-  - apply rmsin.
-  - eapply ep_map; eauto. intros. by apply rmcst.          
-  - eapply ep_map; eauto. intros. by apply rmtruncate.
+    by apply msqrtR.
+  - apply midR.
+  - apply mcosR.
+  - apply msinR.
+  - eapply ep_map; eauto. intros. by apply mcstR.
+  - eapply ep_map; eauto. intros. by apply mtruncateR.
   - eapply ep_map2; eauto. intros ??. case is_leE=>//. auto.  
   - eapply ep_map2; eauto. intros ??. case is_geE=>//. auto. 
   - eapply ep_map2; eauto. intros ??. case is_ltE=>//. auto.
@@ -487,18 +487,18 @@ Proof.
     case is_leE=>//=Ha. 
     case is_leE=>//=Hb.
     move: (IHtrel3 deg). apply Eimpl_impl=>E r ?. apply E. 
-    specialize (Ha _ _ rdlo HA).
-    specialize (Hb _ _ HB rdhi).
+    specialize (Ha _ _ dloR HA).
+    specialize (Hb _ _ HB dhiR).
     cbn in *. lra. 
   - eapply ep_bind=>[A HA|]; eauto.
     eapply ep_bind=>[B HB|]; eauto.
     eapply Eimpl_impl. 2: apply bisectE.
-    move=>K z Hz. apply (K z). by eapply bndE; eauto.
+    move=>K z Hz. apply (K z). by eapply intervalE; eauto.
     move=>X. apply Eimpl_forall=>z. apply Eimpl_forall=>Hz. by auto.
   - eapply ep_bind=>[F Ff|]; eauto. 
     eapply ep_bind=>[G Gg|]; eauto.
-    by apply rmlt. 
-  - eapply ep_map2; eauto=>????. by apply rmne. 
+    by apply mltE.
+  - eapply ep_map2; eauto=>????. by apply mneE. 
   - apply Eimpl_or'.
     eapply Eimpl_impl. 2: apply IHtrel1. clear; auto. 
     eapply Eimpl_impl. 2: apply IHtrel2. clear; auto. 
@@ -508,7 +508,7 @@ Proof.
     eapply ep_bind=>[B HB|]; eauto.
     eapply Eimpl_impl. 2: apply bisectE.
     2: { move=>X. apply Eimpl_forall=>z. apply Eimpl_forall=>Hz. apply H2; eauto. } 
-    move=>K z Hz t Ht. apply K=>//. by eapply bndE; eauto.
+    move=>K z Hz t Ht. apply K=>//. by eapply intervalE; eauto.
   - auto. 
 Qed.
 
@@ -600,7 +600,7 @@ Fixpoint Sem (p: prms) S (t: @term sval S): sval S :=
   | b_forall_bisect a b k =>
       LET a ::= Sem p a IN
       LET b ::= Sem p b IN
-      bisect (p_depth p) (fun ab => Sem p (k (ret ab))) (bnd a b)
+      bisect (p_depth p) (fun ab => Sem p (k (ret ab))) (interval a b)
   | c_lt f g =>
       fun M => 
       LET f ::= Sem p f M IN 
@@ -618,7 +618,7 @@ Fixpoint Sem (p: prms) S (t: @term sval S): sval S :=
       fun M =>
       LET a ::= Sem p a IN
       LET b ::= Sem p b IN
-      bisect (p_depth p) (fun ab => Sem p (k (ret ab)) M) (bnd a b)
+      bisect (p_depth p) (fun ab => Sem p (k (ret ab)) M) (interval a b)
   | t_set _ q x => Sem (set_prm q p) x
   | t_var _ x => x
   | t_let _ _ x k => Sem p (k (Sem p x))
@@ -644,7 +644,7 @@ Proof.
   - eapply ep_map2; eauto. rel. 
   - eapply ep_map2; eauto. rel. 
   - constructor. rel. 
-  - constructor. apply rfromQ. 
+  - constructor. apply fromQR. 
   - constructor. rel. 
   - constructor. rel. 
   - constructor. rel.
@@ -658,20 +658,20 @@ Proof.
     case_eq (is_lt A B)=>//=ab. 
     specialize (IHtrel1 ps _ _ _ (M (DfromI2 Aa Bb ab))).
     eapply ep_bind=>[F Ff|]; eauto.
-    eapply rmintegrate; first apply Ff; by constructor. 
-  - eapply ep_map2; eauto. intros. by apply (radd (r:=mcontains)).
-  - eapply ep_map2; eauto. intros. by apply (rsub (r:=mcontains)).
-  - eapply ep_map2; eauto. intros. by apply (rmul (r:=mcontains)). 
+    eapply mintegrateR; first apply Ff; by constructor. 
+  - eapply ep_map2; eauto. intros. by apply: addR.
+  - eapply ep_map2; eauto. intros. by apply: subR.
+  - eapply ep_map2; eauto. intros. by apply: mulR.
   - eapply ep_bind=>[F Ff|]; eauto. 
     eapply ep_bind=>[G Gg|]; eauto.
-    by apply rmdiv.
+    by apply mdivR.
   - eapply ep_bind=>[F Ff|]; eauto.
-    by apply rmsqrt.
-  - apply rmid.
-  - apply rmcos.
-  - apply rmsin.
-  - eapply ep_map; eauto. intros. by apply rmcst.          
-  - eapply ep_map; eauto. intros. by apply rmtruncate.          
+    by apply msqrtR.
+  - apply midR.
+  - apply mcosR.
+  - apply msinR.
+  - eapply ep_map; eauto. intros. by apply mcstR.
+  - eapply ep_map; eauto. intros. by apply mtruncateR.
   - eapply ep_map2; eauto. intros ??. case is_leE=>//. auto.  
   - eapply ep_map2; eauto. intros ??. case is_geE=>//. auto. 
   - eapply ep_map2; eauto. intros ??. case is_ltE=>//. auto.
@@ -694,14 +694,14 @@ Proof.
   - eapply ep_bind=>[A HA|]; eauto.
     eapply ep_bind=>[B HB|]; eauto.
     eapply Eimpl_impl. 2: apply bisectE.
-    move=>K z Hz. apply (K z). by eapply bndE; eauto.
+    move=>K z Hz. apply (K z). by eapply intervalE; eauto.
     move=>X. apply Eimpl_forall=>z. apply Eimpl_forall=>Hz. by auto.
   - eapply ep_bind=>[A Aa|]; eauto.  
     eapply ep_bind=>[B Bb|]; eauto.
-    by apply rmlt. 
+    by apply mltE. 
   - eapply ep_bind=>[A Aa|]; eauto.  
     eapply ep_bind=>[B Bb|]; eauto.
-    constructor. by apply rmne. 
+    constructor. by apply mneE. 
   - apply Eimpl_or'.
     eapply Eimpl_impl. 2: apply IHtrel1; eassumption. clear; auto. 
     eapply Eimpl_impl. 2: apply IHtrel2; eassumption. clear; auto. 
@@ -714,7 +714,7 @@ Proof.
     eapply ep_bind=>[B HB|]; eauto.
     eapply Eimpl_impl. 2: apply bisectE.
     2: { move=>X. apply Eimpl_forall=>z. apply Eimpl_forall=>Hz. apply H2; eauto. } 
-    move=>K z Hz t Ht. apply K=>//. by eapply bndE; eauto.
+    move=>K z Hz t Ht. apply K=>//. by eapply intervalE; eauto.
   - auto.
 Qed.
 

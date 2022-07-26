@@ -51,7 +51,7 @@ Fixpoint eval' {R: Ops0} (P: list R) (x: R): R :=
   | [] => 0
   | a::Q => a + x * eval' Q x
   end. 
-Lemma evalR P x: eval' P x = eval P x.
+Lemma evalE P x: eval' P x = eval P x.
 Proof.
   assert(H: forall n, eval_ n P x = eval' P x * x ^ n).
   induction P as [|a Q IH]; intro; simpl; unfold M; rewrite ?IH; simpl; ring.
@@ -60,7 +60,7 @@ Qed.
 Lemma evalN x: eval [] x = 0.
 Proof. reflexivity. Qed.
 Lemma evalC a Q x: eval (a::Q) x = a + x * eval Q x.
-Proof. by rewrite -evalR /= evalR. Qed.
+Proof. by rewrite -evalE /= evalE. Qed.
 
 (** same as [eval'], but with truncated multiplications *)
 Fixpoint eval'' {C: Ops0} d (P: list C) (x: C): C :=
@@ -206,7 +206,7 @@ Qed.
 
 Lemma integrateE p a b : integrate p a b = RInt (eval p) a b.
 Proof.
-  unfold integrate. rewrite 2!evalR. apply integrate_prim.
+  unfold integrate. rewrite 2!evalE. apply integrate_prim.
   apply M_cont. apply M_ex_derive. apply eval_prim_Derive.
 Qed.
 
@@ -216,49 +216,43 @@ Section s.
  Context {R S: Ops0}.
  Variable T: Rel0 R S.
  Notation sT := (list_rel T).
- Lemma rsmul: forall x y, sT x y -> forall x' y', sT x' y' -> sT (smul x x') (smul y y').
- Proof. induction 1; simpl; rel. Qed.
- Lemma rsone: sT sone sone.
- Proof. simpl. unfold sone. rel. Qed.
- Lemma rsid: sT sid sid.
- Proof. simpl. unfold sid. rel. Qed.
- Lemma rscst: forall a b, rel T a b -> sT (scst a) (scst b).
- Proof. unfold scst. rel. Qed.
- Lemma rXk k: sT (Xk k) (Xk k).
- Proof. induction k; simpl; rel. Qed.
- Hint Resolve rsmul rscst: rel.
- Lemma rcomp: forall x y, sT x y -> forall x' y', sT x' y' -> sT (comp x x') (comp y y').
- Proof. induction 1; simpl; rel. Qed.
- Lemma reval: forall P Q, sT P Q -> forall x y, T x y -> T (eval' P x) (eval' Q y).
- Proof. induction 1; simpl; rel. Qed.
- Lemma reval': forall d P Q, sT P Q -> forall x y, T x y -> T (eval'' d P x) (eval' Q y).
- Proof. induction 1; simpl; rel. Qed.
- Lemma reval't: forall d P Q, sT P Q -> forall x y, T x y -> T (eval't d P x) (eval' Q y).
- Proof. destruct d. apply reval'. apply reval. Qed.
+ Lemma smulR: forall x y, sT x y -> forall x' y', sT x' y' -> sT (smul x x') (smul y y').
+ Proof. induction 1; rel. Qed.
+ Lemma soneR: sT sone sone.
+ Proof. rel. Qed.
+ Lemma sidR: sT sid sid.
+ Proof. rel. Qed.
+ Lemma scstR: forall a b, rel T a b -> sT (scst a) (scst b).
+ Proof. rel. Qed.
+ Lemma XkR k: sT (Xk k) (Xk k).
+ Proof. induction k; rel. Qed.
+ Lemma compR: forall x y, sT x y -> forall x' y', sT x' y' -> sT (comp x x') (comp y y').
+ Proof. move: smulR scstR=>? ?; induction 1; rel. Qed.
+ Lemma evalR: forall P Q, sT P Q -> forall x y, T x y -> T (eval' P x) (eval' Q y).
+ Proof. induction 1; rel. Qed.
+ Lemma eval'R: forall d P Q, sT P Q -> forall x y, T x y -> T (eval'' d P x) (eval' Q y).
+ Proof. induction 1; rel. Qed.
+ Lemma eval'tR: forall d P Q, sT P Q -> forall x y, T x y -> T (eval't d P x) (eval' Q y).
+ Proof. destruct d. apply eval'R. apply evalR. Qed.
 End s.
 
 Section s'.
  Context {R S: Ops0}.
  Variable T: Rel0 R S.
  Notation sT := (list_rel T).
-
-
- Lemma rderive_ : forall x y, sT x y -> forall n , sT (derive_ n x) (derive_ n y).
- Proof. induction 1; simpl; rel. Qed.
- Hint Resolve rderive_ : rel.
- Lemma rderive : forall x y, sT x y -> sT (derive x) (derive y).
- Proof. intros. rel. Qed.
- Lemma rprim_: forall x y, sT x y -> forall n, sT (prim_ n x) (prim_ n y).
- Proof. induction 1; simpl; rel. Qed.
- Hint Resolve rprim_ reval: rel.
- Lemma rprim: forall x y, sT x y -> sT (prim x) (prim y).
- Proof. intros. constructor; rel. Qed.
- Lemma rintegrate: forall p q, sT p q ->
+ Lemma derive_R : forall x y, sT x y -> forall n , sT (derive_ n x) (derive_ n y).
+ Proof. induction 1; rel. Qed.
+ Lemma deriveR : forall x y, sT x y -> sT (derive x) (derive y).
+ Proof. move: derive_R; rel. Qed.
+ Lemma prim_R: forall x y, sT x y -> forall n, sT (prim_ n x) (prim_ n y).
+ Proof. induction 1; rel. Qed.
+ Lemma primR: forall x y, sT x y -> sT (prim x) (prim y).
+ Proof. move: prim_R; rel. Qed.
+ Lemma integrateR: forall p q, sT p q ->
                    forall a b, T a b ->
                    forall c d, T c d ->
                                T (integrate p a c) (integrate q b d).
- Proof. unfold integrate. rel. Qed.
- Hint Resolve rderive rprim rintegrate: rel.
+ Proof. move: primR (evalR (T:=T)); rel. Qed.
 End s'.
 
 (** packing everything together, we get a basis *)
@@ -287,21 +281,21 @@ Program Definition basis {N: NBH} (D: Domain):
   TT := M;
   BR := basis_ops_on dlo dhi;
   vectorspace.lohi := dlohi;
-  vectorspace.evalE := evalR;
+  vectorspace.evalE := evalE;
   vectorspace.basis_cont := M_cont;
   vectorspace.eval_mul := eval_mul;
   vectorspace.eval_one := eval_one;
   vectorspace.eval_id := ep_ret eval_id;
   vectorspace.integrateE := integrateE;
   vectorspace.eval_range := I;
-  vectorspace.rlo := rdlo;
-  vectorspace.rhi := rdhi;
-  vectorspace.rbmul := @rsmul _ _ (contains (NBH:=N));
-  vectorspace.rbone := @rsone _ _ _;
-  vectorspace.rbid := er_ret (@rsid _ _ _);
-  vectorspace.rbintegrate := @rintegrate _ _ _;
-  vectorspace.rbeval := @reval _ _ _;
-  vectorspace.rbrange := I;
+  vectorspace.loR := dloR;
+  vectorspace.hiR := dhiR;
+  vectorspace.bmulR := @smulR _ _ (contains (NBH:=N));
+  vectorspace.boneR := @soneR _ _ _;
+  vectorspace.bidR := er_ret (@sidR _ _ _);
+  vectorspace.bintegrateR := @integrateR _ _ _;
+  vectorspace.bevalR := @evalR _ _ _;
+  vectorspace.brangeR := I;
 |}.
 
 
@@ -356,27 +350,27 @@ End f.
 
 
 Lemma eval_apply (P : list (R->R)) s (t: R): eval (apply P t) (s t) = eval' P s t.
-Proof. by rewrite -evalR eval'_apply. Qed.
+Proof. by rewrite -evalE eval'_apply. Qed.
 
 Lemma eval_opp_RinR (P : list (R->R)) s t :
   eval' (sopp P) s t = - (eval' P s t).
-Proof. by rewrite -!eval'_apply apply_opp !evalR eval_opp. Qed.
+Proof. by rewrite -!eval'_apply apply_opp !evalE eval_opp. Qed.
 
 Lemma eval_add_RinR (P Q : list (R->R)) s t :
   eval' (sadd P Q) s t = eval' P s t + eval' Q s t.
-Proof. by rewrite -!eval'_apply apply_add !evalR eval_add. Qed.
+Proof. by rewrite -!eval'_apply apply_add !evalE eval_add. Qed.
 
 Lemma eval_sub_RinR (P Q : list (R->R)) s t :
   eval' (ssub P Q) s t = eval' P s t - eval' Q s t.
-Proof. by rewrite -!eval'_apply apply_sub !evalR eval_sub. Qed.
+Proof. by rewrite -!eval'_apply apply_sub !evalE eval_sub. Qed.
 
 Lemma eval_mul_RinR (P Q : list (R->R)) s t :
   eval' (smul P Q) s t = eval' P s t * eval' Q s t.
-Proof. by rewrite -!eval'_apply apply_mul !evalR eval_mul. Qed.
+Proof. by rewrite -!eval'_apply apply_mul !evalE eval_mul. Qed.
 
 Lemma eval_scal_RinR A (P : list (R->R)) s t :
   eval' (sscal A P) s t = A t * eval' P s t.
-Proof. by rewrite -!eval'_apply apply_scal !evalR eval_scal. Qed.
+Proof. by rewrite -!eval'_apply apply_scal !evalE eval_scal. Qed.
 
 Lemma eval_id_RinR (s: R -> R) t: eval' sid s t = s t.
-Proof. by rewrite -!eval'_apply apply_id !evalR eval_id. Qed.
+Proof. by rewrite -!eval'_apply apply_id !evalE eval_id. Qed.

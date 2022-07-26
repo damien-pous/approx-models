@@ -1,7 +1,6 @@
 ## TODO list
 
 - document fourier.v
-- rename bnd into hull, r... into ...R
 - more examples / more doc in examples.v
 - further improve syntax/reification (eval, quantifiers)
 - side-conditions left to the user (mcontinuous)
@@ -34,7 +33,7 @@ dom:
 - specification of continuity for rmintegrate
 
 DomE: Dom X -> contains X x -> dom x
-rdom: dom x -> contains (bnd lo hi) x
+domE: dom x -> contains (interval lo hi) x
 
 
 mag: [-eps1;+eps2] -> max eps1 eps2
@@ -43,12 +42,13 @@ sym: [a;b] -> [-b;b] or [a;-a]
 
 max
 - mag
+- mintegrate
 
 min
-unused!
+- mintegrate
 
-bnd:
+interval:
 - sym
 - srange
-- rdom (for generic range operation)
+- domE (for generic range operation)
 

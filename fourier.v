@@ -725,48 +725,45 @@ Section s.
   Variable T: Rel1 R S.
   Notation pT := (list_rel T).
 
-  Lemma revens: forall x y, pT x y -> pT (evens x) (evens y)
-  with rodds: forall x y, pT x y -> pT (odds x) (odds y).
+  Lemma evensR: forall x y, pT x y -> pT (evens x) (evens y)
+  with oddsR: forall x y, pT x y -> pT (odds x) (odds y).
   Proof.
-    move=>h k. case=>/=; constructor=>//. by apply rodds.
-    move=>h k. case=>/=. by constructor. by intros; apply revens.
+    move=>h k. case=>/=; constructor=>//. by apply oddsR.
+    move=>h k. case=>/=. by constructor. by intros; apply evensR.
   Qed.
-  Lemma rxrev2: forall x y, pT x y -> forall x' y', pT x' y' -> pT (xrev2 x' x) (xrev2 y' y).
+  Lemma xrev2R: forall x y, pT x y -> forall x' y', pT x' y' -> pT (xrev2 x' x) (xrev2 y' y).
   Proof.
     fix IH 3. 
     destruct 1 as [|????? H]=>//=. 
     destruct H as [|????? H]=>/=; rel.
   Qed.
-  Local Hint Resolve rxrev2: rel.
-  Lemma rrev2: forall x y, pT x y -> pT (rev2 x) (rev2 y).
-  Proof. rel. Qed.
-  Lemma rinject: forall x y, pT x y -> pT (inject x) (inject y).
+  Lemma rev2R: forall x y, pT x y -> pT (rev2 x) (rev2 y).
+  Proof. move: xrev2R; rel. Qed.
+  Lemma injectR: forall x y, pT x y -> pT (inject x) (inject y).
   Proof. induction 1; rel. Qed.
-  Local Hint Resolve rinject: rel.
-  Lemma rmerge: forall x y, pT x y -> forall x' y', pT x' y' -> pT (merge x x') (merge y y').
-  Proof. induction 1. rel. destruct 1; rel. Qed.
-  Local Hint Resolve revens rodds rmerge rrev2: rel.
+  Lemma mergeR: forall x y, pT x y -> forall x' y', pT x' y' -> pT (merge x x') (merge y y').
+  Proof. move: injectR=>?; induction 1. rel. destruct 1; rel. Qed.
+  Local Hint Resolve evensR oddsR mergeR rev2R: rel.
   
-  Lemma rmul_minus: forall x y, pT x y -> forall x' y', pT x' y' -> pT (mul_minus x x') (mul_minus y y').
+  Lemma mul_minusR: forall x y, pT x y -> forall x' y', pT x' y' -> pT (mul_minus x x') (mul_minus y y').
   Proof. induction 1; destruct 1; rel. Qed.
-  Lemma rmul_plus: forall x y, pT x y -> forall x' y', pT x' y' -> pT (mul_plus x x') (mul_plus y y').
+  Lemma mul_plusR: forall x y, pT x y -> forall x' y', pT x' y' -> pT (mul_plus x x') (mul_plus y y').
   Proof. induction 1; destruct 1; rel. Qed.
-  Lemma rmul_minusSC: forall x y, pT x y -> forall x' y', pT x' y' -> pT (mul_minusSC x x') (mul_minusSC y y').
+  Lemma mul_minusSCR: forall x y, pT x y -> forall x' y', pT x' y' -> pT (mul_minusSC x x') (mul_minusSC y y').
   Proof. induction 1; destruct 1; rel. Qed.
-  Local Hint Resolve rmul_minus rmul_plus rmul_minusSC: rel.
-  Lemma rpmul: forall x y, pT x y -> forall x' y', pT x' y' -> pT (pmul x x') (pmul y y').
-  Proof. rel. Qed.
+  Lemma pmulR: forall x y, pT x y -> forall x' y', pT x' y' -> pT (pmul x x') (pmul y y').
+  Proof. move: mul_minusR mul_plusR mul_minusSCR; rel. Qed.
 
-  Lemma rpone: pT pone pone.
+  Lemma poneR: pT pone pone.
   Proof. rel. Qed.
-  Lemma rpcos: pT pcos pcos.
+  Lemma pcosR: pT pcos pcos.
   Proof. rel. Qed.
-  Lemma rpsin: pT psin psin.
+  Lemma psinR: pT psin psin.
   Proof. rel. Qed.
-  Lemma rpcst: forall a b, rel T a b -> pT (pcst a) (pcst b).
+  Lemma pcstR: forall a b, rel T a b -> pT (pcst a) (pcst b).
   Proof. rel. Qed.
   
-  Lemma rfast_eval_: forall P Q, pT P Q -> forall a b , T a b -> forall c d, T c d ->
+  Lemma fast_eval_R: forall P Q, pT P Q -> forall a b , T a b -> forall c d, T c d ->
     forall c1 c2, T c1 c2 -> forall s1 s2, T s1 s2 ->
     rel T (fast_eval_ c1 s1 a c P) (fast_eval_ c2 s2 b d Q).
   Proof.
@@ -774,28 +771,25 @@ Section s.
     destruct 1 as [|????? H]=>//. 
     destruct H as [|????? H]=>/=; rel.  
   Qed.
-  Local Hint Resolve rfast_eval_: rel.
-  Lemma rfast_eval: forall P Q, pT P Q -> forall x y, rel T x y -> rel T (fast_eval P x) (fast_eval Q y).
-  Proof. destruct 1; rel. Qed.
+  Lemma fast_evalR: forall P Q, pT P Q -> forall x y, rel T x y -> rel T (fast_eval P x) (fast_eval Q y).
+  Proof. move: fast_eval_R=>???[]; rel. Qed.
   
-  Lemma rprim_: forall P Q , pT P Q -> forall n , pT (prim_ n P) (prim_ n Q).
+  Lemma prim_R: forall P Q , pT P Q -> forall n , pT (prim_ n P) (prim_ n Q).
   Proof.
     fix IH 3. 
     destruct 1 as [|????? H]=>/=. rel.  
     destruct H as [|????? H]=>/=; rel.  
   Qed.
-  Local Hint Resolve rfast_eval rprim_: rel.
-  Lemma rintegrate:
+  Lemma integrateR:
     forall P Q, pT P Q -> forall a b, rel T a b -> forall c d , rel T c d ->
     rel T (integrate P a c) (integrate Q b d).
-  Proof. destruct 1; rel. Qed.
-  Lemma rrange_: forall p q, pT p q -> T (range_ p) (range_ q).
+  Proof. move: fast_evalR prim_R=>????[]; rel. Qed.
+  Lemma range_R: forall p q, pT p q -> T (range_ p) (range_ q).
   Proof. induction 1; rel. Qed.
-  Local Hint Resolve rrange_: rel.
-  Lemma rrange: forall p q, pT p q -> pair_rel T (range p) (range q).
-  Proof. destruct 1; rel. Qed.
+  Lemma rangeR: forall p q, pT p q -> pair_rel T (range p) (range q).
+  Proof. move: range_R=>???[]; rel. Qed.
 End s.
-Global Hint Resolve rpmul rpone rpcst rfast_eval rprim_ rintegrate rrange_ rrange: rel.
+Global Hint Resolve pmulR poneR pcstR fast_evalR prim_R integrateR range_R rangeR: rel.
 
 
 (** ** interpolation  *)
@@ -909,13 +903,13 @@ Program Definition basis {N: NBH} (D: Domain):
   vectorspace.eval_sin := ep_ret eval_sin;
   vectorspace.eval_range := eval_range;
   vectorspace.integrateE := eval_integrate;
-  vectorspace.rlo := rdlo;
-  vectorspace.rhi := rdhi;
-  vectorspace.rbmul := @rpmul _ _ (contains (NBH:=N));
-  vectorspace.rbone := @rpone _ _ _;
-  vectorspace.rbcos := er_ret (@rpcos _ _ _);
-  vectorspace.rbsin := er_ret (@rpsin _ _ _);
-  vectorspace.rbintegrate := @rintegrate _ _ _;
-  vectorspace.rbeval := @rfast_eval _ _ _;
-  vectorspace.rbrange := @rrange _ _ _;
+  vectorspace.loR := dloR;
+  vectorspace.hiR := dhiR;
+  vectorspace.bmulR := @pmulR _ _ _;
+  vectorspace.boneR := @poneR _ _ _;
+  vectorspace.bcosR := er_ret (@pcosR _ _ _);
+  vectorspace.bsinR := er_ret (@psinR _ _ _);
+  vectorspace.bintegrateR := @integrateR _ _ _;
+  vectorspace.bevalR := @fast_evalR _ _ _;
+  vectorspace.brangeR := @rangeR _ _ _;
 |}.

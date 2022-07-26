@@ -107,14 +107,8 @@ Section s.
    rewrite r_eval /= eval_add 2!eval_scal eval_id eval_one /g/hiloca /=.
    field. lra.
  Qed.
- Next Obligation.
-   eapply ep_bind. 2: apply eval_cos. intros bcos eval_cos. 
-   by [].
- Qed.
- Next Obligation.
-   eapply ep_bind. 2: apply eval_sin. intros bsin eval_sin. 
-   by [].
- Qed.
+ Next Obligation. eapply ep_bind. 2: apply eval_cos. by []. Qed.
+ Next Obligation. eapply ep_bind. 2: apply eval_sin. by []. Qed.
  Next Obligation.
    generalize eval_range. rewrite /dom/=.
    case brange=>[mM H p x Hx|_]//.
@@ -139,22 +133,18 @@ Section s.
    apply Rmult_integral_contrapositive; (split; last apply Rinv_neq_0_compat);
      rewrite /=; lra.
  Qed.
- Next Obligation. apply rdlo. Qed.
- Next Obligation. apply rdhi. Qed.
- Next Obligation. intros=>/=. by apply rbmul. Qed.
- Next Obligation. intros=>/=. by apply rbone. Qed.
+ Next Obligation. apply dloR. Qed.
+ Next Obligation. apply dhiR. Qed.
+ Next Obligation. intros=>/=. by apply bmulR. Qed.
+ Next Obligation. intros=>/=. by apply boneR. Qed.
  Next Obligation.
-   eapply er_map. 2: apply rbid. intros.  
-   apply rsadd; apply rsscal; try rel.
-   apply rbone.
+   eapply er_map. 2: apply bidR. intros.  
+   apply saddR; apply sscalR; try rel.
+   apply boneR.
  Qed.
- Next Obligation.
-   eapply er_bind. 2: apply rbcos. by [].
- Qed.
- Next Obligation.
-   eapply er_bind. 2: apply rbsin. by [].
- Qed.
+ Next Obligation. eapply er_bind; rel. Qed.
+ Next Obligation. eapply er_bind; rel. Qed.
  Next Obligation. cbn. rel. Qed.
  Next Obligation. cbn. rel. Qed.
- Next Obligation. cbn. apply rbrange. Qed.
+ Next Obligation. cbn. apply brangeR. Qed.
 End s.

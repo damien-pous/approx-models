@@ -291,7 +291,7 @@ Qed.
 Lemma eval_app: forall P Q (x: R), eval (P ++ Q) x = eval P x + eval_ (length P) Q x.
 Proof. intros; rewrite /eval eval_app_ -plus_n_O //. Qed.
 
-Lemma ClenshawR b c P x : Clenshaw b c P x = eval (rev_append P [c - 2 * x * b;b]) x.
+Lemma ClenshawE b c P x : Clenshaw b c P x = eval (rev_append P [c - 2 * x * b;b]) x.
 Proof.
   revert b c; induction P as [|a P IH]; intros.
   + compute. rewrite !T0 !T1 /=. ring.
@@ -299,8 +299,8 @@ Proof.
 Qed.
 
 (** the two evaluation strategies coincide (on R) *)
-Corollary evalR P x: eval' P x = eval P x.
-Proof. rewrite /eval' ClenshawR rev_append_rev revE rev_involutive eval_app /=. ring. Qed.
+Corollary evalE P x: eval' P x = eval P x.
+Proof. rewrite /eval' ClenshawE rev_append_rev revE rev_involutive eval_app /=. ring. Qed.
 
 
 
@@ -340,7 +340,7 @@ Proof. apply (eval_prim_ 0). Qed.
 
 Lemma integrateE p a b : integrate p a b = RInt (eval p) a b.
 Proof.
-  unfold integrate. rewrite 2!evalR. apply integrate_prim.
+  unfold integrate. rewrite 2!evalE. apply integrate_prim.
   apply T_cont. apply T_ex_derive. apply eval_prim_Derive.
 Qed.
 
@@ -379,27 +379,26 @@ Section s.
  Variable T: Rel1 R S.
  Notation pT := (list_rel T).
 
- Lemma rmul_minus: forall x y, pT x y -> forall x' y', pT x' y' -> pT (mul_minus x x') (mul_minus y y').
- Proof. intros ?? H; induction H; intros ?? [|???]; simpl; rel. Qed.
- Lemma rmul_plus: forall x y, pT x y -> forall x' y', pT x' y' -> pT (mul_plus x x') (mul_plus y y').
- Proof. intros ?? H; induction H; intros ?? [|???]; simpl; rel. Qed.
- Hint Resolve rmul_minus rmul_plus: rel.
- Lemma rpmul: forall x y, pT x y -> forall x' y', pT x' y' -> pT (pmul x x') (pmul y y').
- Proof. simpl. unfold pmul. rel. Qed.
- Lemma rpone: pT pone pone.
- Proof. simpl. unfold pone. rel. Qed.
- Lemma rpid: pT pid pid.
- Proof. simpl. unfold pid. rel. Qed.
- Lemma rpcst: forall a b, rel T a b -> pT (pcst a) (pcst b).
- Proof. unfold pcst. rel. Qed.
- Lemma rClenshaw: forall P Q, pT P Q ->
+ Lemma mul_minusR: forall x y, pT x y -> forall x' y', pT x' y' -> pT (mul_minus x x') (mul_minus y y').
+ Proof. induction 1; destruct 1; rel. Qed.
+ Lemma mul_plusR: forall x y, pT x y -> forall x' y', pT x' y' -> pT (mul_plus x x') (mul_plus y y').
+ Proof. induction 1; destruct 1; rel. Qed.
+ Lemma pmulR: forall x y, pT x y -> forall x' y', pT x' y' -> pT (pmul x x') (pmul y y').
+ Proof. move: mul_minusR mul_plusR; rel. Qed.
+ Lemma poneR: pT pone pone.
+ Proof. rel. Qed.
+ Lemma pidR: pT pid pid.
+ Proof. rel. Qed.
+ Lemma pcstR: forall a b, rel T a b -> pT (pcst a) (pcst b).
+ Proof. rel. Qed.
+ Lemma ClenshawR: forall P Q, pT P Q ->
                   forall a b, T a b ->
                   forall c d, T c d ->
                   forall x y, rel T x y -> rel T (Clenshaw a c P x) (Clenshaw b d Q y).
- Proof. induction 1; simpl; rel. Qed.
- Lemma reval: forall P Q, pT P Q -> forall x y, rel T x y -> rel T (eval' P x) (eval' Q y).
- Proof. intros. apply rClenshaw; rel. Qed.
- Lemma rprim_: forall p q, pT p q -> forall n, pT (prim_ n p) (prim_ n q).
+ Proof. induction 1; rel. Qed.
+ Lemma evalR: forall P Q, pT P Q -> forall x y, rel T x y -> rel T (eval' P x) (eval' Q y).
+ Proof. intros; apply ClenshawR; rel. Qed.
+ Lemma prim_R: forall p q, pT p q -> forall n, pT (prim_ n p) (prim_ n q).
  Proof.
    induction 1. constructor. move=>n.
    cbn -[INR Zmult Z.of_nat Z.eqb].
@@ -407,26 +406,21 @@ Section s.
    case Z.eqb_spec. rel.
    rel. 
  Qed.
- Hint Resolve reval rprim_: rel.
- Lemma rprim: forall p q, pT p q -> pT (prim p) (prim q).
- Proof. unfold prim. rel. Qed.
- Hint Resolve rprim: rel.
- Lemma rintegrate: forall p q, pT p q ->
+ Lemma primR: forall p q, pT p q -> pT (prim p) (prim q).
+ Proof. move: prim_R; rel. Qed.
+ Lemma integrateR: forall p q, pT p q ->
                    forall a b, T a b ->
                    forall c d, T c d ->
                                T (integrate p a c) (integrate q b d).
- Proof. unfold integrate. rel. Qed.
- Lemma rlo: T lo lo.
- Proof. unfold lo; rel. Qed. 
- Lemma rhi: T hi hi.
- Proof. unfold hi; rel. Qed. 
- Lemma rrange_ p q: pT p q -> T (range_ p) (range_ q).
- Proof. induction 1; simpl; rel. Qed.
- Lemma rrange p q: pT p q -> pair_rel T (range p) (range q).
- Proof.
-   pose proof rrange_. 
-   rewrite /range. intros [|a b AB p' q' p'q']; rel.
- Qed.
+ Proof. move: primR evalR; rel. Qed.
+ Lemma loR: T lo lo.
+ Proof. rel. Qed. 
+ Lemma hiR: T hi hi.
+ Proof. rel. Qed. 
+ Lemma range_R p q: pT p q -> T (range_ p) (range_ q).
+ Proof. induction 1; rel. Qed.
+ Lemma rangeR p q: pT p q -> pair_rel T (range p) (range q).
+ Proof. move: range_R=>? []; rel. Qed.
 End s.
 
 
@@ -499,21 +493,21 @@ Program Definition basis11 {N: NBH}: Basis basis11_ops := {|
   TT := T;
   BR := basis11_ops_on _;
   vectorspace.lohi := lohi;
-  vectorspace.evalE := evalR;
+  vectorspace.evalE := evalE;
   vectorspace.basis_cont := T_cont;
   vectorspace.eval_mul := eval_mul;
   vectorspace.eval_one := eval_one;
   vectorspace.eval_id := ep_ret eval_id;
   vectorspace.integrateE := integrateE;
   vectorspace.eval_range := eval_range;
-  vectorspace.rlo := rfromZ _ (-1);
-  vectorspace.rhi := @rone _ _ _;
-  vectorspace.rbmul := @rpmul _ _ (contains (NBH:=N));
-  vectorspace.rbone := @rpone _ _ _;
-  vectorspace.rbid := er_ret (@rpid _ _ _);
-  vectorspace.rbintegrate := @rintegrate _ _ _;
-  vectorspace.rbeval := @reval _ _ _;
-  vectorspace.rbrange := @rrange _ _ _;
+  vectorspace.loR := fromZR _ (-1);
+  vectorspace.hiR := @oneR _ _ _;
+  vectorspace.bmulR := @pmulR _ _ _;
+  vectorspace.boneR := @poneR _ _ _;
+  vectorspace.bidR := er_ret (@pidR _ _ _);
+  vectorspace.bintegrateR := @integrateR _ _ _;
+  vectorspace.bevalR := @evalR _ _ _;
+  vectorspace.brangeR := @rangeR _ _ _;
 |}.
 
 Definition basis {N: NBH} (D: Domain): Basis (basis_ops dlo dhi) := rescale basis11 D.

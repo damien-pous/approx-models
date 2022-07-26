@@ -17,37 +17,36 @@ Inductive list_rel: list R -> list S -> Prop :=
 | rcons: forall x y h k, rel x y -> list_rel h k -> list_rel (x::h) (y::k).
 Hint Constructors list_rel: rel.
 
-Lemma list_rel_tl : forall h k , list_rel h k -> list_rel (tl h) (tl k).
+Lemma tlR : forall h k , list_rel h k -> list_rel (tl h) (tl k).
 Proof. destruct 1; rel. Qed.
 
-Lemma list_rel_app: forall h k, list_rel h k -> forall p q, list_rel p q -> list_rel (h++p) (k++q).
-Proof. induction 1; simpl; rel. Qed.
-Hint Resolve list_rel_app: rel.
+Lemma appR: forall h k, list_rel h k -> forall p q, list_rel p q -> list_rel (h++p) (k++q).
+Proof. induction 1; rel. Qed.
 
-Lemma list_rel_rev_append: forall h k, list_rel h k -> forall m n, list_rel m n -> list_rel (rev_append h m) (rev_append k n).
-Proof. induction 1=>//m n mn; rewrite /=. rel. Qed.
+Lemma rev_appendR: forall h k, list_rel h k -> forall m n, list_rel m n -> list_rel (rev_append h m) (rev_append k n).
+Proof. induction 1; rel. Qed.
 
-Lemma list_rel_rev: forall h k, list_rel h k -> list_rel (rev h) (rev k).
-Proof. intros. apply list_rel_rev_append=>//. constructor. Qed.
+Lemma revR: forall h k, list_rel h k -> list_rel (rev h) (rev k).
+Proof. intros. apply rev_appendR; rel. Qed.
 
-Lemma list_rel_map A (f: A -> R) (g: A -> S):
+Lemma mapR A (f: A -> R) (g: A -> S):
   (forall a, rel (f a) (g a)) -> forall l, list_rel (map f l) (map g l).
-Proof. intro. induction l; simpl; rel. Qed.
+Proof. induction l; rel. Qed.
 
 Definition pair_rel: R*R -> S*S -> Prop :=
   fun p q => rel p.1 q.1 /\ rel p.2 q.2.
 
-Lemma rpair: forall p q, rel p q -> forall p' q', rel p' q' -> pair_rel (p,p') (q,q').
+Lemma pairR: forall p q, rel p q -> forall p' q', rel p' q' -> pair_rel (p,p') (q,q').
 Proof. by []. Qed.
 
 End r.
 Global Hint Constructors list_rel: rel.
-Global Hint Resolve list_rel_tl list_rel_app list_rel_rev list_rel_rev_append rpair: rel.
+Global Hint Resolve tlR appR revR rev_appendR pairR: rel.
 
 Lemma list_rel_map' {A B R S} (rel: A -> B -> Prop) (rel': R -> S -> Prop) (f: A -> R) (g: B -> S):
   (forall a b, rel a b -> rel' (f a) (g b)) ->
   forall h k, list_rel rel h k -> list_rel rel' (map f h) (map g k).
-Proof. intros H h k. induction 1; simpl; rel. Qed.
+Proof. intros H h k. induction 1; rel. Qed.
 
 
 (** derived containment relations in neighborhoods *)
@@ -207,39 +206,39 @@ Section s.
  Context {R S: Ops0}.
  Variable T: Rel0 R S.
  Notation sT := (list_rel T).
- Lemma rsadd: forall x y, sT x y -> forall x' y', sT x' y' -> sT (sadd x x') (sadd y y').
+ Lemma saddR: forall x y, sT x y -> forall x' y', sT x' y' -> sT (sadd x x') (sadd y y').
  Proof.
    intros P Q H. induction H. rel. 
-   intros P' Q' H'. destruct H'; simpl in *; rel. 
+   intros P' Q' H'. destruct H'; rel. 
  Qed.
- Lemma rsmulZ z: forall x y, sT x y -> sT (smulZ z x) (smulZ z y).
- Proof. induction 1; simpl; rel.  Qed.
- Lemma rsdivZ z: forall x y, sT x y -> sT (sdivZ z x) (sdivZ z y).
- Proof. induction 1; simpl; rel.  Qed.
- Lemma rsscal a b: rel T a b -> forall x y, sT x y -> sT (sscal a x) (sscal b y).
- Proof. induction 2; simpl; rel.  Qed.
- Lemma rsopp: forall x y, sT x y -> sT (sopp x) (sopp y).
- Proof. induction 1; simpl; rel. Qed.
- Lemma rssub: forall x y, sT x y -> forall x' y', sT x' y' -> sT (ssub x x') (ssub y y').
- Proof. intros. apply rsadd; auto using rsopp. Qed.
- Lemma rszer: sT szer szer.
- Proof. unfold szer. rel. Qed.
- Lemma rcons0: forall x y, sT x y -> sT (cons0 x) (cons0 y).
- Proof. intros ??[|]=>/=; rel. Qed.
- Lemma rcons00: forall x y, sT x y -> sT (cons00 x) (cons00 y).
- Proof. intros ??[|]=>/=; rel. Qed.
- Hint Resolve rcons0: rel.
- Lemma rsplit_list n: forall p q, sT p q -> pair_rel sT (split_list n p) (split_list n q).
+ Lemma smulZR z: forall x y, sT x y -> sT (smulZ z x) (smulZ z y).
+ Proof. induction 1; rel.  Qed.
+ Lemma sdivZR z: forall x y, sT x y -> sT (sdivZ z x) (sdivZ z y).
+ Proof. induction 1; rel.  Qed.
+ Lemma sscalR a b: rel T a b -> forall x y, sT x y -> sT (sscal a x) (sscal b y).
+ Proof. induction 2; rel.  Qed.
+ Lemma soppR: forall x y, sT x y -> sT (sopp x) (sopp y).
+ Proof. induction 1; rel. Qed.
+ Lemma ssubR: forall x y, sT x y -> forall x' y', sT x' y' -> sT (ssub x x') (ssub y y').
+ Proof. intros; apply saddR; auto using soppR. Qed.
+ Lemma szerR: sT szer szer.
+ Proof. rel. Qed.
+ Lemma cons0R: forall x y, sT x y -> sT (cons0 x) (cons0 y).
+ Proof. destruct 1; rel. Qed.
+ Lemma cons00R: forall x y, sT x y -> sT (cons00 x) (cons00 y).
+ Proof. destruct 1; rel. Qed.
+ Lemma split_listR n: forall p q, sT p q -> pair_rel sT (split_list n p) (split_list n q).
  Proof.
-   elim: n=>[|n IH]. simpl. rel.
+   move: cons0R=>?.
+   elim: n=>[|n IH]. rel.
    destruct 1 as [|x y p q XY PQ]; simpl. rel.
    generalize (IH _ _ PQ). case (split_list n p). case (split_list n q). 
-   intros ???? [? ?]. rel.
+   intros ???? []. rel.
  Qed.
- Lemma rsnth n: sT (snth n) (snth n).
- Proof. elim: n=>/=; rel. Qed.
+ Lemma snthR n: sT (snth n) (snth n).
+ Proof. elim: n; rel. Qed.
 End s.
-Global Hint Resolve rsadd rsmulZ rsdivZ rsscal rsopp rssub rszer rcons0 rcons00 rsnth: rel.
+Global Hint Resolve saddR smulZR sdivZR sscalR soppR ssubR szerR cons0R cons00R snthR: rel.
 
 
 (** ** [Basis]: requirements for generating pseudo-polynomial models (in approx.v) *)
@@ -310,23 +309,23 @@ Class Basis {N: NBH} (B: BasisOps) := {
   integrateE: forall p a b, bintegrate p a b = RInt (eval TT p) a b;
   
   (** link between BI and BR *)
-  rlo: contains lo lo;
-  rhi: contains hi hi;
-  rbmul: forall p q, scontains p q ->
+  loR: contains lo lo;
+  hiR: contains hi hi;
+  bmulR: forall p  q , scontains p q ->
          forall p' q', scontains p' q' ->
-                         scontains (bmul p p') (bmul q q');
-  rbone: scontains bone bone;
-  rbid: ER scontains bid bid;
-  rbcos: ER scontains bcos bcos;
-  rbsin: ER scontains bsin bsin;
-  rbintegrate: forall P p, scontains P p ->
+                  scontains (bmul p p') (bmul q q');
+  boneR: scontains bone bone;
+  bidR: ER scontains bid bid;
+  bcosR: ER scontains bcos bcos;
+  bsinR: ER scontains bsin bsin;
+  bintegrateR: forall P p, scontains P p ->
                forall A a, contains A a ->
                forall B b, contains B b ->
-                           contains (bintegrate P A B) (bintegrate p a b);
-  rbeval: forall p q, scontains p q ->
+                      contains (bintegrate P A B) (bintegrate p a b);
+  bevalR: forall p q, scontains p q ->
           forall x y, contains x y ->
-                      contains (beval p x) (beval q y);
-  rbrange: match brange,brange with
+                 contains (beval p x) (beval q y);
+  brangeR: match brange,brange with
            (* TODO: option_rel *)
            | Some rangeI,Some rangeR =>
              (forall p q, scontains p q -> pair_rel contains (rangeI p) (rangeR q))                                            
@@ -334,7 +333,7 @@ Class Basis {N: NBH} (B: BasisOps) := {
            | _,_ => False
            end;
 }.
-Global Hint Resolve rbmul rbone rbid rbcos rbsin rbintegrate rbeval rlo rhi: rel.
+Global Hint Resolve bmulR boneR bidR bcosR bsinR bintegrateR bevalR loR hiR: rel.
 
 
 (** ** simple derived properties of bases *)
@@ -352,7 +351,7 @@ Proof.
   rewrite /Dom.
   case is_leE=>[Lo|]. 2: constructor. 
   case is_leE=>[Hi|]; constructor=> x Xx.
-  split; [apply Lo|apply Hi]=>//. apply rlo. apply rhi.
+  split; [apply Lo|apply Hi]=>//; rel.
 Qed.
                        
 Lemma eval_cont p x: continuity_pt (eval TT p) x.
