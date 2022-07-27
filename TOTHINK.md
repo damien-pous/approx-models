@@ -3,6 +3,7 @@
 - more examples / more doc in examples.v
 - remove dep on reduction-effects
 - separate main theory files from examples (theories/ examples/ src/)
+- LET ::= IN -> elet := in
 
 ## TODO
 
@@ -20,6 +21,7 @@
 - reals from mathcomp-analysis -> integration for possibly non-continuous functions
 - continuity (from Coquelicot) vs continuity_pt (from Reals.Ranalysis1)
 - model composition?
+- rescaled Fourier basis?
   
 
 ## usages of certain functions

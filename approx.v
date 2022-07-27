@@ -23,7 +23,7 @@ Record Tube C := { pol: list C; rem: C; cont: bool }.
 (** ** operations on tubes *)
 Section n.
  Context {N: NBH} {BO: BasisOps}.
- Notation Tube := (Tube (car (ops0 (@II N)))).
+ Notation Tube := (Tube (@car (@ops0 (@II N)))).
  Notation eval' := taylor.eval't.
  Notation derive := taylor.derive.
  
@@ -495,7 +495,7 @@ Section n.
    - generalize (rrange _ _ Pp).
      generalize (eval_rangeR p _ Hx).
      destruct (rangeI P) as [A C].
-     simpl (car (ops0 ROps1)).
+     simpl (@car (@ops0 ROps1)).
      destruct (rangeR p) as [a c] =>/=.
      intros E [Aa Cc]. eapply intervalE; eauto.
    - move=>_. rewrite -evalE. apply bevalR=>//. by apply domE. 
@@ -606,14 +606,14 @@ Section n.
    eapply msingleR'; eauto.
  Qed.
  
- Lemma mcosR: EP' mcontains mcos (@cos _).
+ Lemma mcosR: EP' mcontains mcos cos.
  Proof.
    unfold mcos. generalize eval_cos. case bcosR. 2: constructor.    
    intros bcos bcos' bcosR H. inversion_clear H. constructor.
    eapply msingleR'; eauto.
  Qed.
  
- Lemma msinR: EP' mcontains msin (@sin _).
+ Lemma msinR: EP' mcontains msin sin.
  Proof.
    unfold msin. generalize eval_sin. case bsinR. 2: constructor.    
    intros bsin bsin' bsinR H. inversion_clear H. constructor.
@@ -650,7 +650,7 @@ Section n.
    apply addR. by apply H. by apply eval_srange.
  Qed.
 
- Lemma mmul'R: forall d M f, mcontains M f -> forall P g, mcontains P g -> mcontains (mmul' d M P) (mul' d f g).
+ Lemma mmul'R: forall d M f, mcontains M f -> forall P g, mcontains P g -> mcontains (mmul' d M P) (f *[d] g).
  Proof. intros. by apply mtruncateR, mmulR. Qed.
 
  Canonical Structure mcontains_Rel0: Rel0 MOps0 (f_Ops0 R ROps0) :=
@@ -801,7 +801,7 @@ Section n.
  
  Lemma mdiv_auxR t F G f g H W:
    mcontains F f -> mcontains G g ->
-   EP' mcontains (mdiv_aux t F G H W) (f_bin Rdiv f g).
+   EP' mcontains (mdiv_aux t F G H W) (f/g).
  Proof.
    rewrite /mdiv_aux=>Hf Hg. 
    pose proof (Hh := mfcR H).
@@ -829,14 +829,14 @@ Section n.
 
  Lemma mdivR d t:
    forall M f, mcontains M f ->
-   forall N g, mcontains N g -> EP' mcontains (mdiv d t M N) (f_bin Rdiv f g).
+   forall N g, mcontains N g -> EP' mcontains (mdiv d t M N) (f/g).
  Proof. intros; by apply mdiv_auxR. Qed.
 
  (** *** square root *)
 
  Lemma msqrt_auxR d F f H W:
    mcontains F f -> 
-   EP' mcontains (msqrt_aux d F H W) (fun x => R_sqrt.sqrt (f x)).
+   EP' mcontains (msqrt_aux d F H W) (sqrt f).
  Proof.
    rewrite /msqrt_aux=>Hf.
    pose proof (Hh := mfcR H).
@@ -879,7 +879,7 @@ Section n.
  Qed.
 
  Lemma msqrtR d t M f: 
-   mcontains M f -> EP' mcontains (msqrt d t M) (f_unr R_sqrt.sqrt f).
+   mcontains M f -> EP' mcontains (msqrt d t M) (sqrt f).
  Proof. by apply msqrt_auxR. Qed.
 
  (** *** solutions of polynomial functional equations *)

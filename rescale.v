@@ -11,7 +11,7 @@ Section r.
  Variable C: Ops1.
  Variable B: BasisOps_on C.
  Variables a c: C.
- Let hilo := hi - lo.
+ Let hilo: C := hi - lo.
  Let ca := c - a.
  Let hiloca := hilo / ca.
  Let cahilo := ca / hilo.

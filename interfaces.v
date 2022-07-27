@@ -50,8 +50,8 @@ Proof. by []. Qed.
 
 (** basic operations *)
 (** (will be instantiated on R, I, F, list C, Tube C) *)
-Record Ops0 := {
-  car:> Type;
+Class Ops0 := {
+  car: Type;
   add: car -> car -> car;
   sub: car -> car -> car;
   mul: car -> car -> car;
@@ -61,14 +61,16 @@ Record Ops0 := {
   mulZ: Z -> car -> car;
   divZ: Z -> car -> car;
   }.
+Coercion car: Ops0 >-> Sortclass.
+
 (** potentially truncated multiplication *)
 Definition mul'' {C: Ops0} (d: option nat): C -> C -> C :=
-  match d with None => @mul C | Some d => @mul' C d end.
+  match d with None => mul | Some d => mul' d end.
 
 (** extended operations *)
 (** (will be instantiated on R, I, F) *)
-Record Ops1 := {
-  ops0:> Ops0;
+Class Ops1 := {
+  ops0: Ops0;
   fromZ: Z -> ops0;
   div: ops0 -> ops0 -> ops0;  (** also on Tube C, but with parameters *)
   sqrt: ops0 -> ops0;         (** idem *)
@@ -77,6 +79,7 @@ Record Ops1 := {
   abs: ops0 -> ops0;
   pi: ops0;
 }.
+Coercion ops0: Ops1 >-> Ops0.
 
 (** notations *)
 Declare Scope RO_scope.
@@ -88,16 +91,8 @@ Notation "a *[. d  ] b" := (mul'' d%nat a b) (at level 40, left associativity): 
 Infix "-" := sub: RO_scope.
 Infix "/" := div: RO_scope.
 Notation "x // n" := (divZ n x) (at level 40, left associativity): RO_scope .
-Notation "0" := (zer _): RO_scope.
-Notation "1" := (one _): RO_scope.
-Arguments fromZ {_}. 
-Arguments mulZ {_}. 
-Arguments divZ {_}. 
-Arguments sqrt {_}. 
-Arguments cos {_}. 
-Arguments sin {_}. 
-Arguments abs {_}. 
-Arguments pi {_}. 
+Notation "0" := zer: RO_scope.
+Notation "1" := one: RO_scope.
 Open Scope RO_scope.
 
 (** derived operations *)
@@ -105,7 +100,7 @@ Definition fromN {C: Ops1} (n: nat): C := fromZ (Z.of_nat n).
 Definition fromQ {C: Ops1} (q: Q): C := divZ (Zpos (Qden q)) (fromZ (Qnum q)).
 
 (* TOTHINK: powN, powP? *)
-Fixpoint pow (C: Ops0) n (x: C) :=
+Fixpoint pow {C: Ops0} n (x: C) :=
   match n with
   | O => 1
   | S n => x*pow n x
@@ -118,14 +113,24 @@ Definition f_unr A B (o: B -> B) (f: A -> B) (a: A) := o (f a).
 Definition f_bin A B (o: B -> B -> B) (f g: A -> B) (a: A) := o (f a) (g a).
 Canonical Structure f_Ops0 (A: Type) (C: Ops0): Ops0 := {|
   car := A -> C;
-  add := f_bin (@add C);
-  sub := f_bin (@sub C);
-  mul := f_bin (@mul C);
+  add := f_bin add;
+  sub := f_bin sub;
+  mul := f_bin mul;
   mul' z := f_bin (mul' z);
-  zer := f_cst (@zer C);
-  one := f_cst (@one C);
+  zer := f_cst zer;
+  one := f_cst one;
   mulZ z := f_unr (mulZ z);
   divZ z := f_unr (divZ z);
+|}.
+Canonical Structure f_Ops1 (A: Type) (C: Ops1): Ops1 := {|
+  ops0 := f_Ops0 A C;
+  fromZ z := f_cst (fromZ z);
+  div := f_bin div;
+  sqrt := f_unr sqrt;
+  cos := f_unr cos;
+  sin := f_unr sin;
+  abs := f_unr abs;
+  pi := f_cst pi;
 |}.
 
 (** tagged multiplication on reals, to indicate truncated multiplication request *)
@@ -445,6 +450,8 @@ Class ModelOps {N: NBH} := {
 Coercion MM: ModelOps >-> Ops0.
 
 Definition mlt `{ModelOps} z f g := mgt0 z (g-f).
+Definition mle `{ModelOps} := mlt.
+Definition mge `{ModelOps} z f g := mlt z g f.
 Definition mne `{ModelOps} z f g := mne0 z (f-g).
 
 (** specification of the above operations, on the domain [[lo;hi]] *)
@@ -463,9 +470,9 @@ Class Model {N: NBH} (MO: ModelOps) (lo hi: R) := {
                      EP' contains (mintegrate F A C) (RInt f a c);
   mdivR: forall n t F f, mcontains F f ->
              forall G g, mcontains G g -> 
-                    EP' mcontains (mdiv n t F G) (fun x => f x / g x);
+                    EP' mcontains (mdiv n t F G) (f/g);
   msqrtR: forall n t F f, mcontains F f ->
-                     EP' mcontains (msqrt n t F) (fun x => sqrt (f x));
+                     EP' mcontains (msqrt n t F) (sqrt f);
   mtruncateR: forall n F f, mcontains F f -> mcontains (mtruncate n F) f;
   mrangeR: forall F f, mcontains F f -> forall x, lo<=x<=hi -> contains (mrange F) (f x);
   mne0E: forall n F f, mcontains F f -> impl (mne0 n F) (forall x, lo<=x<=hi -> f x <> 0);
@@ -488,6 +495,21 @@ Proof.
   intros a E. rewrite EimplR. case E=>//C. constructor=>x Hx.
   by apply Rminus_gt_0_lt, C.
 Qed.
+
+Lemma mleE `{Model} n F f G g: mcontains F f -> mcontains G g ->
+                               Eimpl (mle n F G) (forall x, lo<=x<=hi -> f x <= g x).
+Proof.
+  rewrite /mle=>Ff Gg. move: (mltE n Ff Gg).
+  apply Eimpl_impl. auto using Rlt_Rle.
+Qed.
+
+Lemma mgeE `{Model} n F f G g: mcontains F f -> mcontains G g ->
+                               Eimpl (mge n F G) (forall x, lo<=x<=hi -> f x >= g x).
+Proof.
+  rewrite /mge=>Ff Gg. move: (mleE n Gg Ff).
+  apply Eimpl_impl. auto using Rle_ge.
+Qed.
+
 
 (** two instances of [rmulZ] and [rdivZ] that need to be explicited for the [rel] tactic to work well *)
 Lemma mulZ'R {N: NBH} z x y: contains x y -> contains (mulZ z x) (IZR z * y).

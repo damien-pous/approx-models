@@ -19,6 +19,8 @@ Lemma implE P b: impl b P <-> (b -> P).
 Proof. split. by case. case b; constructor; auto. Qed.
 Lemma implT P: impl true P <-> P.
 Proof. split. by inversion 1. by constructor. Qed.
+Lemma impl_impl b (P Q: Prop): (P -> Q) -> impl b P -> impl b Q.
+Proof. rewrite 2!implE. tauto. Qed.
 
 (** * alternative induction schemes on lists and natural numbers *)
 Fixpoint list_ind2 {C: Type} (P: list C -> Prop)
