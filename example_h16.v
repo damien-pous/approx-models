@@ -42,24 +42,24 @@ Section s.
  
  (** the considered integrals, in monadic style for dealing with potential runtime errors *)
  Definition calcul :=
-   LET midx ::= mid IN
-   LET midy ::= mid IN
-   LET deltay ::= msqrt N T (mcst r2 - sqrx (sqrx midx - mcst x0)) IN
-   LET deltax ::= msqrt N T (mcst r2 - sqry (sqry midy - mcst y0)) IN
-   LET ydown ::= msqrt N T (mcst y0 - deltay) IN
-   LET yup ::= msqrt N T (mcst y0 + deltay) IN
-   LET yupdown ::= 
-     LET a ::= mdiv N T 1 yup IN
-     LET b ::= mdiv N T 1 ydown IN
+   elet midx := mid in
+   elet midy := mid in
+   elet deltay := msqrt N T (mcst r2 - sqrx (sqrx midx - mcst x0)) in
+   elet deltax := msqrt N T (mcst r2 - sqry (sqry midy - mcst y0)) in
+   elet ydown := msqrt N T (mcst y0 - deltay) in
+   elet yup := msqrt N T (mcst y0 + deltay) in
+   elet yupdown :=
+     elet a := mdiv N T 1 yup in
+     elet b := mdiv N T 1 ydown in
      ret (a-b)
-   IN
-   LET xleft ::= msqrt N T (mcst x0 - deltax) IN
-   LET xright ::= msqrt N T (mcst x0 + deltax) IN
-   LET xleftright ::=
-     LET a ::= mdiv N T 1 (xleft *[.T] deltax) IN
-     LET b ::= mdiv N T 1 (xright *[.T] deltax) IN
+   in
+   elet xleft := msqrt N T (mcst x0 - deltax) in
+   elet xright := msqrt N T (mcst x0 + deltax) in
+   elet xleftright :=
+     elet a := mdiv N T 1 (xleft *[.T] deltax) in
+     elet b := mdiv N T 1 (xright *[.T] deltax) in
      ret (a+b)
-   IN
+   in
    let integrand1 (i j : nat) :=
        match j with
        | 0 => midx ^x i * yupdown
@@ -73,13 +73,13 @@ Section s.
        end
    in
    let Integral1 (i j : nat) := mintegrate (integrand1 i j) None None in
-   let Integral2 (i j : nat) := LET fy ::= integrand2 i j IN mintegrate fy None None in
-   let Integral i j := LET a ::= Integral1 i j IN LET b ::= Integral2 i j IN ret (a+b) in
-   (LET I00 ::= Integral 0 0 IN
-    LET I20 ::= Integral 2 0 IN
-    LET I22 ::= Integral 2 2 IN
-    LET I40 ::= Integral 4 0 IN
-    LET I04 ::= Integral 0 4 IN
+   let Integral2 (i j : nat) := elet fy := integrand2 i j in mintegrate fy None None in
+   let Integral i j := elet a := Integral1 i j in elet b := Integral2 i j in ret (a+b) in
+   (elet I00 := Integral 0 0 in
+    elet I20 := Integral 2 0 in
+    elet I22 := Integral 2 2 in
+    elet I40 := Integral 4 0 in
+    elet I04 := Integral 0 4 in
     ret (I00, I20, I22, I40, I04))%nat.
    
 End s.

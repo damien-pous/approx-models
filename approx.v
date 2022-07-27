@@ -145,7 +145,7 @@ Section n.
  (** same function on floating points (unspecified)  *)
  (* Definition fnorm M := e_map I2F (mnorm (mcf M)). *)
  Definition fnorm (P: list FF): E FF :=
-   LET '(m,M) ::= frange P IN ret (Fmax (Fabs m) (Fabs M)).
+   elet '(m,M) := frange P in ret (Fmax (Fabs m) (Fabs M)).
 
  (** asserting continuity 'by hand' (see specification [rmcontinuous] below)*)
  Definition mcontinuous (M: Tube): Tube :=
@@ -164,8 +164,8 @@ Section n.
    let W := mfc W in
    let K1 := 1 - W*G in
    let K2 := W*(G*[.t]H - F) in
-   LET mu ::= mnorm K1 IN
-   LET b ::= mnorm K2 IN
+   elet mu := mnorm K1 in
+   elet b := mnorm K2 in
    if is_lt mu 1 then ret {| pol := pol H; rem := sym (b / (1 - mu)); cont := cont F && cont G; |}
    else err "mdiv: missed mu<1".
 
@@ -182,9 +182,9 @@ Section n.
    let K1 := 1 - (mmulZ 2 (W*H)) in
    (* TOTHINK: better way to compute (truncated) H^2 ? *)
    let K2 := W*(H*[.t]H - F) in
-   LET mu0 ::= mnorm K1 IN
-   LET mu1 ::= mnorm W IN
-   LET b ::= mnorm K2 IN
+   elet mu0 := mnorm K1 in
+   elet mu1 := mnorm W in
+   elet b := mnorm K2 in
    let delta := pow 2 (1 - mu0) - mulZ 8 b * mu1 in
      if is_lt mu0 1 then
        if is_lt 0 delta then
@@ -223,8 +223,8 @@ Section n.
    let A := mfc A in
    let r := F2I r in 
    let phir := {| pol := pol phi ; rem := sym r ; cont := false |} in
-   LET lambda ::= mnorm (eval' t (derive (polynom_eq.opnewton F A)) phir) IN
-   LET c ::= mnorm (A * eval' t F phi) IN
+   elet lambda := mnorm (eval' t (derive (polynom_eq.opnewton F A)) phir) in
+   elet c := mnorm (A * eval' t F phi) in
    if is_lt lambda 1 then
      if is_le (c + lambda * r) r then
        let eps := c / (1 - lambda) in
@@ -313,23 +313,23 @@ Section n.
      and possibly too fine (finer than what is used in validation, cf. oval example at degree 20)
   *)
  Definition polynom_for_lambda1 t (L: list (list FF)) (phi: list FF): E (list FF) :=
-   LET l ::=
+   elet l :=
      Fix (fun lambda L => 
        match L with
        | [] => ret []
-       | _ => LET r ::= fnorm (eval' t L phi) IN
-              LET q ::= lambda (derive L) IN 
+       | _ => elet r := fnorm (eval' t L phi) in
+              elet q := lambda (derive L) in
               ret (r::q)
        end) (fun _ => err "assert false") L
-   IN ret (taylorise 0 1 l).
+   in ret (taylorise 0 1 l).
 
  (** ... <= ||L(phi)|| + \sum_i>0 ||L||^(i)(||phi||)/!i r^i 
      only O(d) model multiplications, and probably closer to the estimation used during validation
   *)
  Definition polynom_for_lambda2 t (L: list (list FF)) (phi: list FF): E (list FF) :=
-   LET l0 ::= fnorm (eval' t L phi) IN
-   LET Nphi ::= fnorm phi IN
-   LET NL ::= emap fnorm L IN
+   elet l0 := fnorm (eval' t L phi) in
+   elet Nphi := fnorm phi in
+   elet NL := emap fnorm L in
    let l' :=
      Fix (fun lambda NL => 
        match NL with
@@ -354,23 +354,23 @@ Section n.
             else find_max (mulZ 2 m)) id 1 in
    (* a value such that p(r)<=0, close to the root of p', if any *)
    let _ := print max in
-   LET r ::= 
+   elet r :=
      Fix (fun get_close a b =>     (* [a;b] contains and gets close to the root of p' *)
             if Fle (taylor.eval' p a) 0 then ret a else
             if Fle (b-a) w then err "could not find a radius" else
             let c := divZ 2 (a+b) in
             if Fle 0 (taylor.eval' p' c) then get_close a c else get_close c b
          ) (fun _ _ => err "assert false") 0 max
-   IN
+   in
    let _ := print r in
    (* optimisation of the above value *)
-   LET r ::= 
+   elet r :=
    Fix (fun optimise a b =>        (* [a;b] contains and gets close to the first root of p *)
           if Fle (b-a) w then ret b else 
           let c := divZ 2 (a+b) in
           if Fle (taylor.eval' p c) 0 then optimise a c else optimise c b
        ) (fun _ _ => err "assert false") 0 r
-   IN 
+   in
    let _ := print "final radius and associated bound on lambda"%string in
    let _ := print (r, taylor.eval' l r) in
    ret r.
@@ -385,10 +385,10 @@ Section n.
    let p := c::(l-[1]) in
    let p' := derive p in
    (* mimimal point of p *)
-   LET m ::= Newton_poly "(radius, min)" p' 0 IN
+   elet m := Newton_poly "(radius, min)" p' 0 in
    if Fle 0 (taylor.eval' p m) then err "no root for the radius" else
    (* first root of p *)
-   LET r ::= Newton "(radius)" (taylor.eval' p) (taylor.eval' p') 0 IN
+   elet r := Newton "(radius)" (taylor.eval' p) (taylor.eval' p') 0 in
    (* move slightly to the right of r to help validation *)
    ret (divZ 100 (mulZ 99 r + m)).
 
@@ -408,15 +408,15 @@ Section n.
    let A' := interpolate d (fun x => 1 / DF x) in
    let A := mfc A' in
    let phi := mfc phi' in
-   LET c ::= mnorm (A * eval' t F phi) IN
+   elet c := mnorm (A * eval' t F phi) in
    let L := derive (polynom_eq.opnewton F A) in
    let L' := map (fun M => map I2F (pol M)) L in
-   LET l ::= polynom_for_lambda t L' phi' IN
-   LET r' ::= find_radius (I2F c) l IN
+   elet l := polynom_for_lambda t L' phi' in
+   elet r' := find_radius (I2F c) l in
    let r := F2I r' in
    if negb (is_le 0 r) then err "mpolynom_eq: negative radius" else
    let phir := {| pol := pol phi; rem := sym r; cont := false |} in
-   LET lambda ::= mnorm (eval' t L phir) IN
+   elet lambda := mnorm (eval' t L phir) in
    let _ := print "validated lambda"%string in
    let _ := print lambda in
    if is_lt lambda 1 then

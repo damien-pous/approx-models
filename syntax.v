@@ -430,8 +430,8 @@ Fixpoint Sem (p: prms) D C (t: @term sval D C): sval D C :=
   | t_fromQ ZER z => ret (fromQ z)
   | t_fromZ ZER z => ret (fromZ z)
   | t_pi ZER => ret pi
-  | t_div ONE e f => LET e ::= Sem p e IN LET f ::= Sem p f IN mdiv (p_deg p) (p_trunc p) e f
-  | t_sqrt ONE e => LET e ::= Sem p e IN msqrt (p_deg p) (p_trunc p) e
+  | t_div ONE e f => elet e := Sem p e in elet f := Sem p f in mdiv (p_deg p) (p_trunc p) e f
+  | t_sqrt ONE e => elet e := Sem p e in msqrt (p_deg p) (p_trunc p) e
   | t_cos ONE e => if is_id e then mcos else err "cosine cannot be composed in models"
   | t_sin ONE e => if is_id e then msin else err "sine cannot be composed in models"
   | t_abs ONE e => err "absolute value not supported in models"
@@ -440,13 +440,13 @@ Fixpoint Sem (p: prms) D C (t: @term sval D C): sval D C :=
   | t_pi ONE => ret (mcst pi)
   | t_id => mid
   | t_app f x => 
-      LET f ::= Sem p f IN
-      LET x ::= Sem p x IN 
+      elet f := Sem p f in
+      elet x := Sem p x in
       meval f x
   | t_integrate f a b => 
-      LET f ::= Sem p f IN 
-      LET a ::= Sem p a IN 
-      LET b ::= Sem p b IN 
+      elet f := Sem p f in
+      elet a := Sem p a in
+      elet b := Sem p b in
       mintegrate f (Some a) (Some b)
   | t_cst REAL e => e_map mcst (Sem p e)
   | t_cst PROP e => Sem p e
@@ -460,23 +460,23 @@ Fixpoint Sem (p: prms) D C (t: @term sval D C): sval D C :=
   | t_true _ => ret true
   | t_false _ => ret false
   | t_le ONE f g =>
-      LET f ::= Sem p f IN LET g ::= Sem p g IN mle (p_deg p) f g
+      elet f := Sem p f in elet g := Sem p g in mle (p_deg p) f g
   | t_ge ONE f g =>
-      LET f ::= Sem p f IN LET g ::= Sem p g IN mge (p_deg p) f g
+      elet f := Sem p f in elet g := Sem p g in mge (p_deg p) f g
   | t_lt ONE f g =>
-      LET f ::= Sem p f IN LET g ::= Sem p g IN mlt (p_deg p) f g
+      elet f := Sem p f in elet g := Sem p g in mlt (p_deg p) f g
   | t_ne ONE f g => e_map2 (mne (p_deg p)) (Sem p f) (Sem p g)
   | t_forall_bisect ZER a b k => 
-      LET a ::= Sem p a IN
-      LET b ::= Sem p b IN
+      elet a := Sem p a in
+      elet b := Sem p b in
       bisect (p_depth p) (fun x => Sem p (k (ret x))) (interval a b)
   | t_forall_bisect ONE a b k => 
-      LET a ::= Sem p a IN
-      LET b ::= Sem p b IN
+      elet a := Sem p a in
+      elet b := Sem p b in
       bisect (p_depth p) (fun x => Sem p (k (ret x))) (interval (mrange a) (mrange b))
   | t_forall_models a b k => 
-      LET a ::= Sem p a IN
-      LET b ::= Sem p b IN
+      elet a := Sem p a in
+      elet b := Sem p b in
       if ~~is_le dlo a then err "model comparison: lower bound beyond domain" else
       if ~~is_le b dhi then err "model comparison: upper bound beyond domain" else
       Sem p k
@@ -495,7 +495,7 @@ Definition cval D C: sval D C -> rval D C -> Prop :=
   | ZER,PROP => Eimpl
   | ONE,PROP => fun b p => Eimpl b (forall x, dlo <= x <= dhi -> p x)
   end.
-Lemma correct D C (u: term D C) (v: term D C): trel cval u v -> forall d, cval (Sem d u) (sem v).
+Lemma correct D C (u: term D C) (v: term D C): trel cval u v -> forall p, cval (Sem p u) (sem v).
 Proof.
   induction 1=>ps/=; 
                  lazymatch goal with
@@ -504,42 +504,26 @@ Proof.
                  end;
     cbn in *=>//; try ((eapply ep_map || eapply ep_map2 || constructor); eauto; rel).
   - eapply ep_map2; eauto. unfold Rmult'; rel. 
-  - eapply ep_bind=>[F Ff|]; eauto. 
-    eapply ep_bind=>[G Gg|]; eauto.
-    by apply mdivR.
-  - eapply ep_bind=>[F Ff|]; eauto.
-    by apply msqrtR.
+  - eapply ep_bind2; eauto=>*. by apply mdivR.
+  - eapply ep_bind; eauto=>*. by apply msqrtR.
   - move: (is_idR H). case is_idE=>//. case is_idE=>//-> _ _. apply mcosR. 
   - move: (is_idR H). case is_idE=>//. case is_idE=>//-> _ _. apply msinR. 
   - constructor. apply: mcstR; rel.
   - constructor. rewrite /f_unr/f_cst/=. apply: mcstR; rel.
   - constructor. apply: mcstR; rel.
   - apply midR.
-  - eapply ep_bind=>[F Ff|]; eauto. 
-    eapply ep_bind=>[X Xx|]; eauto.
-    by apply mevalR.
-  - eapply ep_bind=>[F Ff|]; eauto.  
-    eapply ep_bind=>[A Aa|]; eauto.  
-    eapply ep_bind=>[B Bb|]; eauto.  
-    apply mintegrateR; rel. 
-  - case IHtrel=>//b Hb. constructor. case Hb=>//. by constructor. 
+  - eapply ep_bind2; eauto=>*. by apply mevalR.
+  - do 3 (eapply ep_bind; eauto=>* ). by apply mintegrateR; rel.
+  - move: (IHtrel ps). by apply Eimpl_impl.
   - eapply ep_map; eauto=>*. by apply mtruncateR.
-  - eapply ep_map2; eauto=>??. case is_leE=>//. auto.  
-  - eapply ep_bind=>[F Ff|]; eauto. 
-    eapply ep_bind=>[X Xx|]; eauto.
-    by apply mleE.
-  - eapply ep_map2; eauto=>??. case is_geE=>//. auto.  
-  - eapply ep_bind=>[F Ff|]; eauto. 
-    eapply ep_bind=>[X Xx|]; eauto.
-    by apply mgeE.
-  - eapply ep_map2; eauto=>??. case is_ltE=>//. auto.  
-  - eapply ep_bind=>[F Ff|]; eauto. 
-    eapply ep_bind=>[X Xx|]; eauto.
-    by apply mltE.
-  - eapply ep_map2; eauto=>??. case is_neE=>//. auto.  
-  - eapply ep_bind=>[F Ff|]; eauto. 
-    eapply ep_bind=>[X Xx|]; eauto.
-    constructor. by apply mneE.
+  - eapply ep_map2; eauto=>??. case is_leE=>//. by auto.
+  - eapply ep_bind2; eauto=>*. by apply mleE.
+  - eapply ep_map2; eauto=>*. case is_geE=>//. by auto.
+  - eapply ep_bind2; eauto=>*. by apply mgeE.
+  - eapply ep_map2; eauto=>*. case is_ltE=>//. by auto.
+  - eapply ep_bind2; eauto=>*. by apply mltE.
+  - eapply ep_map2; eauto=>*. case is_neE=>//. by auto.
+  - eapply ep_map2; eauto=>*. by apply mneE.
   - apply Eimpl_or'.
     eapply Eimpl_impl. 2: apply IHtrel1. clear; auto. 
     eapply Eimpl_impl. 2: apply IHtrel2. clear; auto.     
@@ -556,13 +540,11 @@ Proof.
     specialize (Ha _ _ dloR HA).
     specialize (Hb _ _ HB dhiR).
     cbn in *. lra. 
-  - eapply ep_bind=>[A HA|]; eauto.
-    eapply ep_bind=>[B HB|]; eauto.
+  - eapply ep_bind2; eauto=>a b Ha Hb.
     eapply Eimpl_impl. 2: apply bisectE.
     2: { move=>X. apply Eimpl_forall=>z. apply Eimpl_forall=>Hz. apply H2; eauto. } 
     move=>K z Hz. apply K=>//. by eapply intervalE; eauto.
-  - eapply ep_bind=>[A HA|]; eauto.
-    eapply ep_bind=>[B HB|]; eauto.
+  - eapply ep_bind2; eauto=>a b Ha Hb.
     eapply Eimpl_impl. 2: apply bisectE.
     2: { move=>X. apply Eimpl_forall=>z. apply Eimpl_forall=>Hz. apply H2; eauto. } 
     move=>K z Hz t Ht. apply K=>//.
@@ -629,8 +611,8 @@ Fixpoint Sem (p: prms) D C (t: @term sval D C): sval D C :=
   | t_mul' ONE d e f => fun MO => e_map2 (mul' d) (Sem p e MO) (Sem p f MO)
   | t_zer ONE => fun MO => ret 0
   | t_one ONE => fun MO => ret 1
-  | t_div ONE e f => fun MO => LET e ::= Sem p e MO IN LET f ::= Sem p f MO IN mdiv (p_deg p) (p_trunc p) e f
-  | t_sqrt ONE e => fun MO => LET e ::= Sem p e MO IN msqrt (p_deg p) (p_trunc p) e
+  | t_div ONE e f => fun MO => elet e := Sem p e MO in elet f := Sem p f MO in mdiv (p_deg p) (p_trunc p) e f
+  | t_sqrt ONE e => fun MO => elet e := Sem p e MO in msqrt (p_deg p) (p_trunc p) e
   | t_cos ONE e => fun MO => if is_id e then mcos else err "cosine cannot be composed in models"
   | t_sin ONE e => fun MO => if is_id e then msin else err "sine cannot be composed in models"
   | t_abs ONE e => fun MO => err "absolute value not supported in models"
@@ -640,10 +622,10 @@ Fixpoint Sem (p: prms) D C (t: @term sval D C): sval D C :=
   | t_id => fun MO => mid
   | t_app f x => err "application not yet supported in dynamic mode"
   | t_integrate f a b => 
-      LET a ::= Sem p a IN 
-      LET b ::= Sem p b IN 
+      elet a := Sem p a in
+      elet b := Sem p b in
       if ~~ is_lt a b then err "dynamic: integral does not yield a valid domain" else
-      LET f ::= Sem p f (MO a b) IN 
+      elet f := Sem p f (MO a b) in
       mintegrate f None None
   | t_cst REAL e => fun MO => e_map mcst (Sem p e)
   | t_cst PROP e => fun MO => Sem p e
@@ -661,25 +643,25 @@ Fixpoint Sem (p: prms) D C (t: @term sval D C): sval D C :=
   | t_true ONE => fun MO => ret true
   | t_false ONE => fun MO => ret false
   | t_lt ONE f g =>
-      fun MO => LET f ::= Sem p f MO IN LET g ::= Sem p g MO IN mlt (p_deg p) f g
+      fun MO => elet f := Sem p f MO in elet g := Sem p g MO in mlt (p_deg p) f g
   | t_le ONE f g =>
-      fun MO => LET f ::= Sem p f MO IN LET g ::= Sem p g MO IN mle (p_deg p) f g
+      fun MO => elet f := Sem p f MO in elet g := Sem p g MO in mle (p_deg p) f g
   | t_ge ONE f g =>
-      fun MO => LET f ::= Sem p f MO IN LET g ::= Sem p g MO IN mge (p_deg p) f g
+      fun MO => elet f := Sem p f MO in elet g := Sem p g MO in mge (p_deg p) f g
   | t_ne ONE f g => 
       fun MO => e_map2 (mne (p_deg p)) (Sem p f MO) (Sem p g MO)
   | t_forall_bisect ZER a b k => 
-      LET a ::= Sem p a IN
-      LET b ::= Sem p b IN
+      elet a := Sem p a in
+      elet b := Sem p b in
       bisect (p_depth p) (fun x => Sem p (k (ret x))) (interval a b)
   | t_forall_bisect ONE a b k => 
       fun MO =>
-      LET a ::= Sem p a MO IN
-      LET b ::= Sem p b MO IN
+      elet a := Sem p a MO in
+      elet b := Sem p b MO in
       bisect (p_depth p) (fun x => Sem p (k (ret x)) MO) (interval (mrange a) (mrange b))
   | t_forall_models a b k => 
-      LET a ::= Sem p a IN
-      LET b ::= Sem p b IN
+      elet a := Sem p a in
+      elet b := Sem p b in
       bisect2 (p_depth p) (fun a b =>
                              if ~~ is_lt a b then err "invalid domain" else
                                Sem p k (MO a b)) a b
@@ -709,41 +691,29 @@ Proof.
     cbn -[RInt] in *=>//; try intros MO' a b M'; 
     try ((eapply ep_map || eapply ep_map2 || constructor); eauto; rel).
   - eapply ep_map2; eauto. unfold Rmult'; rel. 
-  - eapply ep_bind=>[F Ff|]; eauto. 
-    eapply ep_bind=>[G Gg|]; eauto.
-    by apply mdivR.
-  - eapply ep_bind=>[F Ff|]; eauto.
-    by apply msqrtR.
+  - eapply ep_bind2; eauto=>*. by apply mdivR.
+  - eapply ep_bind; eauto=>*. by apply msqrtR.
   - move: (is_idR H). case is_idE=>//. case is_idE=>//-> _ _. apply mcosR. 
   - move: (is_idR H). case is_idE=>//. case is_idE=>//-> _ _. apply msinR. 
   - constructor. apply: mcstR; rel.
   - constructor. rewrite /f_unr/f_cst/=. apply: mcstR; rel.
   - constructor. apply: mcstR; rel.
   - apply midR.
-  - eapply ep_bind=>[A Aa|]; eauto.  
-    eapply ep_bind=>[B Bb|]; eauto.  
+  - eapply ep_bind2; eauto=> A B Aa Bb.
     case_eq (is_lt A B)=>//=ab. 
     specialize (IHtrel1 ps _ _ _ (M (DfromI2 Aa Bb ab))).
     eapply ep_bind=>[F Ff|]; eauto.
     eapply mintegrateR; first apply Ff; by constructor. 
-  - case IHtrel=>//c Hc. constructor. case Hc=>//. by constructor. 
+  - move: (IHtrel ps). by apply Eimpl_impl.
   - eapply ep_map; eauto=>*. by apply mtruncateR.
-  - eapply ep_map2; eauto=>??. case is_leE=>//. auto.  
-  - eapply ep_bind=>[F Ff|]; eauto. 
-    eapply ep_bind=>[X Xx|]; eauto.
-    by apply mleE.
-  - eapply ep_map2; eauto=>??. case is_geE=>//. auto.  
-  - eapply ep_bind=>[F Ff|]; eauto. 
-    eapply ep_bind=>[X Xx|]; eauto.
-    by apply mgeE.
-  - eapply ep_map2; eauto=>??. case is_ltE=>//. auto.  
-  - eapply ep_bind=>[F Ff|]; eauto. 
-    eapply ep_bind=>[X Xx|]; eauto.
-    by apply mltE.
-  - eapply ep_map2; eauto=>??. case is_neE=>//. auto.  
-  - eapply ep_bind=>[F Ff|]; eauto. 
-    eapply ep_bind=>[X Xx|]; eauto.
-    constructor. by apply mneE.
+  - eapply ep_map2; eauto=>??. case is_leE=>//. by auto.
+  - eapply ep_bind2; eauto=>*. by apply mleE.
+  - eapply ep_map2; eauto=>*. case is_geE=>//. by auto.
+  - eapply ep_bind2; eauto=>*. by apply mgeE.
+  - eapply ep_map2; eauto=>*. case is_ltE=>//. by auto.
+  - eapply ep_bind2; eauto=>*. by apply mltE.
+  - eapply ep_map2; eauto=>*. case is_neE=>//. by auto.
+  - eapply ep_map2; eauto=>*. by apply mneE.
   - apply Eimpl_or'.
     eapply Eimpl_impl. 2: apply IHtrel1. clear; auto. 
     eapply Eimpl_impl. 2: apply IHtrel2. clear; auto.     
@@ -758,8 +728,7 @@ Proof.
     apply IHtrel1; eassumption.
     apply IHtrel2; eassumption.
     auto.     
-  - eapply ep_bind=>[A HA|]; eauto.
-    eapply ep_bind=>[B HB|]; eauto.
+  - eapply ep_bind2; eauto=>A B HA HB.
     eapply Eimpl_impl. 2: apply bisect2E.
     move=>K z Hz. cbn in *. eapply (K z); eauto.
     clear A HA B HB. 
@@ -771,13 +740,11 @@ Proof.
     apply Eimpl_forall=>HB.
     move: z. apply <-(Eimpl_forall (A:=R)).
     apply IHtrel3. apply (M (DfromI2 HA HB ab)). 
-  - eapply ep_bind=>[A HA|]; eauto.
-    eapply ep_bind=>[B HB|]; eauto.
+  - eapply ep_bind2; eauto=>A B HA HB.
     eapply Eimpl_impl. 2: apply bisectE.
     2: { move=>X. apply Eimpl_forall=>z. apply Eimpl_forall=>Hz. apply H2; eauto. } 
     move=>K z Hz. apply K=>//. by eapply intervalE; eauto.
-  - eapply ep_bind=>[A HA|]; eauto.
-    eapply ep_bind=>[B HB|]; eauto.
+  - eapply ep_bind2; eauto=>A B HA HB.
     eapply Eimpl_impl. 2: apply bisectE.
     2: { move=>X. apply Eimpl_forall=>z. apply Eimpl_forall=>Hz. apply H2; eauto. } 
     move=>K z Hz t Ht. apply K=>//.

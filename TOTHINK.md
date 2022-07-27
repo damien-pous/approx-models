@@ -3,7 +3,6 @@
 - more examples / more doc in examples.v
 - remove dep on reduction-effects
 - separate main theory files from examples (theories/ examples/ src/)
-- LET ::= IN -> elet := in
 
 ## TODO
 

@@ -37,8 +37,8 @@ Module sqrt_cheb.
      (60: interpolation degree; None: no truncation)
    *)
   Definition valid_s : E float :=
-    LET M ::= mpolynom_eq 60 None F phi0 
-    IN ret (width (rem M)).
+    elet M := mpolynom_eq 60 None F phi0 
+    in ret (width (rem M)).
   Eval vm_compute in valid_s.   (* 3e-14 *)
 
 
@@ -101,8 +101,8 @@ Module oval_fourier.
       - [t]: truncation degree (if any)
    *)
   Definition oval_valid d t: E float :=
-    LET x ::= mpolynom_eq d t F phi0 
-    IN ret (width (rem x)).
+    elet x := mpolynom_eq d t F phi0 
+    in ret (width (rem x)).
 
   Definition ignore [A] (a: A) := tt.
 
@@ -112,10 +112,10 @@ Module oval_fourier.
    let A' := interpolate d (fun x => 1 / DF x) in
    let A := mfc A' in
    let phi := mfc phi' in
-   LET c ::= mnorm (A * taylor.eval't t F phi) IN
+   elet c := mnorm (A * taylor.eval't t F phi) in
    let L := taylor.derive (polynom_eq.opnewton F A) in
    let L' := map (fun M => map I2F (pol M)) L in
-   LET l ::= polynom_for_lambda t L' phi' IN
+   elet l := polynom_for_lambda t L' phi' in
    find_radius (I2F c) l.
   
   (* timings on Damien's machine, plugged *)

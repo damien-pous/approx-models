@@ -16,7 +16,7 @@ Open Scope error_scope.
 Definition e_bind {A B} (x: E A) (f: A -> E B): E B :=
   match x with ret a => f a | err e => err e end.
 Infix ">>=" := e_bind (at level 30): error_scope.
-Notation "'LET' x ::= f 'IN' g" := (e_bind f (fun x => g)) (at level 200, x binder, right associativity): error_scope.  
+Notation "'elet' x := f 'in' g" := (e_bind f (fun x => g)) (at level 200, x binder, right associativity): error_scope.  
 
 Definition e_map {A B} (f: A -> B) (x: E A): E B :=
   x >>= fun a => ret (f a).
@@ -26,16 +26,11 @@ Definition e_map2 {A B C} (f: A -> B -> C) (x: E A) (y: E B): E C :=
 Fixpoint emap {A B} (f: A -> E B) (l: list A): E (list B) :=
   match l with
   | nil => ret nil
-  | cons x q => LET x ::= f x IN LET q ::= emap f q IN ret (cons x q)
+  | cons x q => elet x := f x in elet q := emap f q in ret (cons x q)
   end.
 
 Definition assert (b: bool) (e: string): E (is_true b) :=
   if b return E (is_true b) then ret eq_refl else err e.
-Notation "'ASSERT' b 'AS' x 'MSG' e 'IN' g" := (e_bind (assert b e) (fun x => g)) (at level 200, x binder, right associativity): error_scope.
-
-Definition trycatch {A} (x: E A) (y: unit -> E A) :=
-  match x with err _ => y tt | _ => x end.
-Notation "'TRY' x 'CATCH' g" := (trycatch x (fun _ => g)) (at level 200, right associativity): error_scope.  
 
 
 (** lifting predicates to monadic values: errors are left unspecified *)
@@ -69,13 +64,17 @@ Lemma ep_bind {A B} (f: A -> E B) (P: A -> Prop) (Q: B -> Prop)
       (F: forall a, P a -> EP Q (f a)): forall a, EP P a -> EP Q (a >>= f).
 Proof. intros ? [??|]; cbn; auto. Qed.
 
+Lemma ep_bind2 {A B C} (f: A -> B -> E C) (P: A -> Prop) (Q: B -> Prop) (R: C -> Prop)
+      (F: forall a b, P a -> Q b -> EP R (f a b)): forall a b, EP P a -> EP Q b -> EP R (elet a := a in b >>= f a).
+Proof. intros. do 2 (eapply ep_bind; eauto=>*). Qed.
+
 Lemma ep_map {A B} (f: A -> B) (P: A -> Prop) (Q: B -> Prop)
       (F: forall a, P a -> Q (f a)): forall a, EP P a -> EP Q (e_map f a).
 Proof. apply ep_bind; constructor; auto. Qed.
 
 Lemma ep_map2 {A B C} (f: A -> B -> C) (P: A -> Prop) (Q: B -> Prop) (R: C -> Prop)
       (F: forall a b, P a -> Q b -> R (f a b)): forall a b, EP P a -> EP Q b -> EP R (e_map2 f a b).
-Proof. intros ?? [??|] [??|]; cbn; constructor; auto. Qed.
+Proof. intros. do 2 (eapply ep_bind; eauto=>*). Qed.
 
 Lemma er_bind {A B C D} (f: A -> E B) (g: C -> E D) (R: A -> C -> Prop) (S: B -> D -> Prop)
       (F: forall a c, R a c -> ER S (f a) (g c)): forall a c, ER R a c -> ER S (a>>=f) (c>>=g).

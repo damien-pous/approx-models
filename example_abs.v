@@ -147,7 +147,7 @@ Definition wrem (x: E (Tube II)) := x >>= fun x => ret (width (rem x)).
     - [None]: no truncation in validation
     - [eps]: the smaller the better *)
 Definition NearAbs (MM: ModelOps) (deg: Z) (eps: Q): E MM :=
-  LET mid ::= mid IN
+  elet mid := mid in
   msqrt deg None (mcst (fromQ (eps*eps)) + mid * mid). 
 
 
@@ -259,8 +259,8 @@ Abort.
 
 (** ** computing the error between [NearAbs deg eps] and [abs] on [[0;1]], directly *)
 Definition NearAbsErr01 (deg : Z) (eps: Q) :=
-  LET mid ::= mid IN
-  LET G ::= @NearAbs F01 deg eps IN
+  elet mid := mid in
+  elet G := @NearAbs F01 deg eps in
   ret (width (mrange (G - mid))).
 
 Eval vm_compute in (NearAbsErr01 10 0.1). (* 0.16 *)
