@@ -5,6 +5,7 @@ Require Export interfaces.
 Require Import intervals syntax rescale.
 Require fourier taylor chebyshev approx.
 
+Set Universe Polymorphism. 
 
 Section s.
  Context {N: NBH}.
@@ -54,7 +55,8 @@ Variant param :=
 (** basis (be careful, chebyshev11 above takes precedence even when placed after [taylor] or [fourier] )*)
 | chebyshev | taylor | fourier
 (** reified expression (default: inferred from the goal) *)
-| term [S] (t: Term S).             
+| term' [D C] (t: Term D C).
+Notation term D C u := (@term' D C (TERM u%term)).
 
 (** lists of parameters are presented as tuples of tuples of tuples ... of elements in [param] 
     (e.g., [(bigZ60,((i_deg 5,vm), primfloat))])
@@ -187,7 +189,7 @@ Ltac get_Sem nbh model_ops x y :=
 Ltac get_term reify e x y := 
   lazymatch x with
   | tt => reify e
-  | term ?t =>
+  | term' ?t =>
       let _ := match goal with
                 | _ => unify e (sem' t)
                 | _ => fail "given term does not match the expression" end
@@ -224,7 +226,7 @@ Tactic Notation "approx" constr(params) :=
   let p := get_term reify_prop p params tt in
   let t := constr:(check prms p) in
   (apply t || fail 100 "inappropriate term (bug in reification, please report)");
-  [ repeat (constructor; auto) |
+  [ prove_parametric |
   let X := fresh "X" in
   intro X; comp native X;
   lazymatch eval hnf in X with
@@ -250,7 +252,7 @@ Tactic Notation "estimate_term" constr(t) constr(params) :=
   let basis := get_basis params tt in
   let model_ops := get_model_ops basis in
   let Sem := get_Sem nbh model_ops params tt in
-  let r := constr:(Sem prms _ t) in
+  let r := constr:(Sem prms _ _ t) in
   let i := ecomp native r in
   idtac i.
 Tactic Notation "estimate_term" constr(t) := estimate_term t tt.
@@ -275,7 +277,6 @@ Tactic Notation "estimate" constr(e) := estimate e tt.
 Notation "[[ a ; b ]]" := (Float.Ibnd a%float b%float). 
 
 (* simple tests for the above tactics *)
-(*
 Goal 1.4 <= sqrt 2 <= 1.5.
 Proof.
   approx.
@@ -293,10 +294,12 @@ Proof.
   approx (static 0.5 2, stdz60).
   Restart.
   approx (static 0.5 2, nbh IStdZ60.nbh).
+  Restart.
+  approx (term ZER _ (tlet m := sqrt (fromZ 2) in fromQ 1.4 <= m /\ m <= fromQ 1.5)).
 
   Restart.
   estimate (1 < 2).
-  estimate (1 < 2) (term (BXPR (1 < fromZ' 2))).
+  estimate (1 < 2) (term ZER PROP (1 < fromZ 2)).
   Fail estimate (1 < 2) (term (BXPR (1 < fromZ' 3))).
   
   estimate (sqrt 2).
@@ -319,4 +322,4 @@ Proof.
   estimate (RInt id 0 1) (term (EXPR (integrate' id' 0 1))).
   estimate_term (EXPR (integrate' id' 0 1)).
 Abort.
-*)
+

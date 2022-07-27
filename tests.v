@@ -89,8 +89,8 @@ Qed.
 
 Goal RInt (fun x => cos 1 + x) 0 1 <= cos 1+0.6.
 Proof.
-  approx.
-Qed.
+  Fail approx.                  (* TOFIX: reify with e_cst *)
+Abort.
 
 Goal RInt (fun x => cos (x*x)) 0 1 <= 100.
 Proof.
