@@ -56,7 +56,8 @@ Variant param :=
 | chebyshev | taylor | fourier
 (** reified expression (default: inferred from the goal) *)
 | term' [D C] (t: Term D C).
-Notation term D C u := (@term' D C (TERM u%term)).
+Notation term u := (@term' ZER _ (TERM u%term)).
+Notation fterm u := (@term' ONE _ (TERM u%term)).
 
 (** lists of parameters are presented as tuples of tuples of tuples ... of elements in [param] 
     (e.g., [(bigZ60,((i_deg 5,vm), primfloat))])
@@ -244,7 +245,7 @@ Tactic Notation "approx" := approx tt.
 (** see type [param] above for the parameters *)
 (* TOTHINK: do not change the goal -> turn these into commands? *)
 (* TODO: variant that produces a pair with the estimation and the correctness proof *)
-Tactic Notation "estimate_term" constr(t) constr(params) :=
+Tactic Notation "xestimate_term" uconstr(t) constr(params) :=
   all_params params;
   let prms := get_prms params in
   let native := get_native params tt in
@@ -255,7 +256,8 @@ Tactic Notation "estimate_term" constr(t) constr(params) :=
   let r := constr:(Sem prms _ _ t) in
   let i := ecomp native r in
   idtac i.
-Tactic Notation "estimate_term" constr(t) := estimate_term t tt.
+Tactic Notation "estimate_term" uconstr(t) constr(params) := xestimate_term (TERM t) params.
+Tactic Notation "estimate_term" uconstr(t) := xestimate_term (TERM t) tt.
 
 Tactic Notation "estimate" constr(e) constr(params) :=
   all_params params;
@@ -263,13 +265,14 @@ Tactic Notation "estimate" constr(e) constr(params) :=
   lazymatch eval cbn in k with
   | R => 
       let e := get_term reify_real e params tt in
-      estimate_term e params
+      xestimate_term e params
   | Prop => 
       let e := get_term reify_prop e params tt in
-      estimate_term e params
+      xestimate_term e params
   | R->R => 
       let e := get_term reify_fun e params tt in
-      estimate_term e params
+      xestimate_term e params
+  | ?k => fail "unexpected expression type: " k
   end.
 Tactic Notation "estimate" constr(e) := estimate e tt.
 
@@ -277,6 +280,7 @@ Tactic Notation "estimate" constr(e) := estimate e tt.
 Notation "[[ a ; b ]]" := (Float.Ibnd a%float b%float). 
 
 (* simple tests for the above tactics *)
+(*
 Goal 1.4 <= sqrt 2 <= 1.5.
 Proof.
   approx.
@@ -295,12 +299,12 @@ Proof.
   Restart.
   approx (static 0.5 2, nbh IStdZ60.nbh).
   Restart.
-  approx (term ZER _ (tlet m := sqrt (fromZ 2) in fromQ 1.4 <= m /\ m <= fromQ 1.5)).
+  approx (term (tlet m := sqrt (fromZ 2) in fromQ 1.4 <= m /\ m <= fromQ 1.5)).
 
   Restart.
   estimate (1 < 2).
-  estimate (1 < 2) (term ZER PROP (1 < fromZ 2)).
-  Fail estimate (1 < 2) (term (BXPR (1 < fromZ' 3))).
+  estimate (1 < 2) (term (1 < fromZ 2)).
+  Fail estimate (1 < 2) (term (1 < fromZ 3)).
   
   estimate (sqrt 2).
   estimate (sqrt (-2)).
@@ -318,8 +322,10 @@ Proof.
   (* can be done with static bases *)
   estimate (fun x: R => x) (chebyshev11). 
   estimate (fun x: R => x) (static 0 1).
+  estimate (fun x: R => x) (static 0 1, fterm id').
 
-  estimate (RInt id 0 1) (term (EXPR (integrate' id' 0 1))).
-  estimate_term (EXPR (integrate' id' 0 1)).
+  estimate (RInt id 0 1) (term (integrate id' 0 1)).
+
+  estimate_term (integrate id' 0 1).
 Abort.
-
+*)

@@ -2,6 +2,8 @@
 
 Require Export interfaces.
 
+Set Universe Polymorphism.
+
 Set Implicit Arguments.
 Unset Strict Implicit.
 Unset Printing Implicit Defensive.

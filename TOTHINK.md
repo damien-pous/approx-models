@@ -12,6 +12,7 @@
 - interpolation oracle for Taylor basis
 - better radius heuristics for solutions of polynomial equations
 - better model interface to allow mnth
+- avoid the need for universe polymorphism?
 
 ## TOTHINK
 

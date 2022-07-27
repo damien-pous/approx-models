@@ -157,26 +157,26 @@ Abort.
  *)
 Goal forall c, 0<=c<=1 -> RInt (fun x => x+c/2) 0 1 <= 1+c.
   (* we can provide the reified term explicitly to the tactic *)
-  approx (term (BXPR (b_forall_bisect' 0 1
-            (fun c => integrate' (id'+c/fromZ' 2) 0 1 <= 1 + c)))).
+  approx (term (forall_bisect 0 1
+            (fun c => integrate (id'+cst c/fromZ 2) 0 1 <= 1 + c))).
   Restart.
   (* or change the goal to let it appear before calling the tactic *)
-  change (sem' (BXPR (b_forall_bisect' 0 1
-            (fun c => integrate' (id'+c/fromZ' 2) 0 1 <= 1 + c)))).
+  change (sem' (TERM (forall_bisect 0 1
+            (fun c => integrate (id'+cst c/fromZ 2) 0 1 <= 1 + c)))).
   approx. 
 Qed.
 
 Goal forall c, 0<=c<=1 -> c <= 2/3 \/ 1/3 <= c.
-  approx (term (BXPR (b_forall_bisect' 0 1
-            (fun c => c <= fromZ' 2 / fromZ' 3 \/ 1 / fromZ' 3 <= c)))).
+  approx (term (forall_bisect 0 1
+            (fun c => c <= fromZ 2 / fromZ 3 \/ 1 / fromZ 3 <= c))).
 Qed.
 
 (** quantifiers may appear in subformulas with this method *)
 Goal forall c, 0<=c<=1 -> c <= 2/3 \/ forall d, 0<=d<=1 -> 1/3 <= d \/ d <= c.
-  approx (term (BXPR (b_forall_bisect' 0 1
-                       (fun c => c <= fromZ' 2 / fromZ' 3 \/ 
-                      b_forall_bisect' 0 1
-                       (fun d => 1 / fromZ' 3 <= d \/ d <= c))))).
+  approx (term (forall_bisect 0 1
+                       (fun c => c <= fromZ 2 / fromZ 3 \/ 
+                      forall_bisect 0 1
+                       (fun d => 1 / fromZ 3 <= d \/ d <= c)))).
 Qed.
 
 (** solving (restricted) quantified formulas by model comparisons *)
@@ -188,28 +188,28 @@ Goal forall c, 0.1<=c<=0.9 -> c < sqrt c < sqrt (sqrt c).
   (* there are two comparisons, but the model for the inner term (sqrt c)
      is computed only once, thanks to a let..in :
      the reified term is 
-     [BXPR (b_forall_models' (fromQ' 0.1) (fromQ' 0.9)
-              (let_f s := fsqrt id' in id' < s /\ s < fsqrt (fsqrt id'))))]
+     [TERM (forall_models (fromQ 0.1) (fromQ 0.9)
+              (tlet s := sqrt id' in id' < s /\ s < sqrt (sqrt id'))))]
    *)   
   (* Show Proof. *)
   Restart.
   (* to further share the occurence of [sqrt c] in the rhs, we can provide an explicit term *)
-  approx (term (BXPR (b_forall_models' (fromQ' 0.1) (fromQ' 0.9)
-                                       (let_f s := fsqrt id' in id' < s /\ s < fsqrt s)))).
+  approx (term (forall_models (fromQ 0.1) (fromQ 0.9)
+                                    (tlet s := sqrt id' in id' < s < sqrt s))).
   (* Show Proof. *)
   Restart.
   (* alternatively: *)
-  change (sem' (BXPR (b_forall_models' (fromQ' 0.1) (fromQ' 0.9)
-                                       (let_f s := fsqrt id' in id' < s /\ s < fsqrt s)))).
+  change (sem' (TERM (forall_models (fromQ 0.1) (fromQ 0.9)
+                                    (tlet s := sqrt id' in id' < s < sqrt s)))).
   approx. 
   (* Show Proof. *)
 Qed.
 
 (** with this method, quantifiers appearing in subformulas must be dealt with by bisection *)
 Goal forall c, 0.1<=c<=0.4 -> forall d, 0<=d<=0.5 -> c+d < sqrt (c+d).
-  change (sem' (BXPR (b_forall_models' (fromQ' 0.1) (fromQ' 0.4)
-                     (c_forall_bisect' 0 (fromQ' 0.5) 
-                     (fun d => c_lt' (id'+d) (fsqrt (id'+d)))
+  change (sem' (TERM (forall_models (fromQ 0.1) (fromQ 0.4)
+                     (forall_bisect 0 (fromQ 0.5) 
+                     (fun d => id'+cst d < sqrt (id'+cst d))
          )))).
   approx.
 Qed.
@@ -217,21 +217,25 @@ Qed.
 
 (** ** testing direct computations  *)
 Goal True.
-  estimate_term (EXPR ((integrate' (1 / (1 + id'))) 0 (pi'/fromZ' 4)))
+  estimate_term ((integrate (1 / (1 + id'))) 0 (pi/fromZ 4))
                 (i_deg 20). 
 
-  estimate_term (EXPR (integrate' ((1+id') / ((1-id')*(1-id')+1/fromZ' 4)) 0 (pi'/fromZ' 4)))
+  estimate_term (integrate ((1+id') / ((1-id')*(1-id')+1/fromZ 4)) 0 (pi/fromZ 4))
                 (chebyshev11, i_deg 20).
   
-  estimate_term (FXPR (id' / fsqrt ((1+id') / (fromZ' 3+id'))))
+  estimate_term (id' / sqrt ((1+id') / (fromZ 3+id')))
                 (static 18 200).
 
-  estimate_term (EXPR (integrate' ((1+id') / ((1-id')*(1-id')+1/fromZ' 4)) 0 (pi'/fromZ' 4)))
-                (chebyshev11).
-  (** above: need 1sec; below: also need 1sec thanks to sharing *)
-  estimate_term (EXPR (let_e x := integrate' ((1+id') / ((1-id')*(1-id')+1/fromZ' 4)) 0 (pi'/fromZ' 4)
-                         in x + x))
-                (chebyshev11).
+  estimate_term (integrate ((1+id') / ((1-id')*(1-id')+1/fromZ 4)) 0 (pi/fromZ 4))
+                (chebyshev11, i_deg 50).
+  (** below: not longer, thanks to sharing *)
+  estimate_term (tlet x := integrate ((1+id') / ((1-id')*(1-id')+1/fromZ 4)) 0 (pi/fromZ 4)
+                         in x + x)%term
+                (chebyshev11, i_deg 50).
+  (* TODO: check: above estimations are no longer precise at precision 100... *)
+  
+  estimate_term (sqrt (sqrt (fromZ 2 + id')))
+                (chebyshev11, i_deg 50).
 Abort.
 
 (** About the axioms we use: *)

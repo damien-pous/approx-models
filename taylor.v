@@ -3,6 +3,8 @@
 Require Import String.
 Require Import vectorspace.
 
+Set Universe Polymorphism.
+
 Set Implicit Arguments.
 Unset Strict Implicit.
 Unset Printing Implicit Defensive.
@@ -302,7 +304,7 @@ Program Definition basis {N: NBH} (D: Domain):
 
 (** polynomials with functional coefficients *)
 Section f.
- Context {A: Type} {C: Ops0}.
+ Context {A: Set} {C: Ops0}.
  Notation Fun := (A -> C).
 
  (** evaluation of the coefficients at a given point [t] *)

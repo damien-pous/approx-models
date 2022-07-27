@@ -7,9 +7,11 @@ Set Implicit Arguments.
 Unset Strict Implicit.
 Unset Printing Implicit Defensive.
 
+Set Universe Polymorphism.
+
 (** sorts of expressions we know how to approximate 
     - [term ZER REAL]: real numbers (R)
-    - [term ONE REAL]: functions on closed real intervals (R->R), seen as reals with one real parameter
+    - [term ONE REAL]: functions on real numbers (R->R), seen as reals with one real parameter
     - [term ZER PROP]: (conjunctions/disjunctions) comparison of reals (Prop)
     - [term ONE PROP]: (conjunctions/disjunctions) comparison of functions, seen as propositions with one real parameter (R -> Prop)
  *)
@@ -17,11 +19,12 @@ Variant csort := REAL | PROP.
 Variant dsort := ZER | ONE.
 
 (** syntax for the expressions we know how to approximate 
-    we use parameterised higher order abstract syntax (PHOAS) in order to have a let..in construct and be able to share subexpressions
-    [@term X S T] intuitively contains terms of sort [S,T] with variables in [X]
-*)
+    we use parameterised higher order abstract syntax (PHOAS) in order to have a let..in construct and be able to share subexpressions:
+    [@term X S T] intuitively contains terms of sort [S,T] with variables in [X].
+    Note that variables (from X) are independent from the potential parameter of a term
+ *)
 Inductive term {X: dsort -> csort -> Type}: dsort -> csort -> Type :=
-(* real expressions *)
+(** real-valued expressions, with zero or one parameter *)
 | t_add: forall {D}, term D REAL -> term D REAL -> term D REAL
 | t_sub: forall {D}, term D REAL -> term D REAL -> term D REAL
 | t_mul: forall {D}, term D REAL -> term D REAL -> term D REAL
@@ -36,11 +39,15 @@ Inductive term {X: dsort -> csort -> Type}: dsort -> csort -> Type :=
 | t_zer: forall {D}, term D REAL
 | t_one: forall {D}, term D REAL
 | t_pi: forall {D}, term D REAL
+(** identity function (the only construct giving access to the real parameter) *)
 | t_id: term ONE REAL
+(** function application (or substitution) *)
 | t_app: term ONE REAL -> term ZER REAL -> term ZER REAL (* TOTHINK: also on PROP? *)
+(** integration of a function *)
 | t_integrate: term ONE REAL -> term ZER REAL -> term ZER REAL -> term ZER REAL
-| t_trunc: nat -> term ONE REAL -> term ONE REAL         (* the identity, simply truncates the model *)
-(* boolean expressions *)
+(** truncation request *)
+| t_trunc: nat -> term ONE REAL -> term ONE REAL                                    
+(** boolean-valued expressions, with zero or one parameter *)
 | t_le: forall {D}, term D REAL -> term D REAL -> term D PROP
 | t_ge: forall {D}, term D REAL -> term D REAL -> term D PROP
 | t_lt: forall {D}, term D REAL -> term D REAL -> term D PROP
@@ -50,15 +57,19 @@ Inductive term {X: dsort -> csort -> Type}: dsort -> csort -> Type :=
 | t_conj: forall {D}, term D PROP -> term D PROP -> term D PROP
 | t_true: forall {D}, term D PROP
 | t_false: forall {D}, term D PROP
+(** universal quantification over intervals, to be evaluated by model comparisons (and bisection) *)
 | t_forall_models: term ZER REAL -> term ZER REAL -> term ONE PROP -> term ZER PROP
+(** universal quantification over (thin) intervals, to be evaluated by bisection -- may have parameters *)
 | t_forall_bisect: forall {D}, term D REAL -> term D REAL -> (X ZER REAL -> term D PROP) -> term D PROP
-(* constant expressions not using their parameter *)
+(** constant expressions not using their parameter (either boolean- or real- valued) *)
 | t_cst: forall {C}, term ZER C -> term ONE C
-(* setting the parameters in a subexpression *)
+(** setting evaluation parameters in a subexpression *)
 | t_set {D C}: prm -> term D C -> term D C
-(* let..in and variable *)
+(** let..in and variable, to enable sharing of some computations *)
 | t_var: forall {D C}, X D C -> term D C
 | t_let: forall {D C F E}, term D C -> (X D C -> term F E) -> term F E.
+
+(** derived operations *)
 Definition t_let' {X D C F E}: @term X D C -> (term D C -> term F E) -> term F E :=
   fun a k => t_let a (fun x => k (t_var x)). 
 Definition t_forall_bisect' {X D}: term D REAL -> term D REAL -> (term ZER REAL -> term D PROP) -> @term X D PROP :=
@@ -70,7 +81,10 @@ Definition Term D C := forall X, @term X D C.
 (** (terms of sort D,C with a single variable of sort F,E would be represented by type 
     [forall X, X F E -> @term X D C]) *)
 
-(** notations for terms, via canonical structures *)
+
+(** ** notations for reified expressions *)
+
+(** structures to get access to the main notations from the library *)
 Canonical Structure t_Ops0 X D: Ops0 := {|
   car := @term X D REAL;
   add := t_add;
@@ -92,6 +106,57 @@ Canonical Structure t_Ops1 X D: Ops1 := {|
   abs := t_abs;
   pi := t_pi;
 |}.
+
+(** shorthands *)
+Notation id' := t_id.
+Notation integrate := t_integrate.
+Notation forall_models := t_forall_models.
+Notation forall_bisect := t_forall_bisect'.
+Notation cst := t_cst.
+Notation truncate := t_trunc.
+Notation truncate' := t_trunc'.
+
+(** additional notations, in a dedicated scope *)
+Declare Scope term_scope.
+Bind Scope term_scope with term.
+Bind Scope term_scope with Term.
+Delimit Scope term_scope with term.
+Notation "'tlet' x := e 'in' g" := (t_let' e (fun x => g))
+    (at level 200, x binder, right associativity): term_scope.
+Notation "a > b" := (t_lt b a): term_scope. 
+Infix "<=" := t_le: term_scope. 
+Infix "<" := t_lt: term_scope. 
+Infix ">=" := t_ge: term_scope. 
+Infix "<>" := t_ne: term_scope. 
+Infix "/\" := t_conj: term_scope. 
+Infix "\/" := t_disj: term_scope.
+Notation "x <= y <= z" := (tlet y' := y in x<=y' /\ y'<=z)%term: term_scope.
+Notation "x <= y < z" := (tlet y' := y in x<=y' /\ y'<z)%term: term_scope.
+Notation "x < y <= z" := (tlet y' := y in x<y' /\ y'<=z)%term: term_scope.
+Notation "x < y < z" := (tlet y' := y in x<y' /\ y'<z)%term: term_scope.
+
+(** notation to build a closed term (of type [Term _ _]) from a 'preterm' where the occurrences of X are not yet bound *)
+Notation TERM t := ((fun X => (t%term: @term X _ _)): Term _ _).
+
+(* tests for the above notations *)
+(*
+Check TERM (1+pi).
+Check TERM (1+integrate id' 0 1).
+Check TERM (id'/id').
+Check TERM (sqrt (sqrt id')).
+Check TERM (sqrt (sqrt (id'+sqrt id'))).
+Check TERM (1+integrate (id' / sqrt id') 0 (fromQ 3.3)).
+Check TERM (1+integrate (id' / (sqrt id' + fromZ 3)) 0 (fromQ 3.3)).
+Check TERM (tlet x := 1+pi in x + x).
+Check TERM (tlet x := 1+pi in x + tlet y := x*x in sqrt (y+y)).
+Check TERM (tlet x := 1+pi in id' + x).
+Check TERM (tlet f := 1-id' in id' * id').
+Check TERM (tlet f := 1-id' in id' *[4] id').
+Check TERM (1 <= 0 \/ cos pi < 1 /\ cos 0 >= 1).
+Check TERM (1 <= cos pi < 1).
+Check TERM (forall_bisect 0 1 (fun c => integrate (id'+cst c) 0 1 <= c+1/fromZ 2) ).
+Check TERM (truncate 4 (cos id')).
+*)
 
 
 (** ** real number semantics of expressions  *)
@@ -147,6 +212,7 @@ Definition sem' D C (u: Term D C): rval D C := sem (u rval).
 (** ** reification *)
 
 (* TODO: 
+   - detect constant sub-expressions (for [t_cst])
    - maximal sharing using let-ins? [need OCaml?]
    - reify user's let-ins?          [need OCaml?]
 *)
@@ -185,17 +251,16 @@ Ltac reify e :=
   | VAR => uconstr:(t_id)
   | ?e <= ?f <= ?g =>
     let e:=reify e in let f:=reify f in let g:=reify g in
-    uconstr:(t_let' f (fun x => t_conj (t_le e x) (t_le x g)))
-    (* TOREPORT: weird bug if we alpha-rename x into f above (see DAGGER below) *)
+    uconstr:((e<=f<=g)%term)
   | ?e <= ?f < ?g =>
     let e:=reify e in let f:=reify f in let g:=reify g in
-    uconstr:(t_let' f (fun x => t_conj (t_le e x) (t_lt x g)))
+    uconstr:((e<=f<g)%term)
   | ?e < ?f <= ?g =>
     let e:=reify e in let f:=reify f in let g:=reify g in
-    uconstr:(t_let' f (fun x => t_conj (t_lt e x) (t_le x g)))
+    uconstr:((e<f<=g)%term)
   | ?e < ?f <= ?g =>
     let e:=reify e in let f:=reify f in let g:=reify g in
-    uconstr:(t_let' f (fun x => t_conj (t_lt e x) (t_lt x g)))
+    uconstr:((e<f<g)%term)
   | Rle ?e ?f => let e:=reify e in let f:=reify f in uconstr:(t_le e f)
   | Rge ?e ?f => let e:=reify e in let f:=reify f in uconstr:(t_ge e f)
   | Rlt ?e ?f => let e:=reify e in let f:=reify f in uconstr:(t_lt e f)
@@ -227,10 +292,6 @@ Ltac reify_prop e :=
   let e := reduce e in
   let e := reify e in
   constr:((fun X => e): Term ZER PROP).
-Ltac reify_pred e :=
-  let e := reduce (e VAR) in
-  let e := reify e in
-  constr:((fun X => e): Term ONE PROP).
 
 (* tests for the above reification tatics *)
 (*
@@ -263,7 +324,7 @@ Goal True.
   Fail test reify_prop (forall x, 2<=x<=cos x -> 1/x <> sqrt x). 
   exact I. 
 Qed.
- *)
+*)
 (* reifying under lambdas?
 Ltac r e := match eval hnf in e with forall x: R, @?P x => r (P (VAR)) | ?x = ?y => idtac x y | _ => idtac e end.
 Goal True.
@@ -327,7 +388,7 @@ Definition parametric D C (u: Term D C) :=
 Ltac prove_parametric := repeat (constructor; auto).  
   
 
-
+(** testing whether a term is the identity *)
 Definition is_id X D C (t: @term X D C) :=
   match t with t_id => true | _ => false end.
 Definition often_id X D C: @term X D C -> @term X D C :=
@@ -339,14 +400,12 @@ Proof. apply is_idE'. Qed.
 Lemma is_idR X Y R D C s t: @trel X Y R D C s t -> is_id s = is_id t.
 Proof. by case. Qed.
 
-
 (** ** static evaluation function *)
 (** where we fix a basis once and for all  *)
 Module Static.
 Section s.
 
 Context {N: NBH} (MO: ModelOps) (Do: Domain) (M: Model MO dlo dhi). 
-
 
 (** interpretation of expressions using intervals / models / booleans *)
 Definition sval D C :=
@@ -514,7 +573,6 @@ Qed.
 (** correctness on parametric (closed) terms follows *)
 Lemma Correct: forall p D C (u: Term D C), parametric u -> cval (Sem' p u) (sem' u).
 Proof. move=>*. by apply correct. Qed.
-
   
 (** small corollary, useful to obtain a tactic in tactic.v *)
 Lemma check p (b: Term ZER PROP):
@@ -730,7 +788,6 @@ Qed.
 (** correctness on parametric (closed) terms follows *)
 Lemma Correct: forall p D C (u: Term D C), parametric u -> cval (Sem' p u) (sem' u).
 Proof. move=>*; by apply correct. Qed.
-
   
 (** small corollary, useful to obtain a tactic in tactic.v *)
 Lemma check p (b: Term ZER PROP):
@@ -748,49 +805,7 @@ Arguments check {_ _} _ _ _.
 
 End Dynamic.
 
-
-(** ** notations for reified expressions *)
-(** mostly used for tests in tests.v *)
-
-Declare Scope term_scope.
-Bind Scope term_scope with term.
-Bind Scope term_scope with Term.
-Delimit Scope term_scope with term.
-
-Notation TERM t := ((fun X => (t%term: @term X _ _)): Term _ _).
-
-Notation id' := t_id.
-Notation integrate := t_integrate.
-Notation forall_models := t_forall_models.
-Notation forall_bisect := t_forall_bisect'.
-Notation cst := t_cst.
-Notation truncate := t_trunc.
-Notation truncate' := t_trunc'.
-
-Notation "'tlet' x := e 'in' g" := (t_let' e (fun x => g))
-    (at level 200, x binder, right associativity): term_scope.
-
-Infix "<=" := t_le: term_scope. 
-Infix "<" := t_lt: term_scope. 
-Infix ">=" := t_ge: term_scope. 
-Notation "a > b" := (t_lt b a): term_scope. 
-Infix "<>" := t_ne: term_scope. 
-Infix "/\" := t_conj: term_scope. 
-Infix "\/" := t_disj: term_scope.
-
+(* checking universe constraints *)
 (*
-Fail Check Dynamic.check _ _ (TERM (1<pi)).
-Check TERM (1+pi).
-Check TERM (1+integrate id' 0 1).
-Check TERM (id'/id').
-Check TERM (1+integrate (id' / sqrt id') 0 (fromQ 3.3)).
-Check TERM (1+integrate (id' / (sqrt id' + fromZ 3)) 0 (fromQ 3.3)).
-Check TERM (tlet x := 1+pi in x + x).
-Check TERM (tlet x := 1+pi in x + tlet y := x*x in sqrt (y+y)).
-Check TERM (tlet x := 1+pi in id' + x).
-Check TERM (tlet f := 1-id' in id' * id').
-Check TERM (tlet f := 1-id' in id' *[4] id').
-Check TERM (1 <= 0 \/ cos pi < 1 /\ cos 0 >= 1).
-Check TERM (forall_bisect 0 1 (fun c => integrate (id'+cst c) 0 1 <= c+1/fromZ 2) ).
-Check TERM (truncate 4 (cos id')).
-*) 
+Check Dynamic.check _ _ (TERM (1<pi)).
+ *)

@@ -3,6 +3,8 @@
 Require Import String Reals.
 Require Import vectorspace rescale utils.
 
+Set Universe Polymorphism.
+
 Set Implicit Arguments.
 Unset Strict Implicit.
 Unset Printing Implicit Defensive.

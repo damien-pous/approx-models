@@ -7,6 +7,8 @@ Require Export List. Export ListNotations.
 Require Export ssreflect ssrbool ssrfun.
 Require Export utils errors.
 
+Set Universe Polymorphism.
+
 Set Implicit Arguments.
 Unset Strict Implicit.
 Unset Printing Implicit Defensive.
@@ -111,6 +113,7 @@ Fixpoint pow {C: Ops0} n (x: C) :=
 Definition f_cst A B (b: B) (a: A) := b.
 Definition f_unr A B (o: B -> B) (f: A -> B) (a: A) := o (f a).
 Definition f_bin A B (o: B -> B -> B) (f g: A -> B) (a: A) := o (f a) (g a).
+
 Canonical Structure f_Ops0 (A: Type) (C: Ops0): Ops0 := {|
   car := A -> C;
   add := f_bin add;

@@ -3,6 +3,8 @@
 Require Import String.
 Require Import vectorspace.
 
+Set Universe Polymorphism.
+
 Set Implicit Arguments.
 Unset Strict Implicit.
 Unset Printing Implicit Defensive.
