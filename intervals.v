@@ -108,8 +108,8 @@ Canonical Structure IOps1 :=
      pi := I.pi prec;
   |}.
 
-Definition FmulZ z x := F.Emul (F.fromZ z) x.
-Definition FdivZ z x := F.Ediv x (F.fromZ z).
+Definition FmulZ z := F.Emul (F.fromZ z).
+Definition FdivZ z := let z := F.fromZ z in fun x => F.Ediv x z.
 Canonical Structure FOps0 :=
   {| car := F;
      add := F.Eadd;
