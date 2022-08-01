@@ -393,9 +393,9 @@ Definition is_id X D C (t: @term X D C) :=
   match t with t_id => true | _ => false end.
 Definition often_id X D C: @term X D C -> @term X D C :=
   match D,C with ONE,REAL => fun _ => t_id | _,_ => id end.
-Lemma is_idE' X D C (t: @term X D C): impl (is_id t) (t=often_id t).
+Lemma is_idE' X D C (t: @term X D C): is_id t ~> t=often_id t.
 Proof. case: t=>//=. by constructor. Qed.
-Lemma is_idE X (t: @term X ONE REAL): impl (is_id t) (t=t_id).
+Lemma is_idE X (t: @term X ONE REAL): is_id t ~> t=t_id.
 Proof. apply is_idE'. Qed.
 Lemma is_idR X Y R D C s t: @trel X Y R D C s t -> is_id s = is_id t.
 Proof. by case. Qed.
@@ -430,8 +430,8 @@ Fixpoint Sem (p: prms) D C (t: @term sval D C): sval D C :=
   | t_fromQ ZER z => ret (fromQ z)
   | t_fromZ ZER z => ret (fromZ z)
   | t_pi ZER => ret pi
-  | t_div ONE e f => elet e := Sem p e in elet f := Sem p f in mdiv (p_deg p) (p_trunc p) e f
-  | t_sqrt ONE e => elet e := Sem p e in msqrt (p_deg p) (p_trunc p) e
+  | t_div ONE e f => e_bind2 (Sem p e) (Sem p f) (mdiv (p_deg p) (p_trunc p))
+  | t_sqrt ONE e => e_bind (Sem p e) (msqrt (p_deg p) (p_trunc p))
   | t_cos ONE e => if is_id e then mcos else err "cosine cannot be composed in models"
   | t_sin ONE e => if is_id e then msin else err "sine cannot be composed in models"
   | t_abs ONE e => err "absolute value not supported in models"
@@ -439,11 +439,8 @@ Fixpoint Sem (p: prms) D C (t: @term sval D C): sval D C :=
   | t_fromZ ONE z => ret (mcst (fromZ z))
   | t_pi ONE => ret (mcst pi)
   | t_id => mid
-  | t_app f x => 
-      elet f := Sem p f in
-      elet x := Sem p x in
-      meval f x
-  | t_integrate f a b => 
+  | t_app f x => e_bind2 (Sem p f) (Sem p x) meval
+  | t_integrate f a b =>
       elet f := Sem p f in
       elet a := Sem p a in
       elet b := Sem p b in
@@ -459,12 +456,9 @@ Fixpoint Sem (p: prms) D C (t: @term sval D C): sval D C :=
   | t_conj _ b c => Eand (Sem p b) (fun _ => Sem p c)
   | t_true _ => ret true
   | t_false _ => ret false
-  | t_le ONE f g =>
-      elet f := Sem p f in elet g := Sem p g in mle (p_deg p) f g
-  | t_ge ONE f g =>
-      elet f := Sem p f in elet g := Sem p g in mge (p_deg p) f g
-  | t_lt ONE f g =>
-      elet f := Sem p f in elet g := Sem p g in mlt (p_deg p) f g
+  | t_le ONE f g => e_bind2 (Sem p f) (Sem p g) (mle (p_deg p))
+  | t_ge ONE f g => e_bind2 (Sem p f) (Sem p g) (mge (p_deg p))
+  | t_lt ONE f g => e_bind2 (Sem p f) (Sem p g) (mlt (p_deg p))
   | t_ne ONE f g => e_map2 (mne (p_deg p)) (Sem p f) (Sem p g)
   | t_forall_bisect ZER a b k => 
       elet a := Sem p a in
@@ -488,72 +482,73 @@ Definition Sem' p D C (u: Term D C): sval D C := Sem p (u sval).
 
 (** correctness of the above semantics
     the key lemma, [correct], is proved by induction on the parametricity relation *)
-Definition cval D C: sval D C -> rval D C -> Prop :=
+Instance cval D C: inRel (rval D C) (sval D C) :=
   match D,C with
-  | ZER,REAL => EP' contains
-  | ONE,REAL  => EP' mcontains
-  | ZER,PROP => Eimpl
-  | ONE,PROP => fun b p => Eimpl b (forall x, dlo <= x <= dhi -> p x)
+  | ZER,PROP => fun p b => b ~~> p
+  | ONE,PROP => fun p b => b ~~> forall x, dlo <= x <= dhi -> p x
+  | _,_ => inrel                  (* i.e., [fun x X => x ∈ X] *)
   end.
-Lemma correct D C (u: term D C) (v: term D C): trel cval u v -> forall p, cval (Sem p u) (sem v).
+
+Lemma correct D C (u: term D C) (v: term D C): trel cval u v -> forall p, sem u ∈ Sem p v.
 Proof.
   induction 1=>ps/=; 
-                 lazymatch goal with
-                 | |- context [match ?x with _ => _ end] => destruct x
-                 | _ => idtac
-                 end;
-    cbn in *=>//; try ((eapply ep_map || eapply ep_map2 || constructor); eauto; rel).
-  - eapply ep_map2; eauto. unfold Rmult'; rel. 
-  - eapply ep_bind2; eauto=>*. by apply mdivR.
-  - eapply ep_bind; eauto=>*. by apply msqrtR.
-  - move: (is_idR H). case is_idE=>//. case is_idE=>//-> _ _. apply mcosR. 
-  - move: (is_idR H). case is_idE=>//. case is_idE=>//-> _ _. apply msinR. 
-  - constructor. apply: mcstR; rel.
-  - constructor. rewrite /f_unr/f_cst/=. apply: mcstR; rel.
-  - constructor. apply: mcstR; rel.
-  - apply midR.
-  - eapply ep_bind2; eauto=>*. by apply mevalR.
-  - do 3 (eapply ep_bind; eauto=>* ). by apply mintegrateR; rel.
-  - move: (IHtrel ps). by apply Eimpl_impl.
-  - eapply ep_map; eauto=>*. by apply mtruncateR.
-  - eapply ep_map2; eauto=>??. case is_leE=>//. by auto.
-  - eapply ep_bind2; eauto=>*. by apply mleE.
-  - eapply ep_map2; eauto=>*. case is_geE=>//. by auto.
-  - eapply ep_bind2; eauto=>*. by apply mgeE.
-  - eapply ep_map2; eauto=>*. case is_ltE=>//. by auto.
-  - eapply ep_bind2; eauto=>*. by apply mltE.
-  - eapply ep_map2; eauto=>*. case is_neE=>//. by auto.
-  - eapply ep_map2; eauto=>*. by apply mneE.
-  - apply Eimpl_or'.
-    eapply Eimpl_impl. 2: apply IHtrel1. clear; auto. 
-    eapply Eimpl_impl. 2: apply IHtrel2. clear; auto.     
-  - apply Eimpl_or'.
-    eapply Eimpl_impl. 2: apply IHtrel1. clear; auto. 
-    eapply Eimpl_impl. 2: apply IHtrel2. clear; auto. 
-  - eauto using Eimpl_and'.
-  - eauto using Eimpl_and'.
-  - eapply ep_bind=>[A HA|]; eauto.
-    eapply ep_bind=>[B HB|]; eauto.
+    lazymatch goal with
+    | |- context [match ?x with _ => _ end] => destruct x
+    | _ => idtac
+    end; simpl in *;
+    repeat lazymatch goal with
+           | H: context [Sem _ ?x] |- context [Sem _ ?x]=>
+               case (proj2 (EPV _ _) (H _))=>[|//= ]; clear H
+           end; simpl; 
+    try rel.
+  - rewrite /Rmult'; rel. 
+  - intros; by apply mdivR.
+  - intros; by apply msqrtR.
+  - move: (is_idR H). case (is_idE y)=>//. case is_idE=>//-> _ _. apply mcosR. 
+  - move: (is_idR H). case (is_idE y)=>//. case is_idE=>//-> _ _. apply msinR.
+  - apply: mcstR; rel.    
+  - apply (mcstR (fromQR _ q)).
+  - apply: mcstR; rel. 
+  - apply midR. 
+  - intros. by apply mevalR.
+  - intros. apply mintegrateR=>//. by constructor. by constructor.
+  - by eapply Eimpl_impl;[|apply IHtrel].
+  - by apply mtruncateR.
+  - rewrite /inrel=>*; case is_leE=>//. by auto.
+  - rewrite /inrel=>*; case mleE=>//. by auto.
+  - rewrite /inrel=>*; case is_geE=>//. by auto.
+  - rewrite /inrel=>*; case mgeE=>//. by auto.
+  - rewrite /inrel=>*; case is_ltE=>//. by auto.
+  - rewrite /inrel=>*; case mltE=>//. by auto.
+  - rewrite /inrel=>*; case is_neE=>//. by auto.
+  - rewrite /inrel=>*; case mneE=>//. by auto.
+  - unfold inrel in *; by apply Eimpl_or. 
+  - unfold inrel in *; apply Eimpl_or'; (eapply Eimpl_impl;[|eauto]); eauto. 
+  - unfold inrel in *; by apply Eimpl_and. 
+  - unfold inrel in *; eauto using Eimpl_and'.
+  - by cbv; auto. 
+  - by cbv; auto. 
+  - unfold inrel in *; intros b HB a HA.
     case is_leE=>//=Ha. 
     case is_leE=>//=Hb.
-    move: (IHtrel3 ps). apply Eimpl_impl=>E r ?. apply E. 
+    eapply Eimpl_impl;[|eauto]=>E r ?. apply E. 
     specialize (Ha _ _ dloR HA).
     specialize (Hb _ _ HB dhiR).
-    cbn in *. lra. 
-  - eapply ep_bind2; eauto=>a b Ha Hb.
-    eapply Eimpl_impl. 2: apply bisectE.
+    cbn in *. lra.
+  - intros a b Ha Hb.
+    eapply Eimpl_impl; [|apply bisectE].
     2: { move=>X. apply Eimpl_forall=>z. apply Eimpl_forall=>Hz. apply H2; eauto. } 
     move=>K z Hz. apply K=>//. by eapply intervalE; eauto.
-  - eapply ep_bind2; eauto=>a b Ha Hb.
-    eapply Eimpl_impl. 2: apply bisectE.
+  - intros a b Ha Hb.
+    eapply Eimpl_impl; [|apply bisectE].
     2: { move=>X. apply Eimpl_forall=>z. apply Eimpl_forall=>Hz. apply H2; eauto. } 
     move=>K z Hz t Ht. apply K=>//.
-    by eapply intervalE; eauto; apply mrangeR.
-  - auto. 
+    by eapply intervalE; eauto; apply mrangeE.
+  - by unfold inrel in *; auto. 
 Qed.
 
 (** correctness on parametric (closed) terms follows *)
-Lemma Correct: forall p D C (u: Term D C), parametric u -> cval (Sem' p u) (sem' u).
+Lemma Correct: forall p D C (u: Term D C), parametric u -> sem' u ∈ Sem' p u.
 Proof. move=>*. by apply correct. Qed.
   
 (** small corollary, useful to obtain a tactic in tactic.v *)
@@ -562,10 +557,7 @@ Lemma check p (b: Term ZER PROP):
   (let b := Sem' p b in
    match b with ret b => is_true b | err s => False end) ->
   sem' b.
-Proof.
-  move: (@Correct p ZER PROP)=>/= C B.
-  case C=>//a. apply implE. 
-Qed.
+Proof. intro. by case (@Correct p ZER PROP). Qed.
 
 End s.
 Arguments check {_ _ _ _} _ _ _ _.
@@ -673,87 +665,85 @@ Definition Sem' p D C (u: Term D C): sval D C := Sem p (u sval).
 
 (** correctness of the above semantics
     the key lemma, [correct], is proved by induction on the parametricity relation *)
-Definition cval D C: sval D C -> rval D C -> Prop :=
+Instance cval D C: inRel (rval D C) (sval D C) :=
   match D,C with
-  | ZER,REAL => EP' contains
-  | ONE,REAL => fun F f => forall MO a b (M: Model MO a b), EP' M (F MO) f
-  | ZER,PROP => Eimpl
-  | ONE,PROP => fun P p => forall MO a b (M: Model MO a b), Eimpl (P MO) (forall x, a <= x <= b -> p x)
+  | ZER,REAL => fun x X => x ∈ X
+  | ONE,REAL => fun f F => forall MO a b (M: Model MO a b), f ∈ F MO
+  | ZER,PROP => fun p r => r ~~> p
+  | ONE,PROP => fun p r => forall MO a b (M: Model MO a b), r MO ~~> forall x, a <= x <= b -> p x
   end.
-Lemma correct D C (u: term D C) (v: term D C): trel cval u v -> forall p, cval (Sem p u) (sem v).
-
+Lemma correct D C (u: term D C) (v: term D C): trel cval u v -> forall p, sem u ∈ Sem p v.
 Proof.
   induction 1=>ps/=; 
-                 lazymatch goal with
-                 | |- context [match ?x with _ => _ end] => destruct x
-                 | _ => idtac
-                 end;
-    cbn -[RInt] in *=>//; try intros MO' a b M'; 
-    try ((eapply ep_map || eapply ep_map2 || constructor); eauto; rel).
-  - eapply ep_map2; eauto. unfold Rmult'; rel. 
-  - eapply ep_bind2; eauto=>*. by apply mdivR.
-  - eapply ep_bind; eauto=>*. by apply msqrtR.
-  - move: (is_idR H). case is_idE=>//. case is_idE=>//-> _ _. apply mcosR. 
-  - move: (is_idR H). case is_idE=>//. case is_idE=>//-> _ _. apply msinR. 
-  - constructor. apply: mcstR; rel.
-  - constructor. rewrite /f_unr/f_cst/=. apply: mcstR; rel.
-  - constructor. apply: mcstR; rel.
-  - apply midR.
-  - eapply ep_bind2; eauto=> A B Aa Bb.
-    case_eq (is_lt A B)=>//=ab. 
-    specialize (IHtrel1 ps _ _ _ (M (DfromI2 Aa Bb ab))).
-    eapply ep_bind=>[F Ff|]; eauto.
-    eapply mintegrateR; first apply Ff; by constructor. 
-  - move: (IHtrel ps). by apply Eimpl_impl.
-  - eapply ep_map; eauto=>*. by apply mtruncateR.
-  - eapply ep_map2; eauto=>??. case is_leE=>//. by auto.
-  - eapply ep_bind2; eauto=>*. by apply mleE.
-  - eapply ep_map2; eauto=>*. case is_geE=>//. by auto.
-  - eapply ep_bind2; eauto=>*. by apply mgeE.
-  - eapply ep_map2; eauto=>*. case is_ltE=>//. by auto.
-  - eapply ep_bind2; eauto=>*. by apply mltE.
-  - eapply ep_map2; eauto=>*. case is_neE=>//. by auto.
-  - eapply ep_map2; eauto=>*. by apply mneE.
-  - apply Eimpl_or'.
-    eapply Eimpl_impl. 2: apply IHtrel1. clear; auto. 
-    eapply Eimpl_impl. 2: apply IHtrel2. clear; auto.     
-  - apply Eimpl_or'.
-    eapply Eimpl_impl. 2: apply IHtrel1; eauto. clear; auto. 
-    eapply Eimpl_impl. 2: apply IHtrel2; eauto. clear; auto. 
+    lazymatch goal with
+    | |- context [match ?x with _ => _ end] => destruct x
+    | _ => idtac
+    end; simpl in *; repeat intro;
+    repeat lazymatch goal with
+           | H: context [Sem _ ?x] |- context [Sem _ ?x ?MO]=> 
+               case (proj2 (EPV _ _) (H _ MO _ _ _))=>[|//= ]; clear H
+           | H: context [Sem _ ?x] |- context [Sem _ ?x]=>
+               case (proj2 (EPV _ _) (H _))=>[|//= ]; clear H
+           end; simpl; 
+    try rel.
+  - rewrite /Rmult'; rel. 
+  - intros; by apply mdivR.
+  - intros; by apply msqrtR.
+  - move: (is_idR H). case (is_idE y)=>//. case is_idE=>//-> _ _. apply mcosR. 
+  - move: (is_idR H). case (is_idE y)=>//. case is_idE=>//-> _ _. apply msinR.
+  - apply: mcstR; rel.    
+  - apply (mcstR (fromQR _ q)).
+  - apply: mcstR; rel. 
+  - apply midR. 
+  - intros B HB A HA.
+    case_eq (is_lt A B)=>//=AB. 
+    specialize (IHtrel1 ps _ _ _ (M (DfromI2 HA HB AB))). simpl in IHtrel1. 
+    case (proj2 (EPV _ _) IHtrel1)=>//=. 
+    intros. eapply mintegrateR; eauto. by constructor. by constructor. 
+  - by eapply Eimpl_impl;[|apply IHtrel].
+  - by apply mtruncateR.
+  - rewrite /inrel=>*; case is_leE=>//. by auto.
+  - rewrite /inrel=>*; case mleE=>//. by auto.
+  - rewrite /inrel=>*; case is_geE=>//. by auto.
+  - rewrite /inrel=>*; case mgeE=>//. by auto.
+  - rewrite /inrel=>*; case is_ltE=>//. by auto.
+  - rewrite /inrel=>*; case mltE=>//. by auto.
+  - rewrite /inrel=>*; case is_neE=>//. by auto.
+  - rewrite /inrel=>*; case mneE=>//. by auto.
+  - unfold inrel in *; by apply Eimpl_or. 
+  - unfold inrel in *; apply Eimpl_or'; (eapply Eimpl_impl;[|eauto]); eauto. 
+  - unfold inrel in *; by apply Eimpl_and. 
   - eapply Eimpl_and'.
     apply IHtrel1; eassumption.
     apply IHtrel2; eassumption.
-    auto.     
-  - eapply Eimpl_and'.
-    apply IHtrel1; eassumption.
-    apply IHtrel2; eassumption.
-    auto.     
-  - eapply ep_bind2; eauto=>A B HA HB.
+    auto.
+  - by cbv; auto. 
+  - unfold inrel in *; intros B HB A HA.
     eapply Eimpl_impl. 2: apply bisect2E.
     move=>K z Hz. cbn in *. eapply (K z); eauto.
     clear A HA B HB. 
-    move=>A B. case_eq (is_lt A B)=>//=ab.
+    move=>A B. case_eq (is_lt A B)=>//=AB.
     apply Eimpl_forall=>z. 
     apply Eimpl_forall=>a. 
     apply Eimpl_forall=>b. 
     apply Eimpl_forall=>HA. 
     apply Eimpl_forall=>HB.
     move: z. apply <-(Eimpl_forall (A:=R)).
-    apply IHtrel3. apply (M (DfromI2 HA HB ab)). 
-  - eapply ep_bind2; eauto=>A B HA HB.
-    eapply Eimpl_impl. 2: apply bisectE.
+    apply IHtrel3. apply (M (DfromI2 HA HB AB)). 
+  - intros A B HA HB.    
+    eapply Eimpl_impl; [|apply bisectE].
     2: { move=>X. apply Eimpl_forall=>z. apply Eimpl_forall=>Hz. apply H2; eauto. } 
     move=>K z Hz. apply K=>//. by eapply intervalE; eauto.
-  - eapply ep_bind2; eauto=>A B HA HB.
-    eapply Eimpl_impl. 2: apply bisectE.
+  - intros A B HA HB.
+    eapply Eimpl_impl; [|apply bisectE].
     2: { move=>X. apply Eimpl_forall=>z. apply Eimpl_forall=>Hz. apply H2; eauto. } 
     move=>K z Hz t Ht. apply K=>//.
-    by eapply intervalE; eauto; apply mrangeR.
-  - auto. 
+    by eapply intervalE; eauto; apply mrangeE.
+  - by unfold inrel in *; auto. 
 Qed.
 
 (** correctness on parametric (closed) terms follows *)
-Lemma Correct: forall p D C (u: Term D C), parametric u -> cval (Sem' p u) (sem' u).
+Lemma Correct: forall p D C (u: Term D C), parametric u -> sem' u ∈ Sem' p u.
 Proof. move=>*; by apply correct. Qed.
   
 (** small corollary, useful to obtain a tactic in tactic.v *)
@@ -762,10 +752,7 @@ Lemma check p (b: Term ZER PROP):
   (let b := Sem' p b in
    match b with ret b => is_true b | err s => False end) ->
   sem' b.
-Proof.
-  move: (@Correct p ZER PROP)=>/= C B.
-  case C=>//. apply implE.
-Qed.
+Proof. intro. by case (@Correct p ZER PROP). Qed.
 
 End s.
 Arguments check {_ _} _ _ _.

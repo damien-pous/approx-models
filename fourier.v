@@ -722,75 +722,68 @@ Qed.
 *)
 
 Section s.
-  Context {R S: Ops1}.
-  Variable T: Rel1 R S.
-  Notation pT := (list_rel T).
+  Context {R S mem} {T: @Rel1 R S mem}.
 
-  Lemma evensR: forall x y, pT x y -> pT (evens x) (evens y)
-  with oddsR: forall x y, pT x y -> pT (odds x) (odds y).
+  Lemma evensR: forall x y, x ∈ y -> evens x ∈ evens y
+  with oddsR: forall x y, x ∈ y -> odds x ∈ odds y.
   Proof.
     move=>h k. case=>/=; constructor=>//. by apply oddsR.
     move=>h k. case=>/=. by constructor. by intros; apply evensR.
   Qed.
-  Lemma xrev2R: forall x y, pT x y -> forall x' y', pT x' y' -> pT (xrev2 x' x) (xrev2 y' y).
+  Lemma xrev2R: forall x y, x ∈ y -> forall x' y', x' ∈ y' -> xrev2 x' x ∈ xrev2 y' y.
   Proof.
     fix IH 3. 
     destruct 1 as [|????? H]=>//=. 
     destruct H as [|????? H]=>/=; rel.
   Qed.
-  Lemma rev2R: forall x y, pT x y -> pT (rev2 x) (rev2 y).
+  Lemma rev2R: forall x y, x ∈ y -> rev2 x ∈ rev2 y.
   Proof. move: xrev2R; rel. Qed.
-  Lemma injectR: forall x y, pT x y -> pT (inject x) (inject y).
+  Lemma injectR: forall x y, x ∈ y -> inject x ∈ inject y.
   Proof. induction 1; rel. Qed.
-  Lemma mergeR: forall x y, pT x y -> forall x' y', pT x' y' -> pT (merge x x') (merge y y').
+  Lemma mergeR: forall x y, x ∈ y -> forall x' y', x' ∈ y' -> merge x x' ∈ merge y y'.
   Proof. move: injectR=>?; induction 1. rel. destruct 1; rel. Qed.
   Local Hint Resolve evensR oddsR mergeR rev2R: rel.
   
-  Lemma mul_minusR: forall x y, pT x y -> forall x' y', pT x' y' -> pT (mul_minus x x') (mul_minus y y').
+  Lemma mul_minusR: ltac:(expand (mul_minus ∈ mul_minus)).
   Proof. induction 1; destruct 1; rel. Qed.
-  Lemma mul_plusR: forall x y, pT x y -> forall x' y', pT x' y' -> pT (mul_plus x x') (mul_plus y y').
+  Lemma mul_plusR: ltac:(expand (mul_plus ∈ mul_plus)).
   Proof. induction 1; destruct 1; rel. Qed.
-  Lemma mul_minusSCR: forall x y, pT x y -> forall x' y', pT x' y' -> pT (mul_minusSC x x') (mul_minusSC y y').
+  Lemma mul_minusSCR: ltac:(expand (mul_minusSC ∈ mul_minusSC)).
   Proof. induction 1; destruct 1; rel. Qed.
-  Lemma pmulR: forall x y, pT x y -> forall x' y', pT x' y' -> pT (pmul x x') (pmul y y').
+  Lemma pmulR: pmul ∈ pmul.
   Proof. move: mul_minusR mul_plusR mul_minusSCR; rel. Qed.
 
-  Lemma poneR: pT pone pone.
+  Lemma poneR: pone ∈ pone.
   Proof. rel. Qed.
-  Lemma pcosR: pT pcos pcos.
+  Lemma pcosR: pcos ∈ pcos.
   Proof. rel. Qed.
-  Lemma psinR: pT psin psin.
+  Lemma psinR: psin ∈ psin.
   Proof. rel. Qed.
-  Lemma pcstR: forall a b, rel T a b -> pT (pcst a) (pcst b).
+  Lemma pcstR: pcst ∈ pcst.
   Proof. rel. Qed.
   
-  Lemma fast_eval_R: forall P Q, pT P Q -> forall a b , T a b -> forall c d, T c d ->
-    forall c1 c2, T c1 c2 -> forall s1 s2, T s1 s2 ->
-    rel T (fast_eval_ c1 s1 a c P) (fast_eval_ c2 s2 b d Q).
+  Lemma fast_eval_R: ltac:(expand (fast_eval_ ∈ fast_eval_)).
   Proof.
-    fix IH 3. 
-    destruct 1 as [|????? H]=>//. 
-    destruct H as [|????? H]=>/=; rel.  
+    fix IH 15.
+    destruct 5 as [|????? E]=>//. 
+    destruct E=>/=; rel.  
   Qed.
-  Lemma fast_evalR: forall P Q, pT P Q -> forall x y, rel T x y -> rel T (fast_eval P x) (fast_eval Q y).
+  Lemma fast_evalR: ltac:(expand (fast_eval ∈ fast_eval)).
   Proof. move: fast_eval_R=>???[]; rel. Qed.
   
-  Lemma prim_R: forall P Q , pT P Q -> forall n , pT (prim_ n P) (prim_ n Q).
+  Lemma prim_R: forall n, ltac:(expand (prim_ n ∈ prim_ n)).
   Proof.
-    fix IH 3. 
+    fix IH 4. 
     destruct 1 as [|????? H]=>/=. rel.  
-    destruct H as [|????? H]=>/=; rel.  
+    destruct H=>/=; rel.  
   Qed.
-  Lemma integrateR:
-    forall P Q, pT P Q -> forall a b, rel T a b -> forall c d , rel T c d ->
-    rel T (integrate P a c) (integrate Q b d).
+  Lemma integrateR: integrate ∈ integrate.
   Proof. move: fast_evalR prim_R=>????[]; rel. Qed.
-  Lemma range_R: forall p q, pT p q -> T (range_ p) (range_ q).
+  Lemma range_R: ltac:(expand (range_ ∈ range_)).
   Proof. induction 1; rel. Qed.
-  Lemma rangeR: forall p q, pT p q -> pair_rel T (range p) (range q).
+  Lemma rangeR: range ∈ range.
   Proof. move: range_R=>???[]; rel. Qed.
 End s.
-Global Hint Resolve pmulR poneR pcstR fast_evalR prim_R integrateR range_R rangeR: rel.
 
 
 (** ** interpolation  *)
@@ -900,17 +893,18 @@ Program Definition basis {N: NBH} (D: Domain):
   vectorspace.basis_cont := F_cont;
   vectorspace.eval_mul := eval_mul;
   vectorspace.eval_one := eval_one;
-  vectorspace.eval_cos := ep_ret eval_cos;
-  vectorspace.eval_sin := ep_ret eval_sin;
+  vectorspace.eval_cos := eval_cos;
+  vectorspace.eval_sin := eval_sin;
   vectorspace.eval_range := eval_range;
   vectorspace.integrateE := eval_integrate;
   vectorspace.loR := dloR;
   vectorspace.hiR := dhiR;
-  vectorspace.bmulR := @pmulR _ _ _;
-  vectorspace.boneR := @poneR _ _ _;
-  vectorspace.bcosR := er_ret (@pcosR _ _ _);
-  vectorspace.bsinR := er_ret (@psinR _ _ _);
-  vectorspace.bintegrateR := @integrateR _ _ _;
-  vectorspace.bevalR := @fast_evalR _ _ _;
-  vectorspace.brangeR := @rangeR _ _ _;
+  vectorspace.bmulR := pmulR;
+  vectorspace.boneR := poneR;
+  vectorspace.bcosR := pcosR;
+  vectorspace.bsinR := psinR;
+  vectorspace.bidR := I;
+  vectorspace.bintegrateR := integrateR;
+  vectorspace.bevalR := fast_evalR;
+  vectorspace.brangeR := rangeR;
 |}.

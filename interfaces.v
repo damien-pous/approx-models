@@ -5,7 +5,7 @@ Require Export Coquelicot.Coquelicot.
 Require Export Setoid Morphisms.
 Require Export List. Export ListNotations.
 Require Export ssreflect ssrbool ssrfun.
-Require Export utils errors.
+Require Export utils errors inrel.
 
 Set Universe Polymorphism.
 
@@ -39,7 +39,8 @@ Notation "n .+5" := n.+1.+4 (at level 2) : nat_scope.
 (** injection from natural numbers to real numbers  *)
 Notation INRS := S_INR.
 Lemma INR0: INR O = 0. Proof. reflexivity. Qed.
-Arguments INR _: simpl nomatch.
+Arguments INR: simpl nomatch.
+Arguments RInt: simpl never.
 
 
 (** blocking identity to document irrelevant values *)
@@ -100,6 +101,7 @@ Open Scope RO_scope.
 (** derived operations *)
 Definition fromN {C: Ops1} (n: nat): C := fromZ (Z.of_nat n). 
 Definition fromQ {C: Ops1} (q: Q): C := divZ (Zpos (Qden q)) (fromZ (Qnum q)).
+Arguments fromQ {_}: simpl never.
 
 (* TOTHINK: powN, powP? *)
 Fixpoint pow {C: Ops0} n (x: C) :=
@@ -193,131 +195,104 @@ Proof. reflexivity. Qed.
 Lemma Rpow n x: x^n = pow n x.
 Proof. induction n=>//=. congruence. Qed.
 
+
 (** ** parametricity relations *)
 (** convention: [opR] is the parametricity lemma for operation [op] *)
-Record Rel0 (R S: Ops0) := {
-  rel:> R -> S -> Prop;
-  addR: forall x y, rel x y -> forall x' y', rel x' y' -> rel (x+x') (y+y');
-  subR: forall x y, rel x y -> forall x' y', rel x' y' -> rel (x-x') (y-y');
-  mulR: forall x y, rel x y -> forall x' y', rel x' y' -> rel (x*x') (y*y');
-  (* note that we relate truncated multiplication to plain multiplication *)  
-  mul'R: forall d x y, rel x y -> forall x' y', rel x' y' -> rel (x*[d]x') (y*y'); 
-  zerR: rel 0 0;
-  oneR: rel 1 1;
-  mulZR: forall z x y, rel x y -> rel (mulZ z x) (mulZ z y);
-  divZR: forall z x y, rel x y -> rel (divZ z x) (divZ z y);
+Class Rel0 (R S: Ops0) (mem: inRel R S) := {
+  addR: ltac:(expand (add ∈ add));
+  subR: ltac:(expand (sub ∈ sub));
+  mulR: ltac:(expand (mul ∈ mul));
+  (* note that we relate truncated multiplication to plain multiplication *)
+  mul'R: forall d, ltac:(expand (mul ∈ mul' d));
+  zerR: 0 ∈ 0;
+  oneR: 1 ∈ 1;
+  mulZR: forall z, ltac:(expand (mulZ z ∈ mulZ z));
+  divZR: forall z, ltac:(expand (divZ z ∈ divZ z));
+  (* addR: forall x y, x ∈ y -> forall x' y', x' ∈ y' -> x+x' ∈ y+y'; *)
+  (* subR: forall x y, x ∈ y -> forall x' y', x' ∈ y' -> x-x' ∈ y-y'; *)
+  (* mulR: forall x y, x ∈ y -> forall x' y', x' ∈ y' -> x*x' ∈ y*y'; *)
+  (* (* note that we relate truncated multiplication to plain multiplication *) *)
+  (* mul'R: forall d x y, x ∈ y -> forall x' y', x' ∈ y' -> x*x' ∈ y*[d]y'; *)
+  (* zerR: 0 ∈ 0; *)
+  (* oneR: 1 ∈ 1; *)
+  (* mulZR: forall z x y, x ∈ y -> mulZ z x ∈ mulZ z y; *)
+  (* divZR: forall z x y, x ∈ y -> divZ z x ∈ divZ z y; *)
 }.
-Record Rel1 (R S: Ops1) := {
-  rel0:> Rel0 R S;
-  fromZR: forall z, rel0 (fromZ z) (fromZ z);
-  divR: forall x y, rel0 x y -> forall x' y', rel0 x' y' -> rel0 (x/x') (y/y');
-  sqrtR: forall x y, rel0 x y -> rel0 (sqrt x) (sqrt y);
-  absR: forall x y, rel0 x y -> rel0 (abs x) (abs y);
-  cosR: forall x y, rel0 x y -> rel0 (cos x) (cos y);
-  sinR: forall x y, rel0 x y -> rel0 (sin x) (sin y);
-  piR: rel0 pi pi;
+Class Rel1 (R S: Ops1) (mem: inRel R S) := {
+  rel0:> Rel0 mem;
+  fromZR: forall z, fromZ z ∈ fromZ z;
+  divR: ltac:(expand (div ∈ div));
+  sqrtR: ltac:(expand (sqrt ∈ sqrt));
+  absR: ltac:(expand (abs ∈ abs));
+  cosR: ltac:(expand (cos ∈ cos));
+  sinR: ltac:(expand (sin ∈ sin));
+  piR: pi ∈ pi;
+  (* divR: forall x y, x ∈ y -> forall x' y', x' ∈ y' -> x/x' ∈ y/y'; *)
+  (* sqrtR: forall x y, x ∈ y -> sqrt x ∈ sqrt y; *)
+  (* absR: forall x y, x ∈ y -> abs x ∈ abs y; *)
+  (* cosR: forall x y, x ∈ y -> cos x ∈ cos y; *)
+  (* sinR: forall x y, x ∈ y -> sin x ∈ sin y; *)
+  (* piR: pi ∈ pi; *)
 }.
-Create HintDb rel discriminated.
-Global Hint Resolve addR subR mulR mul'R fromZR mulZR divZR zerR oneR divR sqrtR absR cosR sinR piR: rel.
-Ltac rel := by eauto 100 with rel.
+
+Global Hint Resolve rel0 addR subR mulR mul'R fromZR mulZR divZR zerR oneR divR sqrtR absR cosR sinR piR: rel.
 
 (** parametricity of derived operations *)
-Lemma powR R S (T: Rel0 R S) n: forall x y, T x y -> T (pow n x) (pow n y).
+Lemma powR `(Rel0) n: ltac:(expand (pow n ∈ pow n)).
 Proof. induction n; rel. Qed.
 
-Lemma mul''R R S (T: Rel0 R S): forall d x y, T x y -> forall x' y', T x' y' -> T (x*[.d]x') (y*y').
+Lemma mul''R `(Rel0) d: ltac:(expand (mul ∈ mul'' d)).
 Proof. destruct d; rel. Qed.
 
-Lemma fromNR R S (T: Rel1 R S) n: T (fromN n) (fromN n).
+Lemma fromNR `(Rel1) n: fromN n ∈ fromN n.
 Proof. rel. Qed.
 
-Lemma fromQR R S (T: Rel1 R S) q: T (fromQ q) (fromQ q).
+Lemma fromQR `(Rel1) q: fromQ q ∈ fromQ q.
 Proof. rel. Qed.
 
 Global Hint Resolve powR  mul''R fromNR fromQR: rel.
-
-(** ** lifting relations to lists and pairs *)
-Section r.
- 
-Variables R S: Type.
-Variable rel: R -> S -> Prop.
-
-Inductive list_rel: list R -> list S -> Prop :=
-| rnil: list_rel [] []
-| rcons: forall x y h k, rel x y -> list_rel h k -> list_rel (x::h) (y::k).
-Hint Constructors list_rel: rel.
-
-Lemma tlR : forall h k , list_rel h k -> list_rel (tl h) (tl k).
-Proof. destruct 1; rel. Qed.
-
-Lemma appR: forall h k, list_rel h k -> forall p q, list_rel p q -> list_rel (h++p) (k++q).
-Proof. induction 1; rel. Qed.
-
-Lemma rev_appendR: forall h k, list_rel h k -> forall m n, list_rel m n -> list_rel (rev_append h m) (rev_append k n).
-Proof. induction 1; rel. Qed.
-
-Lemma revR: forall h k, list_rel h k -> list_rel (rev h) (rev k).
-Proof. intros. apply rev_appendR; rel. Qed.
-
-Lemma mapR A (f: A -> R) (g: A -> S):
-  (forall a, rel (f a) (g a)) -> forall l, list_rel (map f l) (map g l).
-Proof. induction l; rel. Qed.
-
-Definition pair_rel: R*R -> S*S -> Prop :=
-  fun p q => rel p.1 q.1 /\ rel p.2 q.2.
-
-Lemma pairR: forall p q, rel p q -> forall p' q', rel p' q' -> pair_rel (p,p') (q,q').
-Proof. by []. Qed.
-
-End r.
-Global Hint Constructors list_rel: rel.
-Global Hint Resolve tlR appR revR rev_appendR pairR: rel.
-
-Lemma list_rel_map' {A B R S} (rel: A -> B -> Prop) (rel': R -> S -> Prop) (f: A -> R) (g: B -> S):
-  (forall a b, rel a b -> rel' (f a) (g b)) ->
-  forall h k, list_rel rel h k -> list_rel rel' (map f h) (map g k).
-Proof. intros H h k. induction 1; rel. Qed.
 
 
 
 (** ** neighborhoods (effective abstractions for real numbers) *)
 
 (** utilities for specifications *)
-Variant minmax_spec A le (contains: A -> R -> Prop) (a: A): option A -> Prop :=
-| minmax_spec_some: forall m b, contains m b -> contains a b -> (forall x, contains a x -> le x b) -> minmax_spec le contains a (Some m)
-| minmax_spec_none: (forall x y, contains a x -> le x y -> contains a y)-> minmax_spec le contains a None.
+Variant minmax_spec [II] le {mem: inRel R II} (I: II): option II -> Prop :=
+| minmax_spec_some: forall m M, m ∈ M -> m ∈ I -> (forall x, x ∈ I -> le x m) -> minmax_spec le I (Some M)
+| minmax_spec_none: (forall x y, x ∈ I -> le x y -> y ∈ I)-> minmax_spec le I None.
 
 (** neighborhoods: an abstract interface for computing with floating points and intervals 
     convention: 
     - uppercase letters for intervals, lowercase letters for real numbers
     - same letter when a real is assumed to belong to an interval: 
-      y: R, Y: II   often means that we also have   H: contains Y y. 
+      y: R, Y: II   often means that we also have   H: y ∈ Y. 
     - [opE] is the main correctness/specification lemma for operation [op]
 *)
 Class NBH := {
   (** intervals *)
   II: Ops1;
-  (** (parametric) containment relation *)
-  contains: Rel1 II ROps1;
+  (** (parametric) membership relation *)
+  mem:> inRel R II;
+  mem1:> Rel1 mem;
   (** convexity of intervals  *)
-  convex: forall Z x y, contains Z x -> contains Z y -> forall z, x<=z<=y -> contains Z z;
+  convex: forall x y Z, x ∈ Z -> y ∈ Z -> forall z, x<=z<=y -> z ∈ Z;
   (** additional operations on intervals *)
   interval: II -> II -> II;        (** `directed' convex hull *)
   max: II -> option II;    
   min: II -> option II;    
-  bot: II;                   (** [[-oo;+oo]] *)
+  full: II;                   (** [[-oo;+oo]] *)
   is_lt: II -> II -> bool; 
   is_le: II -> II -> bool;
   split: II -> II*II;         (** only used for bisection *)
   (** specification of the above operations; 
       together with convexity, [maxE] and [minE] entail that the elements of II always represent closed intervals. *)
-  intervalE: forall X x, contains X x -> forall Y y, contains Y y -> forall z, x<=z<=y -> contains (interval X Y) z;
-  maxE: forall X, minmax_spec Rle contains X (max X);
-  minE: forall X, minmax_spec Rge contains X (min X);
-  botE: forall x, contains bot x;
-  is_ltE: forall X Y, impl (is_lt X Y) (forall x y, contains X x -> contains Y y -> x<y);
-  is_leE: forall X Y, impl (is_le X Y) (forall x y, contains X x -> contains Y y -> x<=y);
-  splitE: forall X, (fun '(Y,Z) => forall x, contains X x -> contains Y x \/ contains Z x) (split X);  
+  intervalE: forall x X, x ∈ X -> forall y Y, y ∈ Y -> forall z, x<=z<=y -> z ∈ interval X Y;
+  maxE: forall X, minmax_spec Rle X (max X);
+  minE: forall X, minmax_spec Rge X (min X);
+  fullE: forall x, x ∈ full;
+  is_ltE: forall X Y, is_lt X Y ~> forall x y, x ∈ X -> y ∈ Y -> x<y;
+  is_leE: forall X Y, is_le X Y ~> forall x y, x ∈ X -> y ∈ Y -> x<=y;
+  splitE: forall X, (fun '(Y,Z) => forall x, x ∈ X -> x ∈ Y \/ x ∈ Z) (split X);  
   (** (almost unspecified) floating point operations *)
   FF: Ops1;
   I2F: II -> FF;
@@ -328,43 +303,40 @@ Class NBH := {
   Fmax: FF -> FF -> FF;
   width: II -> FF;  (** width of an interval (unspecified, just for inspection) *)
   F2R: FF -> R;   (** needed to guarantee that F2I produces non-empty intervals *)
-  F2IE: forall f, contains (F2I f) (F2R f);
+  F2IE: forall f, F2R f ∈ F2I f;
 }.
-Coercion II: NBH >-> Ops1.
-Global Hint Resolve F2IE: rel.
-
-(** derived containment relations in neighborhoods *)
-Definition scontains {N: NBH} := (list_rel contains).
-Definition pcontains {N: NBH} := (pair_rel contains).
+Global Hint Resolve mem1 F2IE: rel.
 
 (** derived operations and their specification *)
 Definition mag {N: NBH} x: option II := max (abs x).
 Definition sym {N: NBH} x: II := let x := abs x in interval (0-x) x.
 
-Variant mag_spec A (contains: A -> R -> Prop) (a: A): option A -> Prop :=
-| mag_spec_some: forall m b, contains m b -> (forall x, contains a x -> Rabs x <= b) -> mag_spec contains a (Some m)
-| mag_spec_none: mag_spec contains a None.
+Variant mag_spec [II] `{mem: inRel R II} (I: II): option II -> Prop :=
+| mag_spec_some: forall m M, m ∈ M -> (forall x, x ∈ I -> Rabs x <= m) -> mag_spec I (Some M)
+| mag_spec_none: mag_spec I None.
 
-Lemma magE {N: NBH} X: mag_spec contains X (mag X).
+Lemma magE {N: NBH} X: mag_spec X (mag X).
 Proof. rewrite /mag. case: maxE; econstructor; eauto; rel. Qed.
 
-Lemma symE {N: NBH} x y I: Rabs x <= y -> contains I y -> contains (sym I) x.
+Lemma symE {N: NBH} x y I: Rabs x <= y -> y ∈ I -> x ∈ sym I.
 Proof.
   intros Hx Hy. rewrite /sym. apply intervalE with (0-abs y) (abs y); try rel. 
   simpl; split_Rabs; lra.
 Qed.
 
 Definition is_ne {N: NBH} X Y := if is_lt X Y then true else is_lt Y X.
-Lemma is_neE {N: NBH} X Y: impl (is_ne X Y) (forall x y, contains X x -> contains Y y -> x<>y).
+Lemma is_neE {N: NBH} X Y: is_ne X Y ~> forall x y, x ∈ X -> y ∈ Y -> x<>y.
 Proof.
-  rewrite /is_ne. case is_ltE=>[H|].
-  constructor=>x y Xx Yy. specialize (H _ _ Xx Yy). lra.
-  case is_ltE=>[H|]; constructor=> x y Xx Yy. specialize (H _ _ Yy Xx). lra.
+  apply implE. rewrite /is_ne.
+  case is_ltE =>[H _ x y Xx Yy|]. 
+  specialize (H _ _ Xx Yy). lra.
+  case is_ltE=>[H _ x y Xx Yy|//].
+  specialize (H _ _ Yy Xx). lra.
 Qed.
 
 Definition is_ge {N: NBH} X Y := is_le Y X.
-Lemma is_geE {N: NBH} X Y: impl (is_ge X Y) (forall x y, contains X x -> contains Y y -> x>=y).
-Proof. rewrite /is_ge. case is_leE=>[H|]; constructor; auto using Rle_ge. Qed.
+Lemma is_geE {N: NBH} X Y: is_ge X Y ~> forall x y, x ∈ X -> y ∈ Y -> x>=y.
+Proof. rewrite /is_ge. case is_leE; auto using Rle_ge. Qed.
 
 (** bisection methods 
     - [bisect] operates on a single interval: the one to be bisected
@@ -386,35 +358,30 @@ Fixpoint bisect2 {N: NBH} n (P: II -> II -> E bool) (A B: II): E bool :=
   end.
 
 Lemma bisectE {N: NBH} P (p: R -> Prop):
-  (forall X, Eimpl (P X) (forall x, contains X x -> p x)) ->
-  forall n X, Eimpl (bisect n P X) (forall x, contains X x -> p x).
+  (forall X, P X ~~> forall x, x ∈ X -> p x) ->
+  forall n X, bisect n P X ~~> forall x, x ∈ X -> p x.
 Proof.
   intro Pp. induction n=>X//=.
-  apply Eimpl_or'=>//.
+  apply: Eimpl_or'. apply Pp. 
   move: (splitE X). case split=>Y Z H.
-  eapply Eimpl_and'=>//HY HZ x Hx.
-  case (H x Hx); eauto.
+  apply: Eimpl_and'; try apply: IHn.
+  move=>HY HZ x Hx. case (H x Hx); eauto.
 Qed.
 
 Lemma bisect2E {N: NBH} P (p: R -> Prop):
-  (forall A B, Eimpl (P A B) (forall x a b, contains A a -> contains B b -> a<=x<=b -> p x)) ->
-  forall n A B, Eimpl (bisect2 n P A B) (forall x a b, contains A a -> contains B b -> a<=x<=b -> p x).
+  (forall A B, P A B ~~> forall x a b, a ∈ A -> b ∈ B -> a<=x<=b -> p x) ->
+  forall n A B, bisect2 n P A B ~~> forall x a b, a ∈ A -> b ∈ B -> a<=x<=b -> p x.
 Proof.
   intro Pp. induction n=>A B//=.
   set x' := divZ _ _. move: (F2IE x').
   set X := F2I _. set x := F2R _. move=>Xx.
-  apply Eimpl_or'=>//.
-  eapply Eimpl_and'=>//AX XB y a b Aa Bb Hy.
+  apply: Eimpl_or'. apply Pp.
+  apply: Eimpl_and'; try apply: IHn.
+  move=>AX XB y a b Aa Bb Hy.
   specialize (AX y _ _ Aa Xx). 
   specialize (XB y _ _ Xx Bb).
   have: y<=x \/ x<=y by lra. tauto. 
 Qed.
-  
-(** predicate for specifying bounds of integrals (see [rmintegrate] below) *)
-Variant ocontains{N: NBH} x: option II -> R -> Prop :=
-| ocontains_some: forall A a, contains A a -> ocontains x (Some A) a
-| ocontains_none: ocontains x None x.
-Global Hint Constructors ocontains: rel.
   
 
 (** ** [Model]: abstraction for functions on real numbers *)
@@ -450,75 +417,66 @@ Class ModelOps {N: NBH} := {
   mne0: Z -> MM -> bool;
   mgt0: Z -> MM -> E bool;
 }.
-Coercion MM: ModelOps >-> Ops0.
+Coercion MM: ModelOps >-> Ops0. 
 
 Definition mlt `{ModelOps} z f g := mgt0 z (g-f).
 Definition mle `{ModelOps} := mlt.
 Definition mge `{ModelOps} z f g := mlt z g f.
 Definition mne `{ModelOps} z f g := mne0 z (f-g).
 
+
+(** predicate for specifying bounds of integrals (see [rmintegrate] below) *)
+Variant omem {N: NBH} x: R -> option II -> Prop :=
+| omem_some: forall a A, a ∈ A -> omem x a (Some A)
+| omem_none: omem x x None.
+Global Hint Constructors omem: rel.
+
 (** specification of the above operations, on the domain [[lo;hi]] *)
 Class Model {N: NBH} (MO: ModelOps) (lo hi: R) := {
-  mcontains: Rel0 MM (f_Ops0 R ROps0);
-  midR: EP' mcontains mid id;
-  mcosR: EP' mcontains mcos cos;
-  msinR: EP' mcontains msin sin;
-  mcstR: forall C c, contains C c -> mcontains (mcst C) (fun _ => c);
-  mevalR: forall F f, mcontains F f ->
-          forall X x, contains X x -> 
-                EP' contains (meval F X) (f x);
-  mintegrateR: forall F f, mcontains F f ->
-               forall A a, ocontains lo A a ->
-               forall C c, ocontains hi C c ->
-                     EP' contains (mintegrate F A C) (RInt f a c);
-  mdivR: forall n t F f, mcontains F f ->
-             forall G g, mcontains G g -> 
-                    EP' mcontains (mdiv n t F G) (f/g);
-  msqrtR: forall n t F f, mcontains F f ->
-                     EP' mcontains (msqrt n t F) (sqrt f);
-  mtruncateR: forall n F f, mcontains F f -> mcontains (mtruncate n F) f;
-  mrangeR: forall F f, mcontains F f -> forall x, lo<=x<=hi -> contains (mrange F) (f x);
-  mne0E: forall n F f, mcontains F f -> impl (mne0 n F) (forall x, lo<=x<=hi -> f x <> 0);
-  mgt0E: forall n F f, mcontains F f -> Eimpl (mgt0 n F) (forall x, lo<=x<=hi -> 0 < f x);
+  mmem:> inRel (R->R) MM;
+  mmem0:> Rel0 mmem;
+  midR: id ∈ mid;
+  mcosR: cos ∈ mcos;
+  msinR: sin ∈ msin;
+  mcstR: forall c C, c ∈ C -> (fun _ => c) ∈ mcst C;
+  mevalR: (fun f x => f x) ∈ meval; 
+  mintegrateR: forall f F, f ∈ F ->
+               forall a A, omem lo a A ->
+               forall b B, omem hi b B ->
+                      RInt f a b ∈ mintegrate F A B;
+  mdivR: forall n t, div ∈ mdiv n t;
+  msqrtR: forall n t, sqrt ∈ msqrt n t;
+  mtruncateR: forall n, id ∈ mtruncate n;
+  mrangeE: forall f F, f ∈ F -> forall x, lo<=x<=hi -> f x ∈ mrange F;
+  mne0E: forall n F, mne0 n F ~> forall f, f ∈ F -> forall x, lo<=x<=hi -> f x <> 0;
+  mgt0E: forall n F, mgt0 n F ~~> forall f, f ∈ F -> forall x, lo<=x<=hi -> 0 < f x;
 }.
-Coercion mcontains: Model >-> Rel0.
-Global Hint Resolve mcstR (* mevalR mevalR mintegrateR mdivR msqrtR *): rel.
+Global Hint Resolve mmem0 mcstR (* mevalR mevalR mintegrateR mdivR msqrtR *): rel.
 
-Lemma mneE `{Model} n F f G g: mcontains F f -> mcontains G g ->
-                               impl (mne n F G) (forall x, lo<=x<=hi -> f x <> g x).
+Lemma mneE `{Model} n F G: mne n F G ~> forall f g, f ∈ F -> g ∈ G -> forall x, lo<=x<=hi -> f x <> g x.
 Proof.
-  rewrite /mne=>Ff Gg. ecase mne0E=>//. rel.
-  intro C. constructor=>??. by apply Rminus_not_eq, C.
+  apply implE. rewrite /mne. case mne0E=>//E _ f g Ff Gg x Hx. 
+  apply Rminus_not_eq, (E (f-g))=>//=. rel.
 Qed.
 
-Lemma mltE `{Model} n F f G g: mcontains F f -> mcontains G g ->
-                               Eimpl (mlt n F G) (forall x, lo<=x<=hi -> f x < g x).
+Lemma mltE `{Model} n F G: mlt n F G ~~> forall f g, f ∈ F -> g ∈ G -> forall x, lo<=x<=hi -> f x < g x.
 Proof.
-  rewrite /mlt=>Ff Gg. ecase mgt0E=>//. rel.
-  intros a E. rewrite EimplR. case E=>//C. constructor=>x Hx.
-  by apply Rminus_gt_0_lt, C.
+  rewrite /mlt EimplV. case mgt0E=>// E _ f g Ff Gg x Hx. 
+  apply Rminus_gt_0_lt, (E (g-f))=>//=. rel. 
 Qed.
 
-Lemma mleE `{Model} n F f G g: mcontains F f -> mcontains G g ->
-                               Eimpl (mle n F G) (forall x, lo<=x<=hi -> f x <= g x).
-Proof.
-  rewrite /mle=>Ff Gg. move: (mltE n Ff Gg).
-  apply Eimpl_impl. auto using Rlt_Rle.
-Qed.
+Lemma mleE `{Model} n F G: mle n F G ~~> forall f g, f ∈ F -> g ∈ G -> forall x, lo<=x<=hi -> f x <= g x.
+Proof. rewrite /mle EimplV. case mltE=>//. auto using Rlt_Rle. Qed.
 
-Lemma mgeE `{Model} n F f G g: mcontains F f -> mcontains G g ->
-                               Eimpl (mge n F G) (forall x, lo<=x<=hi -> f x >= g x).
-Proof.
-  rewrite /mge=>Ff Gg. move: (mleE n Gg Ff).
-  apply Eimpl_impl. auto using Rle_ge.
-Qed.
+Lemma mgeE `{Model} n F G: mge n F G ~~> forall f g, f ∈ F -> g ∈ G -> forall x, lo<=x<=hi -> f x >= g x.
+Proof. rewrite /mge EimplV. case mleE=>//. auto using Rle_ge. Qed.
 
 
 (** two instances of [rmulZ] and [rdivZ] that need to be explicited for the [rel] tactic to work well *)
-Lemma mulZ'R {N: NBH} z x y: contains x y -> contains (mulZ z x) (IZR z * y).
-Proof. apply mulZR. Qed.
-Lemma divZ'R {N: NBH} z x y: contains x y -> contains (divZ z x) (y / IZR z).
-Proof. apply divZR. Qed.
+Lemma mulZ'R {N: NBH} z x X: x ∈ X -> IZR z * x ∈ mulZ z X.
+Proof. apply: mulZR. Qed.
+Lemma divZ'R {N: NBH} z x X: x ∈ X -> x / IZR z ∈ divZ z X.
+Proof. apply: divZR. Qed.
 Global Hint Resolve mulZ'R divZ'R: rel.
 
 
@@ -532,8 +490,8 @@ Class Domain_on C := make_domain_on {
 Class Domain {N: NBH} := make_domain {
   DR:> Domain_on R;
   DI:> Domain_on II;
-  dloR: contains dlo dlo;
-  dhiR: contains dhi dhi;
+  dloR: dlo ∈ dlo;
+  dhiR: dhi ∈ dhi;
   dlohi: dlo<dhi;
 }.
 Global Hint Resolve dloR dhiR: rel.
@@ -544,8 +502,8 @@ Definition DfromZ2 {N: NBH}(a b: Z) (H: Z.compare a b = Lt): Domain := {|
   DR := make_domain_on (fromZ a) (fromZ b);
   DI := make_domain_on (fromZ a) (fromZ b);
   dlohi := IZR_lt _ _ (proj1 (Z.compare_lt_iff _ _) H);
-  dloR := fromZR _ a;
-  dhiR := fromZR _ b;
+  dloR := fromZR a;
+  dhiR := fromZR b;
 |}.
 Notation DZ2 a b := (@DfromZ2 _ a b eq_refl).
 
@@ -573,17 +531,17 @@ Notation DF2 a b := (@DfromF2 _ a b eq_refl).
 
 (** from pointed intervals *)
 Program Definition DfromI2 {N: NBH}(A B: II)(a b: R)
-        (Aa: contains A a)
-        (Bb: contains B b)
+        (aA: a ∈ A)
+        (bB: b ∈ B)
         (ab: is_lt A B): Domain := {|
   DR := make_domain_on a b;
   DI := make_domain_on A B;
-  dloR := Aa;
-  dhiR := Bb;
+  dloR := aA;
+  dhiR := bB;
 |}.
 Next Obligation.
   revert ab. case is_ltE=>//; auto.
 Qed.
 
-Notation DI2 Aa Bb := (DfromI2 Aa Bb eq_refl).
+Notation DI2 aA bB := (DfromI2 aA bB eq_refl).
 

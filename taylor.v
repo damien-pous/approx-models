@@ -215,47 +215,36 @@ Qed.
 (** ** parametricity of the operations  *)
 
 Section s.
- Context {R S: Ops0}.
- Variable T: Rel0 R S.
- Notation sT := (list_rel T).
- Lemma smulR: forall x y, sT x y -> forall x' y', sT x' y' -> sT (smul x x') (smul y y').
+ Context {R S mem} {H: @Rel0 R S mem}.
+ Lemma smulR: ltac:(expand (smul ∈ smul)).
  Proof. induction 1; rel. Qed.
- Lemma soneR: sT sone sone.
+ Lemma soneR: sone ∈ sone.
  Proof. rel. Qed.
- Lemma sidR: sT sid sid.
+ Lemma sidR: sid ∈ sid.
  Proof. rel. Qed.
- Lemma scstR: forall a b, rel T a b -> sT (scst a) (scst b).
+ Lemma scstR: ltac:(expand (scst ∈ scst)).
  Proof. rel. Qed.
- Lemma XkR k: sT (Xk k) (Xk k).
+ Lemma XkR k: Xk k ∈ Xk k.
  Proof. induction k; rel. Qed.
- Lemma compR: forall x y, sT x y -> forall x' y', sT x' y' -> sT (comp x x') (comp y y').
+ Lemma compR: ltac:(expand (comp ∈ comp)).
  Proof. move: smulR scstR=>? ?; induction 1; rel. Qed.
- Lemma evalR: forall P Q, sT P Q -> forall x y, T x y -> T (eval' P x) (eval' Q y).
+ Lemma evalR: ltac:(expand (eval' ∈ eval')).
  Proof. induction 1; rel. Qed.
- Lemma eval'R: forall d P Q, sT P Q -> forall x y, T x y -> T (eval'' d P x) (eval' Q y).
+ Lemma eval'R d: ltac:(expand (eval' ∈ eval'' d)).
  Proof. induction 1; rel. Qed.
- Lemma eval'tR: forall d P Q, sT P Q -> forall x y, T x y -> T (eval't d P x) (eval' Q y).
+ Lemma eval'tR d: ltac:(expand (eval' ∈ eval't d)).
  Proof. destruct d. apply eval'R. apply evalR. Qed.
-End s.
-
-Section s'.
- Context {R S: Ops0}.
- Variable T: Rel0 R S.
- Notation sT := (list_rel T).
- Lemma derive_R : forall x y, sT x y -> forall n , sT (derive_ n x) (derive_ n y).
- Proof. induction 1; rel. Qed.
- Lemma deriveR : forall x y, sT x y -> sT (derive x) (derive y).
+ Lemma derive_R n: ltac:(expand (derive_ n ∈ derive_ n)).
+ Proof. move=>x y E. elim: E n; rel. Qed.
+ Lemma deriveR : ltac:(expand (derive ∈ derive)).
  Proof. move: derive_R; rel. Qed.
- Lemma prim_R: forall x y, sT x y -> forall n, sT (prim_ n x) (prim_ n y).
- Proof. induction 1; rel. Qed.
- Lemma primR: forall x y, sT x y -> sT (prim x) (prim y).
+ Lemma prim_R n: ltac:(expand (prim_ n ∈ prim_ n)).
+ Proof. move=>x y E. elim: E n; rel. Qed.
+ Lemma primR: ltac:(expand (prim ∈ prim)).
  Proof. move: prim_R; rel. Qed.
- Lemma integrateR: forall p q, sT p q ->
-                   forall a b, T a b ->
-                   forall c d, T c d ->
-                               T (integrate p a c) (integrate q b d).
- Proof. move: primR (evalR (T:=T)); rel. Qed.
-End s'.
+ Lemma integrateR: ltac:(expand (integrate ∈ integrate)).
+ Proof. move: primR evalR; rel. Qed.
+End s.
 
 (** packing everything together, we get a basis *)
 
@@ -287,16 +276,17 @@ Program Definition basis {N: NBH} (D: Domain):
   vectorspace.basis_cont := M_cont;
   vectorspace.eval_mul := eval_mul;
   vectorspace.eval_one := eval_one;
-  vectorspace.eval_id := ep_ret eval_id;
+  vectorspace.eval_id := eval_id;
   vectorspace.integrateE := integrateE;
-  vectorspace.eval_range := I;
   vectorspace.loR := dloR;
   vectorspace.hiR := dhiR;
-  vectorspace.bmulR := @smulR _ _ (contains (NBH:=N));
-  vectorspace.boneR := @soneR _ _ _;
-  vectorspace.bidR := er_ret (@sidR _ _ _);
-  vectorspace.bintegrateR := @integrateR _ _ _;
-  vectorspace.bevalR := @evalR _ _ _;
+  vectorspace.bmulR := smulR;
+  vectorspace.boneR := soneR;
+  vectorspace.bidR := sidR;
+  vectorspace.bcosR := I;
+  vectorspace.bsinR := I;
+  vectorspace.bintegrateR := integrateR;
+  vectorspace.bevalR := evalR;
   vectorspace.brangeR := I;
 |}.
 

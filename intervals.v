@@ -136,87 +136,58 @@ Canonical Structure FOps1 :=
      sin   := Fsin;
      pi    := Fpi; |}.
 
-Definition Icontains i x := contains (I.convert i) (Xreal x).
-Local Notation Imem x i := (Icontains i x).
+#[export] Instance Imem: inRel R I := fun x i => contains (I.convert i) (Xreal x).
 
-Lemma IaddR i x (H: Imem x i) j y (K: Imem y j): Imem (x+y) (i+j).
-Proof. apply (I.add_correct _ _ _ _ _ H K). Qed.
 
-Lemma ImulR i x (H: Imem x i) j y (K: Imem y j): Imem (x*y) (i*j).
-Proof. apply (I.mul_correct _ _ _ _ _ H K). Qed.
+Lemma ImulR: mul ∈ mul.
+Proof. move=>?? H?? K. apply (I.mul_correct _ _ _ _ _ H K). Qed.
 
-Lemma IsubR i x (H: Imem x i) j y (K: Imem y j): Imem (x-y) (i-j).
-Proof. apply (I.sub_correct _ _ _ _ _ H K). Qed.
-
-Lemma IzerR: Imem 0 0.
-Proof. unfold Icontains. now rewrite I.zero_correct. Qed.
-
-Lemma IoneR: Imem 1 1.
-Proof. apply I.fromZ_correct. Qed.
-
-Lemma IdivR J j: Imem j J -> forall K k, Imem k K -> Imem (j / k) (J / K).
+Lemma IdivR: div ∈ div.
 Proof.
-  move => Hj K k Hk.
+  move => j J Hj k K Hk.
   case: (Req_dec k 0) => Hk0.
-+ move: Hk; rewrite !Hk0 /mem /= /Icontains => Hk.
++ move: Hk; rewrite !Hk0 /inrel /Imem /= => Hk.
   have H : I.convert (I.div prec J K) = Interval.Inan.
     apply contains_Xnan; replace Xnan with (Xdiv (Xreal j) (Xreal 0)); last by apply Xdiv_0_r.
     by apply I.div_correct.
   rewrite H; constructor.
-+ rewrite /mem /= /Icontains.
++ rewrite /inrel /Imem /=.
   have H : Xreal (j / k) = Xdiv (Xreal j) (Xreal k).
     rewrite /= /Xdiv'; case is_zero_spec => H' //.
   by rewrite H; apply I.div_correct.
 Qed.
 
-Lemma IfromZR n: Imem (fromZ n) (fromZ n).
-Proof. by apply I.fromZ_correct. Qed.
-
-Lemma ImulZR z j y (K: Imem y j): Imem (IZR z*y) (mulZ z j).
-Proof. apply ImulR=>//. apply IfromZR. Qed.
-
-Lemma IdivZR z j y (K: Imem y j): Imem (y/IZR z) (divZ z j).
-Proof. apply IdivR=>//. apply IfromZR. Qed.
-
-Lemma IsqrtR J j: Imem j J -> Imem (sqrt j) (sqrt J).
+Lemma IsqrtR: sqrt ∈ sqrt. 
 Proof.
-  move => Hj /=; rewrite /Icontains.
+  move => j J Hj /=. rewrite  /inrel /Imem.
   move: (I.sqrt_correct prec J (Xreal j) Hj).
   rewrite /= /Xsqrt'; case: (is_negative_spec j) => Hj0 // H.
 Qed.
 
-Lemma IabsR i x (H: Imem x i): Imem (abs x) (abs i).
-Proof. apply (I.abs_correct _ _ H). Qed.
+Lemma IfromZR n: fromZ n ∈ fromZ n.
+Proof. by apply I.fromZ_correct. Qed.
 
-Lemma IcosR i x (H: Imem x i): Imem (cos x) (cos i).
-Proof. apply (I.cos_correct prec _ _ H). Qed.
+Definition IRel1: Rel1 Imem.
+Proof.
+  constructor. constructor. 
+  - move=>?? H?? K. apply (I.add_correct _ _ _ _ _ H K). 
+  - move=>?? H?? K. apply (I.sub_correct _ _ _ _ _ H K). 
+  - exact ImulR.
+  - move=>?. exact ImulR. 
+  - now rewrite /inrel/Imem I.zero_correct/=.
+  - apply I.fromZ_correct.
+  - intros. apply ImulR=>//. apply IfromZR. 
+  - intros. apply IdivR=>//. apply IfromZR.
+  - exact IfromZR.
+  - exact IdivR.
+  - exact IsqrtR. 
+  - move=>?? H. apply (I.abs_correct _ _ H).
+  - move=>?? H. apply (I.cos_correct _ _ _ H).
+  - move=>?? H. apply (I.sin_correct _ _ _ H).
+  - apply I.pi_correct. 
+Qed.
 
-Lemma IsinR i x (H: Imem x i): Imem (sin x) (sin i).
-Proof. apply (I.sin_correct prec _ _ H). Qed.
-      
-Canonical Structure IRel0 :=
-  {| rel := Icontains;
-     addR := IaddR;
-     mulR := ImulR;
-     mul'R _ := ImulR;
-     subR := IsubR;
-     zerR := IzerR;
-     oneR := IoneR;
-     mulZR := ImulZR;
-     divZR := IdivZR;
-  |}.
-
-Canonical Structure IRel1 :=
-  {| rel0 := IRel0;
-     divR := IdivR;
-     sqrtR := IsqrtR;
-     absR := IabsR;
-     cosR := IcosR;
-     sinR := IsinR;
-     piR := I.pi_correct prec;
-     fromZR := IfromZR |}.
-
-Lemma ImemE: forall x X, Imem x X <->
+Lemma ImemE: forall x X, x ∈ X <->
                  match X with
                  | Inan => True
                  | Ibnd l u =>
@@ -229,24 +200,24 @@ Lemma ImemE: forall x X, Imem x X <->
                    end
                  end.
 Proof.
-  rewrite /Icontains /I.convert /contains /= => x [|l u] //.
+  rewrite /inrel/Imem /I.convert /contains /= => x [|l u] //.
   case andP=>H. case F.toX; case F.toX; tauto. 
   case F.toX; case F.toX; intuition lra. 
 Qed.
 
-Lemma Iconvex Z x y: Imem x Z -> Imem y Z -> forall z, x<=z<=y -> Imem z Z.
+Lemma Iconvex x y Z: x ∈ Z -> y ∈ Z -> forall z, x<=z<=y -> z ∈ Z.
 Proof.
   move => X Y z. revert X Y. rewrite 3!ImemE. 
   destruct Z as [|a b] => //=.
   case F.toX; case F.toX; intuition lra. 
 Qed.
 
-Lemma IbotE x : Imem x I.nai.
-Proof. rewrite /mem /bot /= /Icontains I.nai_correct; constructor. Qed.
+Lemma IfullE x : x ∈ I.nai.
+Proof. by []. Qed.
 
-Lemma IbndE X x Y y: Imem x X -> Imem y Y -> forall z, x<=z<=y -> Imem z (Ibnd' X Y). 
+Lemma IbndE x X y Y: x ∈ X -> y ∈ Y -> forall z, x<=z<=y -> z ∈ Ibnd' X Y. 
 Proof.
-  unfold Icontains.
+  rewrite /inrel/Imem.
   destruct X as [|a a']; destruct Y as [|b b'];
     rewrite /= ?I.F'.nan_correct ?I.F'.valid_lb_nan ?I.F'.valid_ub_nan /=.
   - tauto.
@@ -264,7 +235,7 @@ Proof.
     case (F.toX b); case (F.toX b'); intuition lra.
 Qed.
 
-Lemma ImaxE X: minmax_spec Rle Icontains X (Imax X).
+Lemma ImaxE X: minmax_spec Rle X (Imax X).
 Proof.
   (* TODO: super-ugly proof, do it again... *)
   rewrite /Imax.
@@ -277,22 +248,22 @@ Proof.
         rewrite F.cmp_correct Ha Hb.
         do 2 rewrite I.F'.real_correct//=.
         case Raux.Rcompare_spec=>C.
-        --- constructor=> x y; rewrite /Icontains/=.
+        --- constructor=> x y; rewrite /inrel/Imem/=.
             destruct (F.valid_lb a && F.valid_ub b)=>/=. 2: lra.
             do 2 rewrite I.F'.real_correct//. lra.
         --- apply minmax_spec_some with (F.toR b) =>[||x].
-            rewrite /Icontains/=F.valid_lb_correct Hb F.valid_ub_correct Hb/=.
+            rewrite /inrel/Imem/=F.valid_lb_correct Hb F.valid_ub_correct Hb/=.
             rewrite I.F'.real_correct//. lra.
-            rewrite /Icontains/=F.valid_lb_correct Ha F.valid_ub_correct Hb/=.
+            rewrite /inrel/Imem/=F.valid_lb_correct Ha F.valid_ub_correct Hb/=.
             do 2 rewrite I.F'.real_correct//. lra.
-            rewrite /Icontains/=F.valid_lb_correct Ha F.valid_ub_correct Hb/=.
+            rewrite /inrel/Imem/=F.valid_lb_correct Ha F.valid_ub_correct Hb/=.
             do 2 rewrite I.F'.real_correct//. lra.
         --- apply minmax_spec_some with (F.toR b) =>[||x].
-            rewrite /Icontains/=F.valid_lb_correct Hb F.valid_ub_correct Hb/=.
+            rewrite /inrel/Imem/=F.valid_lb_correct Hb F.valid_ub_correct Hb/=.
             rewrite I.F'.real_correct//. lra.
-            rewrite /Icontains/=F.valid_lb_correct Ha F.valid_ub_correct Hb/=.
+            rewrite /inrel/Imem/=F.valid_lb_correct Ha F.valid_ub_correct Hb/=.
             do 2 rewrite I.F'.real_correct//. lra.
-            rewrite /Icontains/=F.valid_lb_correct Ha F.valid_ub_correct Hb/=.
+            rewrite /inrel/Imem/=F.valid_lb_correct Ha F.valid_ub_correct Hb/=.
             do 2 rewrite I.F'.real_correct//. lra.
     -- have Ha': F.real a = false by rewrite F.classify_correct Ha.
        apply minmax_spec_some with (F.toR b) =>[||x].
@@ -318,7 +289,7 @@ Proof.
     case F.toX; intuition lra.
 Qed.
 
-Lemma IminE X: minmax_spec Rge Icontains X (Imin X).
+Lemma IminE X: minmax_spec Rge X (Imin X).
   (* TODO: super-ugly proof, do it again... *)
   rewrite /Imin.
   destruct X as [|a b]; first by constructor.
@@ -370,7 +341,7 @@ Lemma IminE X: minmax_spec Rge Icontains X (Imin X).
     case F.toX; intuition lra.
 Qed.
 
-Lemma IleE X Y: wreflect (forall x y, Imem x X -> Imem y Y -> x <= y) (Ile X Y).
+Lemma IleE X Y: Ile X Y ~> forall x y, x ∈ X -> y ∈ Y -> x <= y.
 Proof.
   destruct X as [|a b]; destruct Y as [|c d]; try constructor.
   rewrite /Ile/Fle F.cmp_correct /=.
@@ -399,7 +370,7 @@ Proof.
     rewrite (F.valid_lb_correct c) Hc. intuition discriminate.  
 Qed.
 
-Lemma IltE X Y: wreflect (forall x y, Imem x X -> Imem y Y -> x < y) (Ilt X Y).
+Lemma IltE X Y: Ilt X Y ~> forall x y, x ∈ X -> y ∈ Y -> x < y.
 Proof.
   destruct X as [|a b]; destruct Y as [|c d]; try constructor.
   rewrite /Ilt/Flt F.cmp_correct /=.
@@ -433,7 +404,7 @@ Definition Iwidth (x: I): F :=
   | _ => F.nan
   end.
 
-Lemma Fsingle f: Imem (F2R f) (F2I f).
+Lemma Fsingle f: F2R f ∈ F2I f.
 Proof.
   rewrite ImemE /F2I.
   case_eq (F.classify f)=>Hf//;
@@ -451,17 +422,18 @@ Proof.
   by case F.classify.
 Qed.
 
-Lemma IbisectE X: (fun '(Y,Z) => forall x, Icontains X x -> Icontains Y x \/ Icontains Z x) (I.bisect X).
+Lemma IbisectE X: (fun '(Y,Z) => forall x, x ∈ X -> x ∈ Y \/ x ∈ Z) (I.bisect X).
 Proof. move: (I.bisect_correct X). case I.bisect=>Y Z H x. apply H. Qed.
   
 #[global] Instance nbh: NBH.
-exists IOps1 IRel1 Ibnd' Imax Imin Inan Ilt Ile I.bisect FOps1 F2I F2R.
+exists IOps1 Imem Ibnd' Imax Imin Inan Ilt Ile I.bisect FOps1 F2I F2R.
 Proof.
+  - exact IRel1. 
   - apply Iconvex.
   - abstract (by intros; eapply IbndE; eauto).
   - apply ImaxE.
   - apply IminE.
-  - apply IbotE.
+  - apply IfullE.
   - apply IltE.
   - apply IleE.
   - apply IbisectE.

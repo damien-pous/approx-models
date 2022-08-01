@@ -377,52 +377,44 @@ Qed.
  *)
 
 Section s.
- Context {R S: Ops1}.
- Variable T: Rel1 R S.
- Notation pT := (list_rel T).
+ Context {R S mem} {H: @Rel1 R S mem}.
 
- Lemma mul_minusR: forall x y, pT x y -> forall x' y', pT x' y' -> pT (mul_minus x x') (mul_minus y y').
+ Lemma mul_minusR: ltac:(expand (mul_minus ∈ mul_minus)).
  Proof. induction 1; destruct 1; rel. Qed.
- Lemma mul_plusR: forall x y, pT x y -> forall x' y', pT x' y' -> pT (mul_plus x x') (mul_plus y y').
+ Lemma mul_plusR: ltac:(expand (mul_plus ∈ mul_plus)).
  Proof. induction 1; destruct 1; rel. Qed.
- Lemma pmulR: forall x y, pT x y -> forall x' y', pT x' y' -> pT (pmul x x') (pmul y y').
+ Lemma pmulR: pmul ∈ pmul.
  Proof. move: mul_minusR mul_plusR; rel. Qed.
- Lemma poneR: pT pone pone.
+ Lemma poneR: pone ∈ pone.
  Proof. rel. Qed.
- Lemma pidR: pT pid pid.
+ Lemma pidR: pid ∈ pid.
  Proof. rel. Qed.
- Lemma pcstR: forall a b, rel T a b -> pT (pcst a) (pcst b).
+ Lemma pcstR: pcst ∈ pcst.
  Proof. rel. Qed.
- Lemma ClenshawR: forall P Q, pT P Q ->
-                  forall a b, T a b ->
-                  forall c d, T c d ->
-                  forall x y, rel T x y -> rel T (Clenshaw a c P x) (Clenshaw b d Q y).
- Proof. induction 1; rel. Qed.
- Lemma evalR: forall P Q, pT P Q -> forall x y, rel T x y -> rel T (eval' P x) (eval' Q y).
- Proof. intros; apply ClenshawR; rel. Qed.
- Lemma prim_R: forall p q, pT p q -> forall n, pT (prim_ n p) (prim_ n q).
+ Lemma ClenshawR: Clenshaw ∈ Clenshaw.
+ Proof. move=>++++++?? E+++. induction E; rel. Qed.
+ Lemma evalR: ltac:(expand (eval' ∈ eval')).
+ Proof. move=>*; apply ClenshawR; rel. Qed.
+ Lemma prim_R n: ltac:(expand (prim_ n ∈ prim_ n)).
  Proof.
-   induction 1. constructor. move=>n.
+   move:n=>+p q E. induction E=>n. rel.
    cbn -[INR Zmult Z.of_nat Z.eqb].
    case Z.eqb_spec. rel.  
    case Z.eqb_spec. rel.
    rel. 
  Qed.
- Lemma primR: forall p q, pT p q -> pT (prim p) (prim q).
+ Lemma primR: ltac:(expand (prim ∈ prim)).
  Proof. move: prim_R; rel. Qed.
- Lemma integrateR: forall p q, pT p q ->
-                   forall a b, T a b ->
-                   forall c d, T c d ->
-                               T (integrate p a c) (integrate q b d).
- Proof. move: primR evalR; rel. Qed.
- Lemma loR: T lo lo.
+ Lemma integrateR: integrate ∈ integrate.
+ Proof. move: primR evalR=>???????????; rel. Qed.
+ Lemma loR: lo ∈ lo.
  Proof. rel. Qed. 
- Lemma hiR: T hi hi.
+ Lemma hiR: hi ∈ hi.
  Proof. rel. Qed. 
- Lemma range_R p q: pT p q -> T (range_ p) (range_ q).
+ Lemma range_R: ltac:(expand (range_ ∈ range_)).
  Proof. induction 1; rel. Qed.
- Lemma rangeR p q: pT p q -> pair_rel T (range p) (range q).
- Proof. move: range_R=>? []; rel. Qed.
+ Lemma rangeR: range ∈ range.
+ Proof. move: range_R=>? ??[]; rel. Qed.
 End s.
 
 
@@ -499,17 +491,19 @@ Program Definition basis11 {N: NBH}: Basis basis11_ops := {|
   vectorspace.basis_cont := T_cont;
   vectorspace.eval_mul := eval_mul;
   vectorspace.eval_one := eval_one;
-  vectorspace.eval_id := ep_ret eval_id;
+  vectorspace.eval_id := eval_id;
   vectorspace.integrateE := integrateE;
   vectorspace.eval_range := eval_range;
-  vectorspace.loR := fromZR _ (-1);
-  vectorspace.hiR := @oneR _ _ _;
-  vectorspace.bmulR := @pmulR _ _ _;
-  vectorspace.boneR := @poneR _ _ _;
-  vectorspace.bidR := er_ret (@pidR _ _ _);
-  vectorspace.bintegrateR := @integrateR _ _ _;
-  vectorspace.bevalR := @evalR _ _ _;
-  vectorspace.brangeR := @rangeR _ _ _;
+  vectorspace.loR := fromZR (-1);
+  vectorspace.hiR := oneR;
+  vectorspace.bmulR := pmulR;
+  vectorspace.boneR := poneR;
+  vectorspace.bidR := pidR;
+  vectorspace.bcosR := I;
+  vectorspace.bsinR := I;
+  vectorspace.bintegrateR := integrateR;
+  vectorspace.bevalR := evalR;
+  vectorspace.brangeR := rangeR;
 |}.
 
 Definition basis {N: NBH} (D: Domain): Basis (basis_ops dlo dhi) := rescale basis11 D.

@@ -140,12 +140,11 @@ Section s.
  Next Obligation. intros=>/=. by apply bmulR. Qed.
  Next Obligation. intros=>/=. by apply boneR. Qed.
  Next Obligation.
-   eapply er_map. 2: apply bidR. intros.  
-   apply saddR; apply sscalR; try rel.
-   apply boneR.
+   eapply er_map. 2: apply bidR. intros. 
+   apply saddR; apply sscalR; rel.
  Qed.
- Next Obligation. eapply er_bind; rel. Qed.
- Next Obligation. eapply er_bind; rel. Qed.
+ Next Obligation. eapply er_bind. rel. apply bcosR. Qed.
+ Next Obligation. eapply er_bind. rel. apply bsinR. Qed.
  Next Obligation. cbn. rel. Qed.
  Next Obligation. cbn. rel. Qed.
  Next Obligation. cbn. apply brangeR. Qed.

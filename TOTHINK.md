@@ -3,21 +3,20 @@
 - more examples / more doc in examples.v
 - remove dep on reduction-effects
 - separate main theory files from examples (theories/ examples/ src/)
+- better model interface to allow mnth
 
 ## TODO
 
-- further improve syntax/reification (eval, quantifiers)
+- reification of binders (and eval/app ?)
 - more functions on reals from coq-interval
 - interpolation oracle for Taylor basis
 - better radius heuristics for solutions of polynomial equations
-- better model interface to allow mnth
 - avoid the need for universe polymorphism?
 
 ## TOTHINK
 
 - side-conditions left to the user (mcontinuous)
 - modular approach to continuity and/or other properties?
-- uniform notation for containments?
 - reals from mathcomp-analysis -> integration for possibly non-continuous functions
 - continuity (from Coquelicot) vs continuity_pt (from Reals.Ranalysis1)
 - model composition?

@@ -15,6 +15,7 @@ div.v
 sqrt.v
 polynom_eq.v
 errors.v
+inrel.v
 interfaces.v
 syntax.v
 vectorspace.v

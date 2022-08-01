@@ -13,14 +13,11 @@ Unset Printing Implicit Defensive.
 (** * weak reflection: implication from boolean values *)
 Variant wreflect (P : Prop): bool -> Prop :=
   | wReflectT: P -> wreflect P true | wReflectF: wreflect P false.
-Notation impl b P := (wreflect P b). 
+Notation "b ~> P" := (wreflect P b) (at level 99). 
 #[export] Hint Constructors wreflect: core.
-Lemma implE P b: impl b P <-> (b -> P).
-Proof. split. by case. case b; constructor; auto. Qed.
-Lemma implT P: impl true P <-> P.
-Proof. split. by inversion 1. by constructor. Qed.
-Lemma impl_impl b (P Q: Prop): (P -> Q) -> impl b P -> impl b Q.
-Proof. rewrite 2!implE. tauto. Qed.
+Lemma implE b P: (b ~> P) <-> (b -> P).
+Proof. split. by case. case: b=>//; constructor; auto. Qed.
+
 
 (** * alternative induction schemes on lists and natural numbers *)
 Fixpoint list_ind2 {C: Type} (P: list C -> Prop)

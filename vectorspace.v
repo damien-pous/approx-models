@@ -157,31 +157,29 @@ End e.
 (** ** parametricity of the operations  *)
 
 Section s.
- Context {R S: Ops0}.
- Variable T: Rel0 R S.
- Notation sT := (list_rel T).
- Lemma saddR: forall x y, sT x y -> forall x' y', sT x' y' -> sT (sadd x x') (sadd y y').
+ Context {R S: Ops0} {rel: inRel R S} {rel0: Rel0 rel}.
+ Lemma saddR: forall x y, x ∈ y -> forall x' y', x' ∈ y' -> sadd x x' ∈ sadd y y'.
  Proof.
    intros P Q H. induction H. rel. 
    intros P' Q' H'. destruct H'; rel. 
  Qed.
- Lemma smulZR z: forall x y, sT x y -> sT (smulZ z x) (smulZ z y).
+ Lemma smulZR z: forall x y, x ∈ y -> smulZ z x ∈ smulZ z y.
  Proof. induction 1; rel.  Qed.
- Lemma sdivZR z: forall x y, sT x y -> sT (sdivZ z x) (sdivZ z y).
+ Lemma sdivZR z: forall x y, x ∈ y -> sdivZ z x ∈ sdivZ z y.
  Proof. induction 1; rel.  Qed.
- Lemma sscalR a b: rel T a b -> forall x y, sT x y -> sT (sscal a x) (sscal b y).
+ Lemma sscalR a b: a ∈ b -> forall x y, x ∈ y -> sscal a x ∈ sscal b y.
  Proof. induction 2; rel.  Qed.
- Lemma soppR: forall x y, sT x y -> sT (sopp x) (sopp y).
+ Lemma soppR: forall x y, x ∈ y -> sopp x ∈ sopp y.
  Proof. induction 1; rel. Qed.
- Lemma ssubR: forall x y, sT x y -> forall x' y', sT x' y' -> sT (ssub x x') (ssub y y').
+ Lemma ssubR: forall x y, x ∈ y -> forall x' y', x' ∈ y' -> ssub x x' ∈ ssub y y'.
  Proof. intros; apply saddR; auto using soppR. Qed.
- Lemma szerR: sT szer szer.
+ Lemma szerR: szer ∈ szer.
  Proof. rel. Qed.
- Lemma cons0R: forall x y, sT x y -> sT (cons0 x) (cons0 y).
+ Lemma cons0R: forall x y, x ∈ y -> cons0 x ∈ cons0 y.
  Proof. destruct 1; rel. Qed.
- Lemma cons00R: forall x y, sT x y -> sT (cons00 x) (cons00 y).
+ Lemma cons00R: forall x y, x ∈ y -> cons00 x ∈ cons00 y.
  Proof. destruct 1; rel. Qed.
- Lemma split_listR n: forall p q, sT p q -> pair_rel sT (split_list n p) (split_list n q).
+ Lemma split_listR n: forall p q, p ∈ q -> split_list n p ∈ split_list n q.
  Proof.
    move: cons0R=>?.
    elim: n=>[|n IH]. rel.
@@ -189,7 +187,7 @@ Section s.
    generalize (IH _ _ PQ). case (split_list n p). case (split_list n q). 
    intros ???? []. rel.
  Qed.
- Lemma snthR n: sT (snth n) (snth n).
+ Lemma snthR n: snth n ∈ snth n.
  Proof. elim: n; rel. Qed.
 End s.
 Global Hint Resolve saddR smulZR sdivZR sscalR soppR ssubR szerR cons0R cons00R snthR: rel.
@@ -263,29 +261,16 @@ Class Basis {N: NBH} (B: BasisOps) := {
   integrateE: forall p a b, bintegrate p a b = RInt (eval TT p) a b;
   
   (** link between BI and BR *)
-  loR: contains lo lo;
-  hiR: contains hi hi;
-  bmulR: forall p  q , scontains p q ->
-         forall p' q', scontains p' q' ->
-                  scontains (bmul p p') (bmul q q');
-  boneR: scontains bone bone;
-  bidR: ER scontains bid bid;
-  bcosR: ER scontains bcos bcos;
-  bsinR: ER scontains bsin bsin;
-  bintegrateR: forall P p, scontains P p ->
-               forall A a, contains A a ->
-               forall B b, contains B b ->
-                      contains (bintegrate P A B) (bintegrate p a b);
-  bevalR: forall p q, scontains p q ->
-          forall x y, contains x y ->
-                 contains (beval p x) (beval q y);
-  brangeR: match brange,brange with
-           (* TODO: option_rel *)
-           | Some rangeI,Some rangeR =>
-             (forall p q, scontains p q -> pair_rel contains (rangeI p) (rangeR q))                                            
-           | None,None => True
-           | _,_ => False
-           end;
+  loR: lo ∈ lo;
+  hiR: hi ∈ hi;
+  bmulR: ltac:(expand (bmul ∈ bmul));
+  boneR: bone ∈ bone;
+  bidR: bid ∈ bid;
+  bcosR: bcos ∈ bcos;
+  bsinR: bsin ∈ bsin;
+  bintegrateR: ltac:(expand (bintegrate ∈ bintegrate));
+  bevalR: ltac:(expand (beval ∈ beval));
+  brangeR: brange ∈ brange;
 }.
 Global Hint Resolve bmulR boneR bidR bcosR bsinR bintegrateR bevalR loR hiR: rel.
 
@@ -300,14 +285,14 @@ Proof. generalize lohi. split; lra. Qed.
 Lemma domhi: dom hi.
 Proof. generalize lohi. split; lra. Qed.
 
-Lemma DomE X: wreflect (forall x, contains X x -> dom x) (Dom X).
+Lemma DomE X: Dom X ~> forall x, x ∈ X -> dom x.
 Proof.
-  rewrite /Dom.
-  case is_leE=>[Lo|]. 2: constructor. 
-  case is_leE=>[Hi|]; constructor=> x Xx.
+  apply implE. rewrite /Dom.
+  case is_leE=>//Lo. 
+  case is_leE=>//Hi _ x Xx.
   split; [apply Lo|apply Hi]=>//; rel.
 Qed.
-                       
+
 Lemma eval_cont p x: continuity_pt (eval TT p) x.
 Proof. apply eval_cont_basis. apply basis_cont. Qed.
 
